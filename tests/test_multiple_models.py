@@ -14,6 +14,12 @@ xs = np.linspace(0, 1, N)
 data_1 = A1 * xs + B1 + np.random.normal(0, noise_sd, N)
 data_2 = A2 * xs + B2 + np.random.normal(0, noise_sd, N)
 
+"""
+Combining two linear models can be done _naively_ by manually defining the 
+four parameters prm[0..3] and hardcode two separate model errors. In 
+`multi_me`, they are both evaluated and concatenated.
+"""
+
 def model_error_1(prm):
     return prm[0] * xs + prm[1] - data_1
 
@@ -23,6 +29,12 @@ def model_error_2(prm):
 def multi_me(prm):
     return np.append(model_error_1(prm), model_error_2(prm))
 
+"""
+Both logically (why have two models instead of one with different parameters) 
+and practially (imagine having > 100 models), this is bad. Instead, we want to
+define the model once. Bonus: We want to name the parameters. e.g. "B" instead 
+of index 1. Goto "test_joint" to see that in action.
+"""
 
 def model(prm):
     return prm["A"] * xs + prm["B"]
@@ -96,6 +108,7 @@ class Test_VB(unittest.TestCase):
 
     
     def test_joint(self):
+        # Define two separate parameter lists, one for each model.
         p1 = ModelParameters()
         p1.define("A")
         p1.define("B")
@@ -104,8 +117,12 @@ class Test_VB(unittest.TestCase):
         p2.define("A")
         p2.define("B")
 
+        # Define two ModelErrors, but note that both use the same model.
         me1 = ModelError(model, data_1)
         me2 = ModelError(model, data_2)
+
+        # For the inference, we combine them and use a 'key' to distinguish
+        # e.g. "A" from the one model to "A" from the other one.
         me = MultiModelError()
         key1 = me.add(me1, p1)
         key2 = me.add(me2, p2)
