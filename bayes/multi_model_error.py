@@ -59,7 +59,8 @@ class MultiModelError:
     def __call__(self, parameter_vector):
         """
         Updates all latent parameters in the joint_parameter_list
-        based on the parameter_vector.
+        based on the parameter_vector and evaluates each individual model error
+        and concatenates the result into a long vector
         parameter_vector:
             "global" parameter vector exposed to the joint optimization.
             The dimension must be identical to the number of latent variables
