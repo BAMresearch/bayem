@@ -2,7 +2,8 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import *
-        
+from bayes.multi_model_error import *
+
 np.random.seed(6174)
 
 A1,  B1, A2, B2 = 1., 2., 3., 4.
@@ -45,38 +46,6 @@ class ModelError:
 
     def __call__(self, named_parameters):
         return self.fw(named_parameters) - self.data
-
-
-class MultiModelError:
-    def __init__(self):
-        self.prms = {}
-        self.mes = {}
-        self.n = 0
-        pass
-
-    def add(self, model_error, parameters, key=None):
-        key = key or self.n
-        assert key not in self.prms.keys()
-        self.n += 1
-
-        self.mes[key] = model_error
-        self.prms[key] = parameters
-        return key
-
-
-    def __call__(self, numbers):
-        self.prm.update(numbers)
-        result = []
-        for key, me in self.mes.items():
-            prm = self.prms[key]
-            result.append(me(prm))
-        return np.concatenate(result)
-
-    def prior(self, shared=None):
-        self.prm = JointParameterList(self.prms, shared)
-        return UncorrelatedNormalPrior(self.prm)
-
-
 
 class Test_VB(unittest.TestCase):
 
@@ -128,7 +97,7 @@ class Test_VB(unittest.TestCase):
         key2 = me.add(me2, p2)
         print(key1, key2)
 
-        prior = me.prior()
+        prior = me.uncorrelated_normal_prior()
         prior.add("A", A1+0.5, 2, key1)
         prior.add("B", B1+0.5, 2, key1)
         prior.add("A", A2+0.5, 2, key2)
