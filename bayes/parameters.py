@@ -31,30 +31,39 @@ class ModelParameters:
     """
 
     def __init__(self):
-        self.p = {}
+        self._p = {}
 
     @property
     def names(self):
-        return list(self.p.keys())
+        return list(self._p.keys())
 
     def define(self, name, value=0.0):
-        self.p[name] = value
+        self._p[name] = value
 
     def __getitem__(self, name):
-        return self.p[name]
+        return self._p[name]
 
     def __setitem__(self, name, value):
         if name not in self.names:
             raise Exception("Call .define to define new parameters.")
-        self.p[name] = value
+        self._p[name] = value
 
     def update(self, names, numbers):
         assert len(names) == len(numbers)
-        self.p.update(zip(names, numbers))
+        self._p.update(zip(names, numbers))
         return self
 
     def has(self, name):
-        return name in self.p
+        return name in self._p
+
+    def __len__(self):
+        return len(self._p)
+
+    def __iadd__(self, other):
+        for key in other.names:
+            self.define(key, other[key])
+        return self
+
 
 
 class JointParameterList:

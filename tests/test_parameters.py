@@ -99,5 +99,16 @@ class TestTwoModels(unittest.TestCase):
         self.assertEqual(copy_pA["shared"], 42)
         self.assertEqual(self.pA["shared"], 2)
 
+    def test_concatenate(self):
+        p = ModelParameters()
+        p.define("test", 6174)
+        self.assertEqual(len(p), 1)
+        p += self.pA
+        self.assertEqual(len(p), 3)
+
+        self.assertEqual(p["test"], 6174)
+        self.assertEqual(p["only_in_A"], 0)
+        self.assertEqual(p["shared"], 2)
+
 if __name__ == "__main__":
     unittest.main()
