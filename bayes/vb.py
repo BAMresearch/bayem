@@ -359,6 +359,8 @@ class VB:
             self.tolerance = kwargs["tolerance"]
         if "iter_max" in kwargs:
             self.iter_max = kwargs["iter_max"]
+        if "n_trials_max" in kwargs:
+            self.n_trials_max = kwargs["n_trials_max"]
 
         model_error = VerifiedModelError(model_error)
 
@@ -415,6 +417,13 @@ class VB:
                 )
                 s[i] = 1 / s_inv
 
+            if 'index_ARD' in kwargs:
+                index_ARD = kwargs['index_ARD']
+                n_ARD_param = len(index_ARD)
+                L0[index_ARD, index_ARD] = 1 / (m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD])
+                r = 2 / (m[index_ARD]**2 + np.diag(L_inv)[index_ARD])
+                d = 0.5 * np.ones(n_ARD_param)
+
             logger.debug(f"current mean: {m}")
             logger.debug(f"current precision: {L}")
 
@@ -429,11 +438,13 @@ class VB:
                     np.log(s[i]) + special.digamma(c[i])
                 )
                 f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                f_new += -s[i] * np.log(c[i])
+                f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
                 f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
-
+                if 'index_ARD' in kwargs:
+                    for j in range(n_ARD_param):
+                        f_new += (d[j]-2)*(np.log(s[i]) - special.digamma(d[j])) - d[j]*(1+np.log(r[j])) - special.gammaln(d[j])
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
             if self.stop_criteria([s, c, m, L], f_new, i_iter):
