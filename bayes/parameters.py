@@ -53,6 +53,9 @@ class ModelParameters:
         self.p.update(zip(names, numbers))
         return self
 
+    def has(self, name):
+        return name in self.p
+
 
 class JointParameterList:
     def __init__(self, model_parameters, shared=None):

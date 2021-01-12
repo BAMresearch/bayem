@@ -87,6 +87,9 @@ class TestTwoModels(unittest.TestCase):
         self.l.set_latent("only_in_A", self.keyA)
         print(self.l)
 
+    def test_has(self):
+        self.assertTrue(self.pA.has("only_in_A"))
+        self.assertFalse(self.pA.has("only_in_B"))
 
 if __name__ == "__main__":
     unittest.main()
