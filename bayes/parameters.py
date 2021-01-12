@@ -59,11 +59,13 @@ class ModelParameters:
     def __len__(self):
         return len(self._p)
 
-    def __iadd__(self, other):
-        for key in other.names:
-            self.define(key, other[key])
-        return self
-
+    def __add__(self, other):
+        concat = ModelParameters()
+        for name in self.names:
+            concat.define(name, self[name])
+        for name in other.names:
+            concat.define(name, other[name])
+        return concat
 
 
 class JointParameterList:
