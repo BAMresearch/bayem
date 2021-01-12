@@ -90,6 +90,14 @@ class TestTwoModels(unittest.TestCase):
     def test_has(self):
         self.assertTrue(self.pA.has("only_in_A"))
         self.assertFalse(self.pA.has("only_in_B"))
+    
+    def test_copy(self):
+        import copy
+        self.assertEqual(self.pA["shared"], 2)
+        copy_pA = copy.deepcopy(self.pA)
+        copy_pA["shared"] = 42
+        self.assertEqual(copy_pA["shared"], 42)
+        self.assertEqual(self.pA["shared"], 2)
 
 if __name__ == "__main__":
     unittest.main()
