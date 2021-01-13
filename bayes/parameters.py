@@ -67,6 +67,9 @@ class ModelParameters:
             concat.define(name, other[name])
         return concat
 
+    def __str__(self):
+        return str(self._p)
+
 
 class JointParameterList:
     def __init__(self, model_parameters, shared=None):
@@ -160,12 +163,17 @@ class JointParameterList:
         latent = []
 
         if key is not None:
-            assert name in self.ps[key].names
-            assert name not in self.shared
+            if name not in self.ps[key].names:
+                raise RuntimeError(f"Parameter '{name}' not in parameter list for key '{key}'!")
+            if name in self.shared:
+                raise RuntimeError(f"Parameter '{name}' is defined as shared and cannot be set via key '{key}''!")
+
             latent.append((key, name))
 
         else:
-            assert name in self.shared
+            if name not in self.shared:
+                raise RuntimeError(f"Parameter '{name}' is not shared. You have to provide a key to set it!") 
+
             for key, model_parameters in self.ps.items():
                 if name in model_parameters.names:
                     latent.append((key, name))
@@ -177,6 +185,23 @@ class JointParameterList:
                 " in position {index}! Must only be added once!"
             )
         self.latent_parameters.append(latent)
+
+    def latent_index(self, name, key=None):
+        """
+        returns the index of (name, key) in the latent parameters
+        """
+        for i, latents in enumerate(self.latent_parameters):
+            for (l_key, l_name) in latents:
+                if l_name != name:
+                    continue
+
+                if key is None:
+                    return i
+                else:
+                    if l_key == key:
+                        return i
+
+        raise RuntimeError(f"Parameter '{name}' not found for key '{key}'!")
 
     def update(self, number_vector):
         """
@@ -195,6 +220,14 @@ class JointParameterList:
             for latent in latents:
                 s += f"{i:3d} {latent}\n"
         return s
+
+    def all(self):
+        s = ""
+        for key, parameters in self.ps.items():
+            for name in parameters.names:
+                s += f"{key:10s} {name}\n"
+        return s
+
 
 
 class UncorrelatedNormalPrior:
@@ -221,3 +254,12 @@ class UncorrelatedNormalPrior:
         prec = [1 / d[1] ** 2 for d in self.distributions]
 
         return MVN(mean, np.diag(prec))
+
+    def __str__(self):
+        return str(self.prm)
+
+    def __len__(self):
+        return len(self.distributions)
+    #
+    # def __getitem__(self, i):
+    #     return self.prm.latent_parameters
