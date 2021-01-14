@@ -114,3 +114,18 @@ class MultiModelError:
         """
         self.joint_parameter_list = JointParameterList(self.prms, shared)
         return UncorrelatedNormalPrior(self.joint_parameter_list)
+
+    def build_joint_noise_pattern(self):
+        offset = 0
+        self.noise_pattern= []
+        for key, me in self.mes.items():
+            noise_pattern = me.noise_pattern()
+            
+            len_p = []
+
+            for p in noise_pattern:
+                self.noise_pattern.append(p + offset)
+                len_p.append(max(p) if len(p) != 0 else 0)
+
+            offset += max(len_p) + 1
+        pass

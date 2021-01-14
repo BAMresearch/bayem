@@ -228,6 +228,17 @@ class JointParameterList:
                 s += f"{key:10s} {name}\n"
         return s
 
+    def latent_indices(self, key):
+        """
+        Returns the indices for all latent parameters of `key`.
+        """
+        indices = []
+        for i, latents in enumerate(self.latent_parameters):
+            for (latent_key, name) in latents:
+                if latent_key == key:
+                    indices.append(i)
+        return indices
+
 
 
 class UncorrelatedNormalPrior:
