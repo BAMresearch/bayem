@@ -1,6 +1,7 @@
 import numpy as np
 import unittest
 from bayes.vb import *
+from test_vb import stack_data, ModelError, ModelErrorWithJacobian
 
 class ForwardModel:
     def __init__(self):
@@ -25,53 +26,6 @@ class ForwardModel:
             all_d.append([1 for x in self.xs] )
 
         return np.array(all_d).T
-
-
-def stack_data(model_response, n_data, noise_std=None):
-    """
-    Creates a big vector by stacking `model_response` `n_data` times.
-
-    If noise_std is not none, it adds a normal distribution with
-    mean=0 and std=noise_std. This can be used to create noisy data.
-
-    The idea: Use the same method for both stacking the model response _and_
-    creating the data, such that the ordering cannot be messed up.
-    """
-    result = np.repeat(model_response, n_data, axis=0)
-
-    if noise_std is not None:
-        result += np.random.normal(0, noise_std, len(result))
-
-    return result
-
-
-class ModelError:
-    def __init__(self, forward_model, data):
-        """
-        forward_model:
-            forward model
-        data:
-            positions to evaluate, could correspond to sensor positions
-        """
-        self._forward_model = forward_model
-        self._data = data
-
-        if not hasattr(forward_model, "jacobian"):
-            delattr(self, "jacobian")
-
-    def __call__(self, parameters):
-        model = self._forward_model(parameters)
-        repetitions = self._data.shape[0] // model.shape[0]
-
-        return self._data - stack_data(model, repetitions)
-
-
-class ModelErrorWithJacobian(ModelError):
-    def jacobian(self, parameters):
-        jac = -self._forward_model.jacobian(parameters)
-        repetitions = self._data.shape[0] // jac.shape[0]
-        return stack_data(jac, repetitions)
-
 
 class Test_VB(unittest.TestCase):
     '''

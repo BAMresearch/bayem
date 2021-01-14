@@ -298,6 +298,13 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
     iter_max:
         maximum number of iterations
 
+    index_ARD:
+        Automatic Relevance Determination option to allow for "the automated reduction of model
+        complexity" (Chappell et al. 2009). Should be passed (as kwargs) when ARD is applied to
+        one of the model parameters described by the MVN. It should be an array containing
+        the indexes corresponding to the position of the ARD parameters in the m and dig(L)
+        vectors.
+
     Returns:
         VBResult defined below
     """
