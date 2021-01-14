@@ -70,6 +70,22 @@ class ModelParameters:
     def __str__(self):
         return str(self._p)
 
+class JointLatent:
+    def __init__(self, model_parameters):
+        self.all_parameters = model_parameters
+        self.mapping = []
+
+    def add(name, key=None):
+        if isinstance(name, basestring):
+            assert key is not None
+            assert all_parameters[key].has(name)
+            self.mapping.append((name, key))
+
+        for (p_name, p_key) in name:
+            assert
+
+
+
 
 class JointParameterList:
     def __init__(self, model_parameters, shared=None):

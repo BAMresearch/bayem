@@ -1,5 +1,6 @@
 \documentclass{article} 
 \usepackage{tikz}
+\usepackage{listings}
 \usepackage{graphicx}
 
 \begin{document} 
@@ -7,46 +8,95 @@
 \begin{figure}
 \begin{tikzpicture}
   \node[draw=black](vacation) at (-6,0) {vacation};
-  \node[draw=black](fries)    at (-2,0) {fries};
-  \node[draw=black](soccer)   at (-5,1) {soccer};
+  \node[draw=black](fries)    at (-2,0.5) {fries};
+  \node[draw=black](soccer)   at (-5,0.8) {soccer};
   \node[draw=black](apple)    at (-3,1.5) {apple};
-  \node[draw=black](blue)     at (-4,-0.5) {blue};
-  \node[draw=black](salmon)   at (-3,-1.5) {salmon};
-  \draw (-7, -2) rectangle (-1.5, 2) node [above left] {KeyAE} ;
+  \node[draw=black](blue)     at (-4,-0.0) {blue};
+  \node[draw=black](salmon)   at (-5.5,1.6) {salmon};
+  \draw (-7, -0.5) rectangle (-1.5, 2) node [above left] {\texttt{ModelParameter} with KeyAE} ;
   
   
   \node[draw=black](holiday) at (3,0.5) {holiday};
   \node[draw=black](chips) at (5,0.0) {chips};
   \node[draw=black](football) at (4,1.5) {football};
-  \node[draw=black](egg) at (4,-1) {egg};
-  \draw (2, -2) rectangle (6, 2) node [above left] {KeyBE} ;
+  \node[draw=black](egg) at (4.5,0.8) {egg};
+  \draw (2, -0.5) rectangle (6, 2) node [above left] {\texttt{ModelParameter} with KeyBE} ;
   
   \node (0) at (0,1.5) {0};
   \node (1) at (0,1.0) {1};
   \node (2) at (0,0.5) {2};
   \node (3) at (0,0.0) {3};
   \node (4) at (0,-.5) {4};
-  \node (5) at (0,-1.) {5};
-  \node (6) at (0,-1.5) {6};
 
-  \draw[-latex] (vacation)--(2);
-  \draw[-latex] (soccer)--(1);
-  \draw[-latex] (apple)--(0);
-  \draw[-latex] (fries)--(3);
-  \draw[-latex] (salmon)--(6);
-  \draw[-latex] (blue)--(5);
+  \draw[latex-latex] (soccer)--(1);
+  \draw[latex-latex] (apple)--(0);
+  \draw[latex-latex] (fries)--(3);
+  \draw[latex-latex] (blue)--(4);
   
   
-  \draw[-latex] (football)--(1);
-  \draw[-latex] (chips)--(3);
-  \draw[-latex] (holiday)--(2);
-  \draw[-latex] (egg)--(4);
+  \draw[latex-latex] (football)--(1);
+  \draw[latex-latex] (chips)--(3);
+  \draw[latex-latex] (holiday)--(2);
 
   %\draw (-0.5, -0.5) rectangle (1.5, 1.5) node [above left] {Key1} ;
 \end{tikzpicture}
-\caption{Mapping of individual \texttt{ModelParameter} lists to a global one.}
+\caption{Mapping of latent parameters of two individual \texttt{ModelParameter} collections to shared list of latent parameters.}
 \end{figure}
 
-Some text
+\section{Individual \texttt{ModelParameter} collections are not sorted/ordered}
+
+\begin{itemize}
+  \item represented by wildy arranged nouns
+  \item Why? Because they can!
+\end{itemize}
+
+
+\section{Only latent parameters are relevant for the joined list}
+
+The whole purpose is the mapping of a latent parameter vector for maths algorithms
+to (multiple) named parameters of \texttt{ModelParameter}. If a parameter is not 
+latent, it does not need to be mapped.
+
+\section{Adding parameters}
+
+\subsection{Creation}
+\begin{lstlisting}[basicstyle=\ttfamily, language=python]
+ latent.add("apple", key="KeyAE") 
+ latent.add([("soccer", "KeyAE"), ("football", "KeyBE")])
+ latent.add([("holiday", "KeyBE")] # also possible
+ latent.add("fries", key="KeyAE")
+ index = latent.add("blue", "KeyAE"))
+ assert index == 4
+\end{lstlisting}
+
+\subsection{Modification}
+
+Oups. Forgot one:
+
+\begin{lstlisting}[basicstyle=\ttfamily, language=python]
+ latent.add("chips", "KeyBE", index=3)
+\end{lstlisting}
+
+\section{function: \texttt{parameters}}
+
+\begin{itemize}
+  \item \texttt{parameters(0)}
+  \begin{itemize}
+    \item KeyAE, apple
+  \end{itemize}
+  \item \texttt{parameters(1)}
+  \begin{itemize}
+    \item KeyAE, soccer
+    \item KeyBE, football
+  \end{itemize}
+\end{itemize}
+
+\section{function: \texttt{index\_of}}
+
+\begin{itemize}
+  \item \texttt{index\_of("KeyBE")} $\to 1,2,3$
+  \item \texttt{index\_of("KeyBE", "chips")} $\to 3$
+  \item \texttt{index\_of("KeyBE", "egg")} $\to$ RuntimeError
+\end{itemize}
 
 \end{document}
