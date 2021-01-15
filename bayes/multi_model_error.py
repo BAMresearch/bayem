@@ -1,6 +1,26 @@
 from bayes.parameters import *
 import numpy as np
 
+class ModelError:
+    def shape(self):
+        raise NotImplementedError("Implement me!")
+        
+
+class GroupedModelError:
+    """
+    grouped by sensors
+    """
+
+    def __init__(self, groups):
+        self.groups = groups
+
+    def shape(self):
+        shapes = []
+    
+    def shape_of(self, group):
+        raise NotImplementedError("Implement me!")
+
+
 class MultiModelError:
     """
     Purpose:
@@ -26,11 +46,13 @@ class MultiModelError:
     """
 
     def __init__(self):
-        self.prms = {}
         self.mes = {}
+        self.keys = []
+
         self.n = 0
-        self.joint_parameter_list = None
-        pass
+
+        self.latent = JointLatent()
+        self.shapes = {}
 
     def add(self, model_error, parameters, key=None):
         """
@@ -48,11 +70,13 @@ class MultiModelError:
             parameter_list. If not provided an integer key is used.
         """
         key = key or self.n
-        assert key not in self.prms.keys()
+        assert key not in self.keys
         self.n += 1
 
         self.mes[key] = model_error
-        self.prms[key] = parameters
+        self.keys.append(key)
+        self.latent.add_model_parameters(parameters, key)
+
         return key
 
 
@@ -66,54 +90,35 @@ class MultiModelError:
             The dimension must be identical to the number of latent variables
             (shared variables are only a single latent variable)
         """
-        if self.joint_parameter_list is None:
-            self.join()
 
-        self.joint_parameter_list.update(parameter_vector)
+        updated_parameters = self.latent.update(parameter_vector)
         result = []
-        for key, me in self.mes.items():
-            prm = self.prms[key]
-            result.append(me(prm))
+        for key in self.keys:
+            prm = updated_parameters[key]
+            me = self.mes[key]
+            single_model_error = me(prm)
+
+            self.shapes[key] = len(single_model_error)
+            result.append(single_model_error)
         return np.concatenate(result)
 
-    def join(self, shared=None):
-        """
-        Sets a specific parameter latent such that it is updated
-        before evaluating the model error in the __call__ method
+    def split_by_key(self, array):
+        array_by_key = {}
+        offset = 0
+        for key in self.keys:
+            l = self.shapes[key]
+            array_by_key[key] = array[offset : offset + l]
+            offset += l
+        return array_by_key
 
-        shared:
-            dictionary of variables to be shared (only used once in the global problem)
-
-        """
-        self.joint_parameter_list = JointParameterList(self.prms, shared)
-
-    def set_latent(self, name, key=None):
-        """
-        Sets a specific parameter latent such that it is updated
-        before evaluating the model error in the __call__ method
-
-        name:
-            parameter name that must match one in global parameters
-
-        key:
-            The key indicates to which the parameter group the "name" belongs
-            to. If key is None, this assumes a _shared_ parameter.
-        """
-        if self.joint_parameter_list is None:
-            raise RuntimeError(
-                "Error, you should first join all model errors to a joint list by calling join."
-            )
-        self.joint_parameter_list.set_latent(name, key)
-
-    def uncorrelated_normal_prior(self, shared=None):
+    def uncorrelated_normal_prior(self):
         """
         Joins all individual parameter lists and creates a normal prior for all latent variables
 
         shared:
             dictionary of variables to be shared (only used once in the global problem)
         """
-        self.joint_parameter_list = JointParameterList(self.prms, shared)
-        return UncorrelatedNormalPrior(self.joint_parameter_list)
+        return UncorrelatedNormalPrior(self.latent)
 
     def build_joint_noise_pattern(self):
         offset = 0

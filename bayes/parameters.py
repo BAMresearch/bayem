@@ -70,197 +70,68 @@ class ModelParameters:
     def __str__(self):
         return str(self._p)
 
+
 class JointLatent:
-    def __init__(self, model_parameters):
-        self.all_parameters = model_parameters
-        self.mapping = []
+    def __init__(self):
+        self.all_parameters = {}
+        self._index_mapping = []
+        self._parameter_mapping = {}
 
-    def add(name, key=None):
-        if isinstance(name, basestring):
-            assert key is not None
-            assert all_parameters[key].has(name)
-            self.mapping.append((name, key))
+    def add_model_parameters(self, model_parameters, key):
+        assert key not in self.all_parameters
+        self.all_parameters[key] = model_parameters
 
-        for (p_name, p_key) in name:
-            assert
+    def _add(self, name, key, index=None):
 
+        assert not self.exists(name, key)
 
+        if index is None:
+            index = len(self._index_mapping)
+            self._index_mapping.append({})
 
+        self._index_mapping[index][key] = name
+        self._parameter_mapping[(name, key)] = index
+        return index
 
-class JointParameterList:
-    def __init__(self, model_parameters, shared=None):
-        """
-        This class allows you to combine multiple individual parameter lists
-        of different models to a joint one. 
+    def exists(self, name, key):
+        return (name, key) in self._parameter_mapping
 
-        Features:
-        ---------
+    def add_shared(self, index, name, key):
+        return self._add(name, key, index)
 
-        * shared parameters:
+    def add(self, name, key):
+        return self._add(name, key)
 
-            TODO
-        
-        * latent parameters:
+    def parameter(self, index):
+        return self._index_mapping[index]
 
-            Calling "update" method with a vector of numbers provided by the 
-            inference schemes, it will perform the mapping to the named
-            model_parameters and update their numbers.
+    def indices_of(self, key):
+        return [i for i, mapping in enumerate(self._index_mapping) if key in mapping]
 
-        Single model parameter list
-        ---------------------------
+    def index_of(self, name, key):
+        return self._parameter_mapping[(name, key)]
 
-        model_parameters:
-            `ModelParameters` object
+    def __len__(self):
+        return len(self._index_mapping)
 
-        You simply ignore all the "shared" and "key" arguments of this class
-        and just define the prior distribution according to the parameter names
-        of `model_parameters`.
-        In fact, "shared" and "key" _has_ to be kept at "None"!
+    def __getitem__(self, index):
+        return self.parameter(index)
 
-        
-        Multiple parameter lists
-        ------------------------
-
-        model_parameters:
-            dictionary of type [key --> ModelParameters]
-
-        shared:
-            List of parameter names that get the same prior distribution.
-
-        In this more elaborate use of the class, you have to define and refer 
-        to parameters by their "name" _and_ their "key". This key separates
-        potentially identical (=same names) parameter lists. Example:
-            model_parameters:
-                "ModelA" : [P1, P2, P3, P4]
-                "ModelB" : [P2, P3, P9]
-            shared:
-                [P3]
-
-        That would mean that you can provide a common prior distribution for
-        both ModelA.P3 and ModelB.P3. They both get one entry in the final 
-        parameter vector and changing this entry will modify both ModelA.P3
-        and ModelB.P3. 
-        The parameter P2 also present in both models, but not shared. Here,
-        you have to specify the key ("ModelA" or "ModelB") in the prior 
-        definition and it will result in two entries in the final parameter
-        vector.
-
-
-        Notes
-        -----
-
-        If you pass a "ModelParameters" instance to this class, it will be 
-        modified in ".update". This may cause confusion and we can actually 
-        think about immutable "ModelParameters", where the ".update" keeps
-        the original self.model_parameters and returns a modified copy.
-        """
-        self.ps = model_parameters
-        self.shared = shared or []  # avoid lists in default args!
-
-        self.latent_parameters = []
-
-        # deal with special (actually simpler) case of a single parameter list
-        if type(model_parameters) is ModelParameters:
-            assert shared is None
-            self.ps = {"default": model_parameters}
-            self.shared = model_parameters.names
-
-    def set_latent(self, name, key=None):
-        """
-        Sets a specific parameter latent such that it is updated within .update
-
-        name:
-            parameter name that must match one in global parameters
-        
-        key:
-            The key indicates to which the parameter group the "name" belongs
-            to. If key is None, this assumes a _shared_ parameter.
-        """
-        latent = []
-
-        if key is not None:
-            if name not in self.ps[key].names:
-                raise RuntimeError(f"Parameter '{name}' not in parameter list for key '{key}'!")
-            if name in self.shared:
-                raise RuntimeError(f"Parameter '{name}' is defined as shared and cannot be set via key '{key}''!")
-
-            latent.append((key, name))
-
-        else:
-            if name not in self.shared:
-                raise RuntimeError(f"Parameter '{name}' is not shared. You have to provide a key to set it!") 
-
-            for key, model_parameters in self.ps.items():
-                if name in model_parameters.names:
-                    latent.append((key, name))
-
-        if latent in self.latent_parameters:
-            index = self.latent_parameters.index(latent)
-            raise RuntimeError(
-                f"Parameter {latent} is already set as latent"
-                " in position {index}! Must only be added once!"
-            )
-        self.latent_parameters.append(latent)
-
-    def latent_index(self, name, key=None):
-        """
-        returns the index of (name, key) in the latent parameters
-        """
-        for i, latents in enumerate(self.latent_parameters):
-            for (l_key, l_name) in latents:
-                if l_name != name:
-                    continue
-
-                if key is None:
-                    return i
-                else:
-                    if l_key == key:
-                        return i
-
-        raise RuntimeError(f"Parameter '{name}' not found for key '{key}'!")
-
-    def update(self, number_vector):
-        """
-        Updates all ModelParameters known to the prior distribution according
-        to the latent parameters.
-        """
-        assert len(number_vector) == len(self.latent_parameters)
-        for number, latents in zip(number_vector, self.latent_parameters):
-            for latent in latents:
-                key, name = latent
-                self.ps[key][name] = number
+    def update(self, numbers):
+        assert len(numbers) == len(self)
+        for number, parameters in zip(numbers, self):
+            for (key, name) in parameters.items():
+                self.all_parameters[key][name] = number
+        return self.all_parameters
 
     def __str__(self):
-        s = ""
-        for i, latents in enumerate(self.latent_parameters):
-            for latent in latents:
-                s += f"{i:3d} {latent}\n"
-        return s
-
-    def all(self):
-        s = ""
-        for key, parameters in self.ps.items():
-            for name in parameters.names:
-                s += f"{key:10s} {name}\n"
-        return s
-
-    def latent_indices(self, key):
-        """
-        Returns the indices for all latent parameters of `key`.
-        """
-        indices = []
-        for i, latents in enumerate(self.latent_parameters):
-            for (latent_key, name) in latents:
-                if latent_key == key:
-                    indices.append(i)
-        return indices
-
+        return "\n".join([f"{i:} {prm}" for i, prm in enumerate(self)])
 
 
 class UncorrelatedNormalPrior:
-    def __init__(self, parameter_list):
-        self.prm = parameter_list
-        if self.prm.latent_parameters:
+    def __init__(self, latent):
+        self.latent = latent
+        if len(self.latent) != 0:
             raise RuntimeError(
                 "This class takes now takes care of setting the"
                 "latent parameters. You may not define them beforehand!"
@@ -268,8 +139,12 @@ class UncorrelatedNormalPrior:
         self.distributions = []
 
     def add(self, name, mean, sd, key=None):
-        self.prm.set_latent(name, key)
+        entry = self.latent.add(name, key)
         self.distributions.append((mean, sd))
+        return entry
+
+    def add_shared(self, index, name, key):
+        return self.latent.add_shared(index, name, key)
 
     def to_MVN(self):
         from bayes.vb import MVN
@@ -287,6 +162,6 @@ class UncorrelatedNormalPrior:
 
     def __len__(self):
         return len(self.distributions)
-    #
-    # def __getitem__(self, i):
-    #     return self.prm.latent_parameters
+
+    def distribution_of(self, name, key):
+        return self.distributions[self.latent.index_of(name, key)]
