@@ -10,8 +10,7 @@ class TestParameters(unittest.TestCase):
         p.update(["pA"], [42.0])
         self.assertEqual(p["pA"], 42.0)
         self.assertEqual(p["pB"], 0.0)
-#
-#
+
 # class TestSingleModel(unittest.TestCase):
 #     def setUp(self):
 #         self.p = ModelParameters()

@@ -1,3 +1,5 @@
+import copy
+
 """
 Purpose:
 
@@ -119,10 +121,12 @@ class JointLatent:
 
     def update(self, numbers):
         assert len(numbers) == len(self)
+        updated_parameters = copy.deepcopy(self.all_parameters)
+
         for number, parameters in zip(numbers, self):
             for (key, name) in parameters.items():
-                self.all_parameters[key][name] = number
-        return self.all_parameters
+                updated_parameters[key][name] = number
+        return updated_parameters
 
     def __str__(self):
         return "\n".join([f"{i:} {prm}" for i, prm in enumerate(self)])
