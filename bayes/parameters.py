@@ -247,8 +247,14 @@ class UncorrelatedNormalPrior:
         self.distributions.append((mean, sd))
         return entry
 
-    def add_shared(self, index, name, key):
-        return self.latent.add_shared(index, name, key)
+    def add_shared(self, key_name_pairs, mean, sd):
+        index = None 
+        for (key, name) in key_name_pairs:
+            if index is None:
+                entry = self.add(name, mean, sd, key)
+            else:
+                self.latent.add_shared(index, name, key)
+        return index
 
     def to_MVN(self):
         from bayes.vb import MVN
