@@ -74,16 +74,57 @@ class ModelParameters:
 
 
 class JointLatent:
+    """
+    The purpose of this class is to map the named(!) parameters of multiple 
+    `ModelParameter` collections to a vector just containing numbers and 
+    vice versa. 
+
+    The individual `ModelParameter` objects are identified by a `key`. Please
+    see the documentation of the individual methods for further information.
+    Note that they will all refer to the following example:
+
+
+    Documentation by example:
+
+    +---------------------+                   +-----------------------+
+    | model_parameters_AE |                   |  model_parameters_BE  |
+    | key = AE            |                   |      key = BE         |
+    |                     |  JointLatent      |                       |
+    |                     |                   |                       |
+    |       apple +------------> 0            |    + football         |
+    |                     |                   |    |                  |
+    |    soccer +--------------> 1 <---------------+            egg   |
+    |                     |                   |                       |
+    |            fries +  |      2 <--------------+ holiday           |
+    |                  |  |                   |                       |
+    |   vacation       +-------> 3 <---------------+ chips            |
+    |                     |                   |                       |
+    |           blue +---------> 4            |                       |
+    |                     |                   |                       |
+    +---------------------+                   +-----------------------+
+
+
+    """
     def __init__(self):
         self.all_parameters = {}
         self._index_mapping = []
         self._parameter_mapping = {}
 
     def add_model_parameters(self, model_parameters, key):
+        """
+        Adds a `ModelParameter`.
+
+        .add_model_parameters(model_parameters_AE, AE)
+        .add_model_parameters(model_parameters_BE, BE)
+        """
         assert key not in self.all_parameters
         self.all_parameters[key] = model_parameters
 
     def _add(self, name, key, index=None):
+        """
+        Internal method to add parameter `name` of `key` to the `index`th latent
+        parameter.
+        """
 
         assert not self.exists(name, key)
 
@@ -96,30 +137,85 @@ class JointLatent:
         return index
 
     def exists(self, name, key):
+        """
+        .exists(soccer, AE) == True
+        .exists(soccer, BE) == False
+        """
         return (name, key) in self._parameter_mapping
-
-    def add_shared(self, index, name, key):
-        return self._add(name, key, index)
-
+    
     def add(self, name, key):
+        """
+        Add parameter `name` of `key` as a _new_ latent variable. 
+
+        .add(apple, AE) == 0
+        .add(soccer, AE) == 1
+        .add(holiday, BE) == 2
+        .add(fries, AE) == 3
+        .add(blue, AE) == 4
+        """
         return self._add(name, key)
 
+    def add_shared(self, index, name, key):
+        """
+        Add parameter `name` of `key` to an _existing_ `index`th latent variable.
+
+        .add_shared(1, football, BE) == 1
+        .add_shared(3, chips, BE) == 1
+        """
+        return self._add(name, key, index)
+
     def parameter(self, index):
+        """
+        Returns a `key`:`name` dictionary of the `index`th latent variable.
+
+        .parameter(0) == {AE:apple}
+        .parameter(1) == {AE:soccer, BE:football}
+        """
+
         return self._index_mapping[index]
 
     def indices_of(self, key):
+        """
+        Returns the indices of all latent parameters of `key`.
+
+        .indices_of(AE) == [0, 1, 3, 4]
+        .indices_of(BE) == [1, 2, 3]
+        """
         return [i for i, mapping in enumerate(self._index_mapping) if key in mapping]
 
     def index_of(self, name, key):
+        """
+        Returns the index of parameter `name` of `key`.
+
+        .index_of(apple, AE) == 0
+        .index_of(chips, BE) == 3
+        """
         return self._parameter_mapping[(name, key)]
 
     def __len__(self):
+        """
+        Returns the number of latent variables.
+
+        .__len__() == 5
+        """
         return len(self._index_mapping)
 
     def __getitem__(self, index):
+        """
+        Pythonic wrapper for self.parameter.
+        """
         return self.parameter(index)
 
     def update(self, numbers):
+        """
+        Returns a dictionary key:ModelParameter where the latent variables
+        are set to `numbers`.
+
+        .update(self, 0, 10, 20, 30, 40) ==
+         {AE: [salmon[unchanged], apple[0], soccer[10], fries[30], 
+               vacation[unchanged], blue[40],
+          BE: [football[10], egg[unchanged], holiday[20], chips[30]]}
+        """
         assert len(numbers) == len(self)
         updated_parameters = copy.deepcopy(self.all_parameters)
 
