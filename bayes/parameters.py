@@ -105,12 +105,13 @@ class JointLatent:
 
 
     """
+
     def __init__(self):
         self.all_parameters = {}
         self._index_mapping = []
         self._parameter_mapping = {}
 
-    def add_model_parameters(self, model_parameters, key):
+    def add_model_parameters(self, model_parameters, key=None):
         """
         Adds a `ModelParameter`.
 
@@ -125,8 +126,8 @@ class JointLatent:
         Internal method to add parameter `name` of `key` to the `index`th latent
         parameter.
         """
-
         assert not self.exists(name, key)
+        assert name in self.all_parameters[key].names
 
         if index is None:
             index = len(self._index_mapping)
@@ -142,8 +143,8 @@ class JointLatent:
         .exists(soccer, BE) == False
         """
         return (name, key) in self._parameter_mapping
-    
-    def add(self, name, key):
+
+    def add(self, name, key=None):
         """
         Add parameter `name` of `key` as a _new_ latent variable. 
 
@@ -155,12 +156,12 @@ class JointLatent:
         """
         return self._add(name, key)
 
-    def add_shared(self, index, name, key):
+    def add_shared(self, index, name, key=None):
         """
         Add parameter `name` of `key` to an _existing_ `index`th latent variable.
 
         .add_shared(1, football, BE) == 1
-        .add_shared(3, chips, BE) == 1
+        .add_shared(3, chips, BE) == 3
         """
         return self._add(name, key, index)
 
@@ -171,7 +172,6 @@ class JointLatent:
         .parameter(0) == {AE:apple}
         .parameter(1) == {AE:soccer, BE:football}
         """
-
         return self._index_mapping[index]
 
     def indices_of(self, key):
@@ -206,7 +206,7 @@ class JointLatent:
         """
         return self.parameter(index)
 
-    def update(self, numbers):
+    def update(self, numbers, return_copy=True):
         """
         Returns a dictionary key:ModelParameter where the latent variables
         are set to `numbers`.
@@ -217,7 +217,11 @@ class JointLatent:
           BE: [football[10], egg[unchanged], holiday[20], chips[30]]}
         """
         assert len(numbers) == len(self)
-        updated_parameters = copy.deepcopy(self.all_parameters)
+
+        if return_copy:
+            updated_parameters = copy.deepcopy(self.all_parameters)
+        else:
+            updated_parameters = self.all_parameters
 
         for number, parameters in zip(numbers, self):
             for (key, name) in parameters.items():
