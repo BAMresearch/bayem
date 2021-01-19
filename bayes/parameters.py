@@ -165,6 +165,19 @@ class JointLatent:
         """
         return self._add(name, key, index)
 
+    def add_by_name(self, name):
+        """
+        Sets all the parameters `name` to the same latent variable.
+        """
+        entry = None
+        for key, model_parameters in self.all_parameters.items():
+            if model_parameters.has(name):
+                if entry is None:
+                    entry = self.add(name, key)
+                else:
+                    self.add_shared(entry, name, key)
+        return entry
+
     def parameter(self, index):
         """
         Returns a `key`:`name` dictionary of the `index`th latent variable.

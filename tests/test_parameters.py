@@ -108,6 +108,14 @@ class TestJointLatent(unittest.TestCase):
         self.assertEqual(updated_prm[keyA]["shared"], 17)
         self.assertEqual(updated_prm[keyB]["shared"], 17)
 
+    def test_add_by_name(self):
+        self.l.add_by_name("shared")
+        updated_prm = self.l.update([17])
+        self.assertEqual(updated_prm[self.keyA]["shared"], 17)
+        self.assertEqual(updated_prm[self.keyB]["shared"], 17)
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
