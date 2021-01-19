@@ -196,7 +196,7 @@ class JointLatent:
         """
         return [i for i, mapping in enumerate(self._index_mapping) if key in mapping]
 
-    def index_of(self, name, key):
+    def index_of(self, name, key=None):
         """
         Returns the index of parameter `name` of `key`.
 
