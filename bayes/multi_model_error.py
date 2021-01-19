@@ -1,25 +1,6 @@
 from bayes.parameters import *
 import numpy as np
 
-class ModelError:
-    def shape(self):
-        raise NotImplementedError("Implement me!")
-        
-
-class GroupedModelError:
-    """
-    grouped by sensors
-    """
-
-    def __init__(self, groups):
-        self.groups = groups
-
-    def shape(self):
-        shapes = []
-    
-    def shape_of(self, group):
-        raise NotImplementedError("Implement me!")
-
 
 class MultiModelError:
     """
@@ -79,7 +60,6 @@ class MultiModelError:
 
         return key
 
-
     def __call__(self, parameter_vector):
         """
         Updates all latent parameters in the joint_parameter_list
@@ -122,10 +102,10 @@ class MultiModelError:
 
     def build_joint_noise_pattern(self):
         offset = 0
-        self.noise_pattern= []
+        self.noise_pattern = []
         for key, me in self.mes.items():
             noise_pattern = me.noise_pattern()
-            
+
             len_p = []
 
             for p in noise_pattern:
