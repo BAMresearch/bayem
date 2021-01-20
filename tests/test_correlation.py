@@ -52,10 +52,11 @@ class TestCorrelatedVB(unittest.TestCase):
             return c + x * m
 
         perfect_data = fw(param_true)
-        corr = bayes.correlation.squared_exponential(x, L_data)
-        correlated_noise = np.random.multivariate_normal(
-            np.zeros(len(x)), corr * noise_std ** 2, 1
-        )[0]
+
+        fine_grid_x = np.linspace(0, 1, 1000)
+        noise_fine_grid = np.random.multivariate_normal(np.zeros(len(fine_grid_x)),
+            bayes.correlation.squared_exponential(fine_grid_x, L_data) * noise_std ** 2, 1)[0]
+        correlated_noise = np.interp(x, fine_grid_x, noise_fine_grid)
 
         data = perfect_data + correlated_noise
 
@@ -77,8 +78,8 @@ class TestCorrelatedVB(unittest.TestCase):
         p200 = self.run_vb(200, L_data=0.5, L_model=1e-6)
 
         # The means are almost identical ...
-        self.assertAlmostEqual(p200.mean[0], p50.mean[0], delta=1.0e-3)
-        self.assertAlmostEqual(p200.mean[1], p50.mean[1], delta=1.0e-3)
+        self.assertAlmostEqual(p200.mean[0], p50.mean[0], delta=1.0e-3*p200.mean[0])
+        self.assertAlmostEqual(p200.mean[1], p50.mean[1], delta=1.0e-3*p200.mean[1])
 
         # ... but the standard deviation increases.
         self.assertLess(p200.std_diag[0], p50.std_diag[0] / 2.0)
@@ -90,8 +91,8 @@ class TestCorrelatedVB(unittest.TestCase):
         -- even though it is slightly off --
         makes the result independent from more data points
         """
-        p50 = self.run_vb(50, L_data=0.5, L_model=0.4)
-        p200 = self.run_vb(200, L_data=0.5, L_model=0.4)
+        p50 = self.run_vb(50, L_data=0.5, L_model=0.5)
+        p200 = self.run_vb(200, L_data=0.5, L_model=0.5)
 
 
         # Now, the standard deviations are almost identical ...
@@ -106,8 +107,8 @@ class TestCorrelatedVB(unittest.TestCase):
         self.assertTrue(np.all(diff_cov < 1.e-3))
 
         # ... but the means are off... Is that expected?
-        self.assertAlmostEqual(p200.mean[0], p50.mean[0], delta=1.0e-3)
-        self.assertAlmostEqual(p200.mean[1], p50.mean[1], delta=1.0e-3)
+        self.assertAlmostEqual(p200.mean[0], p50.mean[0], delta=1.0e-3*p200.mean[0])
+        self.assertAlmostEqual(p200.mean[1], p50.mean[1], delta=1.0e-3*p200.mean[1])
 
 
 if __name__ == "__main__":
