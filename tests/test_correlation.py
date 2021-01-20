@@ -73,10 +73,16 @@ class TestCorrelatedVB(unittest.TestCase):
 
     def test_demonstrate_issue(self):
         """More correlated data points makes the result more precise. Not good."""
-        sd50 = self.run_vb(50, L_data=0.5, L_model=1e-6).std_diag[0]
-        sd200 = self.run_vb(200, L_data=0.5, L_model=1e-6).std_diag[0]
+        p50 = self.run_vb(50, L_data=0.5, L_model=1e-6)
+        p200 = self.run_vb(200, L_data=0.5, L_model=1e-6)
 
-        self.assertLess(sd200, sd50 / 2.0)
+        # The means are almost identical ...
+        self.assertAlmostEqual(p200.mean[0], p50.mean[0], delta=1.0e-3)
+        self.assertAlmostEqual(p200.mean[1], p50.mean[1], delta=1.0e-3)
+
+        # ... but the standard deviation increases.
+        self.assertLess(p200.std_diag[0], p50.std_diag[0] / 2.0)
+        self.assertLess(p200.std_diag[1], p50.std_diag[1] / 2.0)
 
     def test_demonstrate_solution(self):
         """
@@ -84,10 +90,24 @@ class TestCorrelatedVB(unittest.TestCase):
         -- even though it is slightly off --
         makes the result independent from more data points
         """
-        sd50 = self.run_vb(50, L_data=0.5, L_model=0.4).std_diag[0]
-        sd200 = self.run_vb(200, L_data=0.5, L_model=0.4).std_diag[0]
+        p50 = self.run_vb(50, L_data=0.5, L_model=0.4)
+        p200 = self.run_vb(200, L_data=0.5, L_model=0.4)
 
-        self.assertAlmostEqual(sd200, sd50, delta=sd50 / 100)
+
+        # Now, the standard deviations are almost identical ...
+        self.assertAlmostEqual(
+            p200.std_diag[0], p50.std_diag[0], delta=p50.std_diag[0] / 100
+        )
+        self.assertAlmostEqual(
+            p200.std_diag[1], p50.std_diag[1], delta=p50.std_diag[1] / 100
+        )
+        # ... as well as the complete COV, ...
+        diff_cov = np.abs(p50.cov - p200.cov)
+        self.assertTrue(np.all(diff_cov < 1.e-3))
+
+        # ... but the means are off... Is that expected?
+        self.assertAlmostEqual(p200.mean[0], p50.mean[0], delta=1.0e-3)
+        self.assertAlmostEqual(p200.mean[1], p50.mean[1], delta=1.0e-3)
 
 
 if __name__ == "__main__":
