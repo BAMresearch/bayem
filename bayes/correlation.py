@@ -4,13 +4,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def transformation(locations, correlation_length, tol=1e-8):
+def transformation_SQ(locations, correlation_length, tol=1e-8):
+    """
+    Transformation matrix based on a squared exponential correlation matrix.
+    """
     return transformation_from_correlation(
-        correlation(locations, correlation_length), tol
+        squared_exponential(locations, correlation_length), tol
     )
 
 
-def correlation(locations, correlation_length):
+def squared_exponential(locations, correlation_length):
     """
     Builds a dense correlation matrix assuming the `locations` are 
     correlated by `correlation_length`. Note that the reference to 

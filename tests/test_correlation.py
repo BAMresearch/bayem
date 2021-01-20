@@ -7,7 +7,7 @@ class TestCorrelation(unittest.TestCase):
     def test_fully_correlated(self):
         """corr should be almost ones"""
         x = np.linspace(0, 1, 10)
-        corr = bayes.correlation.correlation(x, 100)
+        corr = bayes.correlation.squared_exponential(x, 100)
         self.assertTrue(np.all(corr > 0.9))
 
         trans = bayes.correlation.transformation_from_correlation(corr)
@@ -17,7 +17,7 @@ class TestCorrelation(unittest.TestCase):
     def test_uncorrelated(self):
         """corr should be an identity matrix"""
         x = np.linspace(0, 1, 10)
-        corr = bayes.correlation.correlation(x, 0.02)
+        corr = bayes.correlation.squared_exponential(x, 0.02)
         self.assertLess(np.linalg.norm(corr - np.eye(10)), 1e-6)
 
         trans = bayes.correlation.transformation_from_correlation(corr)
@@ -27,12 +27,12 @@ class TestCorrelation(unittest.TestCase):
     def test_invalid_2d(self):
         """corr should be an identity matrix"""
         x = np.eye(10)
-        self.assertRaises(Exception, bayes.correlation.correlation, x, 1.0)
+        self.assertRaises(Exception, bayes.correlation.squared_exponential, x, 1.0)
 
     def test_with_MNV(self):
         np.random.seed(6174)
         x = np.linspace(0, 1, 100)
-        corr = bayes.correlation.correlation(x, 1e-1)
+        corr = bayes.correlation.squared_exponential(x, 1e-1)
 
         values = np.random.multivariate_normal(np.zeros(len(x)), corr)
         trans = bayes.correlation.transformation_from_correlation(corr)
@@ -52,14 +52,14 @@ class TestCorrelatedVB(unittest.TestCase):
             return c + x * m
 
         perfect_data = fw(param_true)
-        corr = bayes.correlation.correlation(x, L_data)
+        corr = bayes.correlation.squared_exponential(x, L_data)
         correlated_noise = np.random.multivariate_normal(
             np.zeros(len(x)), corr * noise_std ** 2, 1
         )[0]
 
         data = perfect_data + correlated_noise
 
-        transformation = bayes.correlation.transformation(x, L_model)
+        transformation = bayes.correlation.transformation_SQ(x, L_model)
 
         def model_error(prm):
             return (fw(prm) - data) @ transformation
