@@ -41,11 +41,16 @@ class TestParameters(unittest.TestCase):
 
 class TestSingleModel(unittest.TestCase):
     def setUp(self):
+        self.l = LatentParameters()
+
         self.p = ModelParameters()
         self.p.define("pA", 0.0)
         self.p.define("pB", 0.0)
-        self.l = JointLatent()
-        self.l.add_model_parameters(self.p)
+
+        # We now need to tell the LatentParameters that some of our
+        # ModelParameters are potentially latent. We do not need to provide
+        # a key as we only have one ModelParameters.
+        self.l.define_shared_model_parameters(self.p)
 
     def test_joint_list(self):
         self.l.add("pA")
@@ -53,37 +58,25 @@ class TestSingleModel(unittest.TestCase):
         self.assertEqual(self.p["pA"], 42.0)
         self.assertEqual(self.p["pB"], 0.0)
 
-        # not allowed to set latent, if you use these prior classes
-        self.assertRaises(Exception, UncorrelatedNormalPrior, self.l)
 
-    def test_prior(self):
-        prior = UncorrelatedNormalPrior(self.l)
-        prior.add("pA", mean=0, sd=2)
-        prior.add("pB", mean=1, sd=4)
-
-        mvn = prior.to_MVN()
-        self.assertAlmostEqual(mvn.mean[0], 0.0)
-        self.assertAlmostEqual(mvn.std_diag[0], 2.0)
-
-        self.assertAlmostEqual(mvn.mean[1], 1.0)
-        self.assertAlmostEqual(mvn.std_diag[1], 4.0)
-
-
-class TestJointLatent(unittest.TestCase):
+class TestLatentParameters(unittest.TestCase):
     def setUp(self):
         self.pA = ModelParameters()
         self.pA.define("only_in_A", 0)
         self.pA.define("shared", 2)
-        self.keyA = "A"
 
         self.pB = ModelParameters()
         self.pB.define("only_in_B", 1)
         self.pB.define("shared", 2)
-        self.keyB = "B"
 
-        self.l = JointLatent()
-        self.l.add_model_parameters(self.pA, self.keyA)
-        self.l.add_model_parameters(self.pB, self.keyB)
+        self.l = LatentParameters()
+        # Parameters from both ModelParameters should be latent. Thus we
+        # have to define some keys to uniquely identify them ...
+        self.keyA = "A"
+        self.keyB = "B"
+        # ... and add them to the LatentParameters.
+        self.l.define_shared_model_parameters(self.pA, self.keyA)
+        self.l.define_shared_model_parameters(self.pB, self.keyB)
 
     def test_add(self):
         l, keyA, keyB = self.l, self.keyA, self.keyB
@@ -115,6 +108,30 @@ class TestJointLatent(unittest.TestCase):
         self.assertEqual(updated_prm[self.keyB]["shared"], 17)
 
 
+class TestUncorrelatedNormalPrior(unittest.TestCase):
+    def setUp(self):
+        self.p = ModelParameters()
+        self.p.define("pA", 0.0)
+        self.p.define("pB", 0.0)
+        self.l = LatentParameters()
+        self.l.define_shared_model_parameters(self.p)
+
+    def test_existing_latent_parameters(self):
+        self.l.add("pA")
+        # not allowed to set latent, if you use these prior classes
+        self.assertRaises(Exception, UncorrelatedNormalPrior, self.l)
+
+    def test_MVN(self):
+        prior = UncorrelatedNormalPrior(self.l)
+        prior.add("pA", mean=0, sd=2)
+        prior.add("pB", mean=1, sd=4)
+
+        mvn = prior.to_MVN()
+        self.assertAlmostEqual(mvn.mean[0], 0.0)
+        self.assertAlmostEqual(mvn.std_diag[0], 2.0)
+
+        self.assertAlmostEqual(mvn.mean[1], 1.0)
+        self.assertAlmostEqual(mvn.std_diag[1], 4.0)
 
 
 if __name__ == "__main__":

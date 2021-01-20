@@ -73,13 +73,12 @@ class ModelParameters:
         return str(self._p)
 
 
-class JointLatent:
+class LatentParameters:
     """
     The purpose of this class is to map the named(!) parameters of multiple 
-    `ModelParameter` collections to a vector just containing numbers and 
-    vice versa. 
+    `ModelParameters` to a vector just containing numbers and vice versa. 
 
-    The individual `ModelParameter` objects are identified by a `key`. Please
+    The individual `ModelParameters` objects are identified by a `key`. Please
     see the documentation of the individual methods for further information.
     Note that they will all refer to the following example:
 
@@ -89,7 +88,7 @@ class JointLatent:
     +---------------------+                   +-----------------------+
     | model_parameters_AE |                   |  model_parameters_BE  |
     | key = AE            |                   |      key = BE         |
-    |                     |  JointLatent      |                       |
+    |                     |  LatentParameters |                       |
     |                     |                   |                       |
     |       apple +------------> 0            |    + football         |
     |                     |                   |    |                  |
@@ -103,23 +102,32 @@ class JointLatent:
     |                     |                   |                       |
     +---------------------+                   +-----------------------+
 
+    Each entry of the illustrated LatentParameters is stored as a 
+    key:name dict in self._index_mapping. 
+    See self.__getitem__ or self.parameter for examples.
 
+    The reverse mapping is stored as a
+    name:key dict in self._parameter_mapping.
+
+    Remark:
+        The key always defaults to None. This means that not providing a key
+        means working on a single ModelParameters.
     """
 
     def __init__(self):
-        self.all_parameters = {}
-        self._index_mapping = []
+        self._all_parameters = {}
+        self._index_mapping = [] 
         self._parameter_mapping = {}
 
-    def add_model_parameters(self, model_parameters, key=None):
+    def define_shared_model_parameters(self, model_parameters, key=None):
         """
-        Adds a `ModelParameter`.
+        Adds a `ModelParameters`.
 
-        .add_model_parameters(model_parameters_AE, AE)
-        .add_model_parameters(model_parameters_BE, BE)
+        .define_shared_model_parameters(model_parameters_AE, AE)
+        .define_shared_model_parameters(model_parameters_BE, BE)
         """
-        assert key not in self.all_parameters
-        self.all_parameters[key] = model_parameters
+        assert key not in self._all_parameters
+        self._all_parameters[key] = model_parameters
 
     def _add(self, name, key, index=None):
         """
@@ -127,7 +135,7 @@ class JointLatent:
         parameter.
         """
         assert not self.exists(name, key)
-        assert name in self.all_parameters[key].names
+        assert name in self._all_parameters[key].names
 
         if index is None:
             index = len(self._index_mapping)
@@ -170,7 +178,7 @@ class JointLatent:
         Sets all the parameters `name` to the same latent variable.
         """
         entry = None
-        for key, model_parameters in self.all_parameters.items():
+        for key, model_parameters in self._all_parameters.items():
             if model_parameters.has(name):
                 if entry is None:
                     entry = self.add(name, key)
@@ -221,10 +229,10 @@ class JointLatent:
 
     def update(self, numbers, return_copy=True):
         """
-        Returns a dictionary key:ModelParameter where the latent variables
+        Returns a dictionary key:ModelParameters where the latent variables
         are set to `numbers`.
 
-        .update(self, 0, 10, 20, 30, 40) ==
+        .update(self, [0, 10, 20, 30, 40]) ==
          {AE: [salmon[unchanged], apple[0], soccer[10], fries[30], 
                vacation[unchanged], blue[40],
           BE: [football[10], egg[unchanged], holiday[20], chips[30]]}
@@ -232,9 +240,9 @@ class JointLatent:
         assert len(numbers) == len(self)
 
         if return_copy:
-            updated_parameters = copy.deepcopy(self.all_parameters)
+            updated_parameters = copy.deepcopy(self._all_parameters)
         else:
-            updated_parameters = self.all_parameters
+            updated_parameters = self._all_parameters
 
         for number, parameters in zip(numbers, self):
             for (key, name) in parameters.items():

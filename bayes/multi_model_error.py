@@ -32,7 +32,7 @@ class MultiModelError:
 
         self.n = 0
 
-        self.latent = JointLatent()
+        self.latent = LatentParameters()
         self.shapes = {}
 
     def add(self, model_error, parameters, key=None):
@@ -56,7 +56,7 @@ class MultiModelError:
 
         self.mes[key] = model_error
         self.keys.append(key)
-        self.latent.add_model_parameters(parameters, key)
+        self.latent.define_shared_model_parameters(parameters, key)
 
         return key
 
