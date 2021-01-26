@@ -56,7 +56,7 @@ class MultiModelError:
 
         self.mes[key] = model_error
         self.keys.append(key)
-        self.latent.define_shared_model_parameters(parameters, key)
+        self.latent.define_model_parameters(parameters, key)
 
         return key
 

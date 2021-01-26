@@ -50,7 +50,7 @@ class TestSingleModel(unittest.TestCase):
         # We now need to tell the LatentParameters that some of our
         # ModelParameters are potentially latent. We do not need to provide
         # a key as we only have one ModelParameters.
-        self.l.define_shared_model_parameters(self.p)
+        self.l.define_model_parameters(self.p)
 
     def test_joint_list(self):
         self.l.add("pA")
@@ -75,8 +75,8 @@ class TestLatentParameters(unittest.TestCase):
         self.keyA = "A"
         self.keyB = "B"
         # ... and add them to the LatentParameters.
-        self.l.define_shared_model_parameters(self.pA, self.keyA)
-        self.l.define_shared_model_parameters(self.pB, self.keyB)
+        self.l.define_model_parameters(self.pA, self.keyA)
+        self.l.define_model_parameters(self.pB, self.keyB)
 
     def test_add(self):
         l, keyA, keyB = self.l, self.keyA, self.keyB
@@ -114,7 +114,7 @@ class TestUncorrelatedNormalPrior(unittest.TestCase):
         self.p.define("pA", 0.0)
         self.p.define("pB", 0.0)
         self.l = LatentParameters()
-        self.l.define_shared_model_parameters(self.p)
+        self.l.define_model_parameters(self.p)
 
     def test_existing_latent_parameters(self):
         self.l.add("pA")

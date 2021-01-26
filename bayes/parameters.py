@@ -119,12 +119,12 @@ class LatentParameters:
         self._index_mapping = [] 
         self._parameter_mapping = {}
 
-    def define_shared_model_parameters(self, model_parameters, key=None):
+    def define_model_parameters(self, model_parameters, key=None):
         """
         Adds a `ModelParameters`.
 
-        .define_shared_model_parameters(model_parameters_AE, AE)
-        .define_shared_model_parameters(model_parameters_BE, BE)
+        .define_model_parameters(model_parameters_AE, AE)
+        .define_model_parameters(model_parameters_BE, BE)
         """
         assert key not in self._all_parameters
         self._all_parameters[key] = model_parameters
