@@ -47,6 +47,9 @@ class ModelError:
     def __call__(self, named_parameters):
         return self.fw(named_parameters) - self.data
 
+    def evaluate(self, named_parameters):
+        return OrderedDict({'sensor_1': self.fw(named_parameters) - self.data})
+
 class Test_VB(unittest.TestCase):
 
     def check_posterior(self, info):
@@ -74,6 +77,37 @@ class Test_VB(unittest.TestCase):
         info = variational_bayes(multi_me, prior)
         self.check_posterior(info)
       
+    def test_joint_evaluate(self):
+        # Define two separate parameter lists, one for each model.
+        p1 = ModelParameters()
+        p1.define("A")
+        p1.define("B")
+
+        p2 = ModelParameters()
+        p2.define("A")
+        p2.define("B")
+
+        # Define two ModelErrors, but note that both use the same model.
+        me1 = ModelError(model, data_1)
+        me2 = ModelError(model, data_2)
+
+        # For the inference, we combine them and use a 'key' to distinguish
+        # e.g. "A" from the one model to "A" from the other one.
+        me = MultiModelError()
+        key1 = me.add(me1, p1)
+        me.latent.add("B", key1)
+        key2 = me.add(me2, p2)
+        me.latent.add("B", key2)
+        me.latent.add_by_name("A")
+
+        parameter_vec = np.array([1,2,4])
+        error_full_vector = me(parameter_vec)
+        all_model_errors = me.evaluate(parameter_vec)
+        error_list = []
+        for key, single_me in all_model_errors.items():
+            error_list.append(single_me['sensor_1'])
+
+        np.testing.assert_almost_equal(np.concatenate(error_list), error_full_vector)
 
     
     def test_joint(self):

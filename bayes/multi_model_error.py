@@ -1,4 +1,5 @@
 from bayes.parameters import *
+from collections import OrderedDict
 import numpy as np
 
 
@@ -82,7 +83,32 @@ class MultiModelError:
             result.append(single_model_error)
         return np.concatenate(result)
 
+    def evaluate(self, parameter_vector):
+        """
+        Updates all latent parameters in the joint_parameter_list
+        based on the parameter_vector and evaluates each individual model error
+        as opposed to the call function, this is not concatenated,
+        but stored in separate dictionarys with the key being the model key:
+            "global" parameter vector exposed to the joint optimization.
+            The dimension must be identical to the number of latent variables
+            (shared variables are only a single latent variable)
+        """
+        updated_parameters = self.latent.update(parameter_vector)
+        result = OrderedDict()
+        for key in self.keys:
+            prm = updated_parameters[key]
+            me = self.mes[key]
+            single_model_error = me.evaluate(prm)
+
+            self.shapes[key] = len(single_model_error)
+            result[key] = single_model_error
+        return result
+
     def split_by_key(self, array):
+        """
+        splits the complete array and extracts the individual components
+        result of __call__ and split_by_key is essentially similar to directly calling evaluate
+        """
         array_by_key = {}
         offset = 0
         for key in self.keys:
