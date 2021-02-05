@@ -38,6 +38,19 @@ class TestParameters(unittest.TestCase):
     def test_define(self):
         self.assertRaises(Exception, self.p.__setitem__, "new_key", 0.2)
 
+    def test_vector(self):
+        p = ModelParameters()
+        x = [42.0, 6174.0, 0.0, -2.0]
+        p.define("v1", x)
+        p.define("v2")
+        p["v2"] = x
+        p.update(["v2"], [[42.0, 6174.0, 0.0, -3]])
+        self.assertListEqual(p["v2"], [42.0, 6174, 0.0, -3])
+
+        # not sure if this (update with length 3 instead of 4) should be an
+        # error ...
+        p.update(["v1"], [[1, 2, 3]])
+
 
 class TestSingleModel(unittest.TestCase):
     def setUp(self):
@@ -54,9 +67,17 @@ class TestSingleModel(unittest.TestCase):
 
     def test_joint_list(self):
         self.l.add("pA")
-        updated = self.l.update([42], return_copy=False)
+        updated = self.l.update([42.0], return_copy=False)
         self.assertEqual(self.p["pA"], 42.0)
         self.assertEqual(self.p["pB"], 0.0)
+
+    def test_vector_parameter(self):
+        self.p.define("v", [0.0, 0.0, 0.0])
+        self.l.add("pA")
+        self.l.add("v")
+        updated = self.l.update([42.0, 1.0, 2.0, 3.0])
+        self.assertEqual(self.p["pA"], 42.0)
+        self.assertListEqual(self.p["v"], [1.0, 2.0, 3.0])
 
 
 class TestLatentParameters(unittest.TestCase):
