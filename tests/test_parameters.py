@@ -75,9 +75,9 @@ class TestSingleModel(unittest.TestCase):
         self.p.define("v", [0.0, 0.0, 0.0])
         self.l.add("pA")
         self.l.add("v")
-        updated = self.l.update([42.0, 1.0, 2.0, 3.0])
+        updated = self.l.update([42.0, 1.0, 2.0, 3.0], return_copy=False)
         self.assertEqual(self.p["pA"], 42.0)
-        self.assertListEqual(self.p["v"], [1.0, 2.0, 3.0])
+        self.assertListEqual(list(self.p["v"]), [1.0, 2.0, 3.0])
 
 
 class TestLatentParameters(unittest.TestCase):

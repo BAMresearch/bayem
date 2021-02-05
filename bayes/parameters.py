@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 
 """
 Purpose:
@@ -117,6 +118,7 @@ class LatentParameters:
     def __init__(self):
         self._all_parameters = {}
         self._index_mapping = [] 
+        self._index_length = []
         self._parameter_mapping = {}
 
     def define_model_parameters(self, model_parameters, key=None):
@@ -137,9 +139,17 @@ class LatentParameters:
         assert not self.exists(name, key)
         assert name in self._all_parameters[key].names
 
+        try:
+            N = len(self._all_parameters[key][name])
+        except:
+            N = 1
+
         if index is None:
             index = len(self._index_mapping)
             self._index_mapping.append({})
+            self._index_length.append(N)
+        else:
+            assert self._index_length[index] == N
 
         self._index_mapping[index][key] = name
         self._parameter_mapping[(name, key)] = index
@@ -237,15 +247,21 @@ class LatentParameters:
                vacation[unchanged], blue[40],
           BE: [football[10], egg[unchanged], holiday[20], chips[30]]}
         """
-        assert len(numbers) == len(self)
+        assert len(numbers) == sum(self._index_length)
+        # assert len(numbers) == len(self)
 
         if return_copy:
             updated_parameters = copy.deepcopy(self._all_parameters)
         else:
             updated_parameters = self._all_parameters
 
-        for number, parameters in zip(numbers, self):
+        # split the numbers argument according to the self._index_length
+        start_indices = np.cumsum(self._index_length)
+        split_numbers = np.split(numbers, start_indices[:-1])
+
+        for number, parameters in zip(split_numbers, self):
             for (key, name) in parameters.items():
+                # print(number)
                 updated_parameters[key][name] = number
         return updated_parameters
 
