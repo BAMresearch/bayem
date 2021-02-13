@@ -4,6 +4,8 @@ import numpy as np
 
 from bayes.vb import *
 
+import scipy.optimize
+
 """
 ###############################################################################
 
@@ -20,7 +22,8 @@ class Sensor:
 
     def __repr__(self):
         return f"{self.name} {self.shape}"
-    
+
+
 class DummySensor(Sensor):
     def __init__(self):
         super().__init__("Dummy")
@@ -30,9 +33,10 @@ class NormalDistribution:
     def __init__(self, mean, sd):
         self.mean = mean
         self.sd = sd
-    
+
     def __str__(self):
         return f"N({self.mean}, {self.sd})"
+
 
 class ModelError:
     def __call__(self, parameter_list):
@@ -66,7 +70,8 @@ class LatentParameter(list):
         if self.N == 1:
             return all_numbers[self.start_idx]
         else:
-            return all_numbers[self.start_idx:self.start_idx+self.N]
+            return all_numbers[self.start_idx : self.start_idx + self.N]
+
 
 class LatentParameterList(OrderedDict):
     def __init__(self):
@@ -85,7 +90,7 @@ class LatentParameterList(OrderedDict):
             N = len(self._all_parameter_lists[key][parameter_name])
         except:
             N = 1
-        
+
         if latent_name not in self:
             self[latent_name] = LatentParameter()
 
@@ -96,7 +101,7 @@ class LatentParameterList(OrderedDict):
         for key, prm_list in self._all_parameter_lists.items():
             if prm_list.has(latent_name):
                 self.add(latent_name, latent_name, key)
-       
+
     def set_prior(self, latent_name, prior):
         assert self[latent_name].prior is None
         self[latent_name].prior = prior
@@ -121,6 +126,7 @@ class LatentParameterList(OrderedDict):
             s += f"{key:10}: {latent} \n"
         return s
 
+
 class NoiseGroup(list):
     def __init__(self):
         self.prior = None
@@ -130,6 +136,7 @@ class NoiseGroup(list):
         for (_, existing_sensor) in self:
             assert existing_sensor.shape == sensor.shape
         self.append((key, sensor))
+
 
 class NoiseGroups(OrderedDict):
     def add(self, noise_name, sensor, key=None):
@@ -142,6 +149,7 @@ class NoiseGroups(OrderedDict):
         assert noise_name in self
         assert self[noise_name].prior is None
         self[noise_name].prior = prior
+
 
 class InferenceProblem:
     def __init__(self):
@@ -165,6 +173,17 @@ class InferenceProblem:
             result[key] = me(prm_lists[key])
         return result
 
+    def eval_by_noise_groups(self, number_vector):
+        model_response = self(number_vector)
+        errors_by_noise = OrderedDict()
+        for noise_name, noise in self.noise.items():
+            errors = []
+            for (key, sensor) in noise:
+                errors.append(model_response[key][sensor])
+            errors_by_noise[noise_name] = np.concatenate(errors)
+        return errors_by_noise
+
+
 class VariationalProblem:
     def __init__(self, inference_problem):
         self.inference_problem = inference_problem
@@ -175,6 +194,7 @@ class VariationalProblem:
 
     def prior_MVN(self):
         from bayes.vb import MVN
+
         means = []
         precs = []
 
@@ -182,8 +202,8 @@ class VariationalProblem:
             assert type(latent.prior) == NormalDistribution
             for _ in range(latent.N):
                 means.append(latent.prior.mean)
-                precs.append(1./latent.prior.sd**2)
-        
+                precs.append(1.0 / latent.prior.sd ** 2)
+
         return MVN(means, np.diag(precs))
 
     def prior_noise(self):
@@ -202,31 +222,42 @@ class VariationalProblem:
 
     def _build_noise_pattern(self):
         # evaluate problem once to get the shapes
-        errors_by_noise = self.eval_by_noise_groups(self.parameter_prior.mean)
+        errors_by_noise = self.inference_problem.eval_by_noise_groups(
+            self.parameter_prior.mean
+        )
         self.noise_pattern = []
         i = 0
         for error in errors_by_noise.values():
             N = len(error)
-            self.noise_pattern.append(list(range(i, i+N)))
+            self.noise_pattern.append(list(range(i, i + N)))
             i += N
 
-    def eval_by_noise_groups(self, number_vector):
-        model_response = self.inference_problem(number_vector)
-        errors_by_noise = OrderedDict()
-        for noise_name, noise in self.inference_problem.noise.items():
-            errors = []
-            for (key, sensor) in noise:
-                errors.append(model_response[key][sensor])
-            errors_by_noise[noise_name] = np.concatenate(errors)
-        return errors_by_noise
-
     def __call__(self, number_vector):
-        return np.concatenate(list(self.eval_by_noise_groups(number_vector).values()))
+        errors_by_noise = self.inference_problem.eval_by_noise_groups(number_vector)
+        return np.concatenate(list(errors_by_noise.values()))
 
 
 class PyMC3Problem:
     def __init__(self, inference_problem):
         self.inference_problem = inference_problem
+
+    def __call__(self, number_and_noise_vector):
+        """just builds the likelihood f"""
+        N_noise = len(self.inference_problem.noise)
+        number_vector = number_and_noise_vector[:-N_noise]
+        noise_vector = number_and_noise_vector[-N_noise:]
+
+        errors_by_noise = self.inference_problem.eval_by_noise_groups(number_vector)
+
+        log_like = 0.0
+        for error, sigma in zip(errors_by_noise.values(), noise_vector):
+            log_like = log_like - 0.5 * (
+                len(error) * np.log(2.0 * np.pi * (sigma ** 2))
+                + np.sum(np.square(error / sigma ** 2))
+            )
+
+        return log_like
+
 
 """
 ###############################################################################
@@ -236,20 +267,22 @@ class PyMC3Problem:
 ###############################################################################
 """
 
+
 class MySensor(Sensor):
     def __init__(self, name, position):
-        super().__init__(name, shape=(1,1))
+        super().__init__(name, shape=(1, 1))
         self.position = position
 
+
 class MyForwardModel:
-    def __call__(self,parameter_list, sensors, time_steps):
+    def __call__(self, parameter_list, sensors, time_steps):
         """
         evaluates 
             fw(x, t) = A * x + B * t
         """
         A = parameter_list["A"]
         B = parameter_list["B"]
-      
+
         result = {}
         for sensor in sensors:
             result[sensor] = A * sensor.position + B * time_steps
@@ -275,6 +308,7 @@ class MyModelError(ModelError):
             error[sensor] = model_response[sensor] - self._sensor_data[sensor]
         return error
 
+
 """
 ###############################################################################
 
@@ -285,18 +319,18 @@ class MyModelError(ModelError):
 
 if __name__ == "__main__":
     # Define the sensor
-    s1, s2, s3 = MySensor("S1", 0.2), MySensor("S2", 0.5), MySensor("S3", 42.)
+    s1, s2, s3 = MySensor("S1", 0.2), MySensor("S2", 0.5), MySensor("S3", 42.0)
 
     fw = MyForwardModel()
     prm = fw.parameter_list()
-    
+
     # set the correct values
-    A_correct = 42.
-    B_correct = 6174.
+    A_correct = 42.0
+    B_correct = 6174.0
     prm["A"] = A_correct
     prm["B"] = B_correct
 
-    np.random.seed= 6174
+    np.random.seed = 6174
     noise_sd1 = 0.2
     noise_sd2 = 0.4
 
@@ -305,7 +339,9 @@ if __name__ == "__main__":
         model_response = fw(prm, [s1, s2, s3], time_steps)
         sensor_data = {}
         for sensor, perfect_data in model_response.items():
-            sensor_data[sensor] = perfect_data + np.random.normal(0., noise_sd, N_time_steps) 
+            sensor_data[sensor] = perfect_data + np.random.normal(
+                0.0, noise_sd, N_time_steps
+            )
         return time_steps, sensor_data
 
     data1 = generate_data(101, noise_sd1)
@@ -335,19 +371,29 @@ if __name__ == "__main__":
     problem.noise.add("exp2_noise", s1, key2)
     problem.noise.add("exp2_noise", s2, key2)
     problem.noise.add("exp2_noise", s3, key2)
-    problem.noise.set_prior("exp2_noise", Gamma.FromSD(3* noise_sd2))
+    problem.noise.set_prior("exp2_noise", Gamma.FromSD(3 * noise_sd2))
 
     vb_problem = VariationalProblem(problem)
     print(vb_problem.prior_MVN())
 
     print(problem.noise)
     print(vb_problem.prior_noise())
-    
+
     # print(vb_problem([A_correct, B_correct]))
 
-    info = variational_bayes(vb_problem, vb_problem.parameter_prior, vb_problem.noise_prior)
+    info = variational_bayes(
+        vb_problem, vb_problem.parameter_prior, vb_problem.noise_prior
+    )
     print(info)
 
-    print(1. / info.noise.mean[0]**0.5)
-    print(1. / info.noise.mean[1]**0.5)
+    print(1.0 / info.noise.mean[0] ** 0.5)
+    print(1.0 / info.noise.mean[1] ** 0.5)
 
+    pymc3_problem = PyMC3Problem(problem)
+    print(pymc3_problem([0, 1, 2, 3]))
+
+    def max_likelihood(numbers):
+        return -pymc3_problem(numbers)
+
+    result = scipy.optimize.minimize(max_likelihood, x0=[A_correct, B_correct, noise_sd1, noise_sd2], method="Nelder-Mead")
+    print(result)
