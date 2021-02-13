@@ -58,6 +58,7 @@ class Gamma:
 
     @classmethod
     def FromSD(cls, sds, shape=1.0):
+        sds = np.atleast_1d(sds)
         if isinstance(shape, float):
             shape = np.ones_like(sds) * shape
 
