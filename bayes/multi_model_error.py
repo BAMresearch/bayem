@@ -93,7 +93,7 @@ class MultiModelError:
             The dimension must be identical to the number of latent variables
             (shared variables are only a single latent variable)
         """
-        updated_parameters = self.latent.update(parameter_vector)
+        updated_parameters = self.latent.update(parameter_vector, return_copy=False)
         result = OrderedDict()
         for key in self.keys:
             prm = updated_parameters[key]
