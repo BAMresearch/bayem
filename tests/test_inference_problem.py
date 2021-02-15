@@ -64,7 +64,7 @@ class LatentParameter(list):
         else:
             idx_range = f"{self.start_idx}..{self.start_idx+N}"
 
-        return f"{idx_range:10} {self._affected_parameters} {self.prior}"
+        return f"{idx_range:10} {list.__str__(self)} {self.prior}"
 
     def extract(self, all_numbers):
         if self.N == 1:
@@ -127,34 +127,50 @@ class LatentParameterList(OrderedDict):
         return s
 
 
-class NoiseGroup(list):
-    def __init__(self):
-        self.prior = None
+class SensorGroup(set):
+    def __init__(self, noise_model):
+        self.noise_model = noise_model
 
-    def add(self, sensor, key):
-        assert (key, sensor) not in self
-        for (_, existing_sensor) in self:
+    def add_sensor(self, sensor, key):
+        if (sensor, key) in self:
+            print("Whow. You already added that. Next time, this is an error!")
+        for (existing_sensor, _) in self:
             assert existing_sensor.shape == sensor.shape
-        self.append((key, sensor))
+        self.add((sensor, key))
 
+class SensorGroups(OrderedDict):
+    """
+    Dict {name : set(model_error_key, sensor)} to group the outputs
+    of possibly multiple model errors. 
+    """
 
-class NoiseGroups(OrderedDict):
-    def add(self, noise_name, sensor, key=None):
-        if noise_name not in self:
-            self[noise_name] = NoiseGroup()
+    def define(self, name, noise_model):
+        assert name not in self
+        self[name] = SensorGroup(noise_model)
+        return name # better: NoiseKey(name)
 
-        self[noise_name].add(sensor, key)
+    def add(self, name, sensor, key=None):
+        assert name in self
+        self[name].add_sensor(sensor, key)
 
-    def set_prior(self, noise_name, prior):
-        assert noise_name in self
-        assert self[noise_name].prior is None
-        self[noise_name].prior = prior
+class NoiseModel:
+    """
+    Maybe even some "evaluate" here...
+    """
+    def define_parameter_list(self):
+        raise NotImplementedError()
+
+class UncorrelatedNoise(NoiseModel):
+    def define_parameter_list(self):
+        p = ParameterList()
+        p.define("sigma") 
+        return p
 
 
 class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameterList()
-        self.noise = NoiseGroups()
+        self.sensor_groups = SensorGroups()
         self.model_errors = {}
 
     def add_model_error(self, model_error, parameter_list, key=None):
@@ -363,15 +379,33 @@ if __name__ == "__main__":
 
     tmp = problem([A_correct, B_correct])
 
-    problem.noise.add("exp1_noise", s1, key1)
-    problem.noise.add("exp1_noise", s2, key1)
-    problem.noise.add("exp1_noise", s3, key1)
-    problem.noise.set_prior("exp1_noise", Gamma.FromSD(3 * noise_sd1))
+    noise_model1 = UncorrelatedNoise()
+    noise_model2 = UncorrelatedNoise()
+    noise_key1 = problem.sensor_groups.define("exp1_noise", noise_model1)
+    noise_key2 = problem.sensor_groups.define("exp2_noise", noise_model2)
 
-    problem.noise.add("exp2_noise", s1, key2)
-    problem.noise.add("exp2_noise", s2, key2)
-    problem.noise.add("exp2_noise", s3, key2)
-    problem.noise.set_prior("exp2_noise", Gamma.FromSD(3 * noise_sd2))
+    problem.sensor_groups.add("exp1_noise", s1, key1)
+    problem.sensor_groups.add("exp1_noise", s2, key1)
+    problem.sensor_groups.add("exp1_noise", s3, key1)
+
+    problem.sensor_groups.add("exp2_noise", s1, key2)
+    problem.sensor_groups.add("exp2_noise", s2, key2)
+    problem.sensor_groups.add("exp2_noise", s3, key2)
+
+    problem.latent.add_parameter_list(noise_model1.define_parameter_list(), noise_key1)
+    problem.latent.add_parameter_list(noise_model2.define_parameter_list(), noise_key2)
+
+    problem.latent.add("noise_sd1", "sigma", noise_key1)
+    problem.latent.set_prior("noise_sd1", Gamma.FromSD(3 * noise_sd1))
+    problem.latent.add("noise_sd2", "sigma", noise_key2)
+    problem.latent.set_prior("noise_sd2", Gamma.FromSD(3 * noise_sd2))
+
+    print(problem.latent)
+    exit()
+    
+
+    # problem.noise.set_prior("exp2_noise", Gamma.FromSD(3 * noise_sd2))
+    # problem.noise.set_prior("exp1_noise", Gamma.FromSD(3 * noise_sd1))
 
     vb_problem = VariationalProblem(problem)
     print(vb_problem.prior_MVN())
@@ -395,5 +429,9 @@ if __name__ == "__main__":
     def max_likelihood(numbers):
         return -pymc3_problem(numbers)
 
-    result = scipy.optimize.minimize(max_likelihood, x0=[A_correct, B_correct, noise_sd1, noise_sd2], method="Nelder-Mead")
+    result = scipy.optimize.minimize(
+        max_likelihood,
+        x0=[A_correct, B_correct, noise_sd1, noise_sd2],
+        method="Nelder-Mead",
+    )
     print(result)
