@@ -3,6 +3,7 @@ from collections import OrderedDict
 import numpy as np
 
 from bayes.vb import *
+import itertools
 
 import scipy.optimize
 
@@ -153,10 +154,15 @@ class SensorGroups(OrderedDict):
         assert name in self
         self[name].add_sensor(sensor, key)
 
+
 class NoiseModel:
     """
     Maybe even some "evaluate" here...
     """
+    def __init__(self, sensor, key=None):
+        self.sensor = sensor
+        self.key = key
+
     def define_parameter_list(self):
         raise NotImplementedError()
 
@@ -166,11 +172,13 @@ class UncorrelatedNoise(NoiseModel):
         p.define("sigma") 
         return p
 
+def is_noise_key(key):
+    return key.startswith("noise")
 
 class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameterList()
-        self.sensor_groups = SensorGroups()
+        self.noise_models = {}
         self.model_errors = {}
 
     def add_model_error(self, model_error, parameter_list, key=None):
@@ -181,6 +189,26 @@ class InferenceProblem:
         self.latent.add_parameter_list(parameter_list, key)
 
         return key
+
+    def add_noise_model(self, noise_model, parameter_list, noise_key=None):
+        noise_key = noise_key or "noise"+str(len(self.noise_models))
+        assert noise_key not in self.noise_models
+        assert is_noise_key(noise_key)
+
+        self.noise_models[noise_key] = noise_model
+        self.latent.add_parameter_list(parameter_list, noise_key)
+
+        return noise_key
+
+    def add_sensor_to_noise(self, noise_key, sensor, key=None):
+        assert key in self.model_errors
+        assert noise_key in self.noise_models
+
+        sensors = self.noise_models[noise_key].sensors
+        if (key, sensor) in sensors:
+            print(f"{key, sensor} already in group {noise_key}! Last warning!")
+        sensors.add((key, sensor))
+
 
     def __call__(self, number_vector):
         prm_lists = self.latent.update(number_vector)
@@ -379,33 +407,22 @@ if __name__ == "__main__":
 
     tmp = problem([A_correct, B_correct])
 
-    noise_model1 = UncorrelatedNoise()
-    noise_model2 = UncorrelatedNoise()
-    noise_key1 = problem.sensor_groups.define("exp1_noise", noise_model1)
-    noise_key2 = problem.sensor_groups.define("exp2_noise", noise_model2)
+    for key in [key1, key2]:
+        noise_prm_name = "sigma" + str(key)
+        for sensor in [s1, s2, s3]:
+            noise_model = UncorrelatedNoise(key, sensor)
+            noise_prm = noise_model.define_parameter_list()
+            noise_key = problem.add_noise_model(noise_model, noise_prm)
 
-    problem.sensor_groups.add("exp1_noise", s1, key1)
-    problem.sensor_groups.add("exp1_noise", s2, key1)
-    problem.sensor_groups.add("exp1_noise", s3, key1)
-
-    problem.sensor_groups.add("exp2_noise", s1, key2)
-    problem.sensor_groups.add("exp2_noise", s2, key2)
-    problem.sensor_groups.add("exp2_noise", s3, key2)
-
-    problem.latent.add_parameter_list(noise_model1.define_parameter_list(), noise_key1)
-    problem.latent.add_parameter_list(noise_model2.define_parameter_list(), noise_key2)
-
-    problem.latent.add("noise_sd1", "sigma", noise_key1)
-    problem.latent.set_prior("noise_sd1", Gamma.FromSD(3 * noise_sd1))
-    problem.latent.add("noise_sd2", "sigma", noise_key2)
-    problem.latent.set_prior("noise_sd2", Gamma.FromSD(3 * noise_sd2))
+            problem.latent.add(noise_prm_name, "sigma", noise_key)
+    
+    problem.latent.set_prior("sigma"+str(key1), Gamma.FromSD(3 * noise_sd2))
+    problem.latent.set_prior("sigma"+str(key2), Gamma.FromSD(3 * noise_sd1))
 
     print(problem.latent)
     exit()
     
 
-    # problem.noise.set_prior("exp2_noise", Gamma.FromSD(3 * noise_sd2))
-    # problem.noise.set_prior("exp1_noise", Gamma.FromSD(3 * noise_sd1))
 
     vb_problem = VariationalProblem(problem)
     print(vb_problem.prior_MVN())
