@@ -141,6 +141,4 @@ class Test_VB(unittest.TestCase):
         self.check_posterior(info)
 
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO)
     unittest.main()
