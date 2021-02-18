@@ -4,7 +4,7 @@ from bayes.parameters import *
 
 class TestParameters(unittest.TestCase):
     def setUp(self):
-        self.p = ModelParameters()
+        self.p = ModelErrorParameters()
         self.p.define("pA", 0.0)
         self.p.define("pB", 0.0)
 
@@ -14,7 +14,7 @@ class TestParameters(unittest.TestCase):
         self.assertEqual(self.p["pB"], 0.0)
 
     def test_concat(self):
-        p1 = ModelParameters()
+        p1 = ModelErrorParameters()
         p1.define("A", 17)
 
         p1 += self.p
@@ -43,58 +43,55 @@ class TestSingleModel(unittest.TestCase):
     def setUp(self):
         self.l = LatentParameters()
 
-        self.p = ModelParameters()
+        self.p = ModelErrorParameters()
         self.p.define("pA", 0.0)
         self.p.define("pB", 0.0)
 
         # We now need to tell the LatentParameters that some of our
-        # ModelParameters are potentially latent. We do not need to provide
-        # a key as we only have one ModelParameters.
-        self.l.define_model_parameters(self.p)
+        # ModelErrorParameters are potentially latent. We do not need to provide
+        # a key as we only have one ModelErrorParameters.
+        self.l.define_parameter_list(self.p)
 
     def test_joint_list(self):
-        self.l.add("pA")
-        updated = self.l.update([42], return_copy=False)
+        self.l.add("latentA","pA")
+        updated = self.l.update([42])
         self.assertEqual(self.p["pA"], 42.0)
         self.assertEqual(self.p["pB"], 0.0)
 
 
 class TestLatentParameters(unittest.TestCase):
     def setUp(self):
-        self.pA = ModelParameters()
+        self.pA = ModelErrorParameters()
         self.pA.define("only_in_A", 0)
         self.pA.define("shared", 2)
 
-        self.pB = ModelParameters()
+        self.pB = ModelErrorParameters()
         self.pB.define("only_in_B", 1)
         self.pB.define("shared", 2)
 
         self.l = LatentParameters()
-        # Parameters from both ModelParameters should be latent. Thus we
+        # Parameters from both ModelErrorParameters should be latent. Thus we
         # have to define some keys to uniquely identify them ...
         self.keyA = "A"
         self.keyB = "B"
         # ... and add them to the LatentParameters.
-        self.l.define_model_parameters(self.pA, self.keyA)
-        self.l.define_model_parameters(self.pB, self.keyB)
+        self.l.define_parameter_list(self.pA, self.keyA)
+        self.l.define_parameter_list(self.pB, self.keyB)
 
     def test_add(self):
         l, keyA, keyB = self.l, self.keyA, self.keyB
-        index = l.add("only_in_A", keyA)
-        self.assertEqual(index, 0)
-        self.assertRaises(Exception, self.l.add, "only_in_A", self.keyA)
+        l.add("latentA","only_in_A", keyA)
+        self.assertRaises(Exception, self.l.add,"latentA", "only_in_A", self.keyA)
 
-        index = l.add("shared", keyB)
-        self.assertEqual(index, 1)
+        l.add("latentShared", "shared", keyB)
 
         self.assertTrue(l.exists("shared", keyB))
-        self.assertRaises(Exception, l.add_shared, index, "shared", keyB)
-        l.add_shared(index, "shared", keyA)
+        l.add("latentShared", "shared", keyA)
 
         self.assertTrue(l.exists("shared", keyA))
 
-        self.assertListEqual(l.indices_of(keyA), [0, 1])
-        self.assertListEqual(l.indices_of(keyB), [1])
+        self.assertListEqual(l.global_range("latentA"), [0])
+        self.assertListEqual(l.global_range("latentShared"), [1])
 
         updated_prm = l.update([42, 17])
         self.assertEqual(updated_prm[keyA]["only_in_A"], 42)
@@ -107,31 +104,6 @@ class TestLatentParameters(unittest.TestCase):
         self.assertEqual(updated_prm[self.keyA]["shared"], 17)
         self.assertEqual(updated_prm[self.keyB]["shared"], 17)
 
-
-class TestUncorrelatedNormalPrior(unittest.TestCase):
-    def setUp(self):
-        self.p = ModelParameters()
-        self.p.define("pA", 0.0)
-        self.p.define("pB", 0.0)
-        self.l = LatentParameters()
-        self.l.define_model_parameters(self.p)
-
-    def test_existing_latent_parameters(self):
-        self.l.add("pA")
-        # not allowed to set latent, if you use these prior classes
-        self.assertRaises(Exception, UncorrelatedNormalPrior, self.l)
-
-    def test_MVN(self):
-        prior = UncorrelatedNormalPrior(self.l)
-        prior.add("pA", mean=0, sd=2)
-        prior.add("pB", mean=1, sd=4)
-
-        mvn = prior.to_MVN()
-        self.assertAlmostEqual(mvn.mean[0], 0.0)
-        self.assertAlmostEqual(mvn.std_diag[0], 2.0)
-
-        self.assertAlmostEqual(mvn.mean[1], 1.0)
-        self.assertAlmostEqual(mvn.std_diag[1], 4.0)
 
 
 if __name__ == "__main__":

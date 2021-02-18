@@ -1,4 +1,5 @@
 import copy
+from collections import OrderedDict
 
 """
 Purpose:
@@ -26,7 +27,7 @@ Idea:
 """
 
 
-class ModelParameters:
+class ModelErrorParameters:
     """
     This is essentially a dictionary that only allows setting new keys
     via self.define, not via self.__setitem__.
@@ -39,7 +40,7 @@ class ModelParameters:
     def names(self):
         return list(self._p.keys())
 
-    def define(self, name, value=0.0):
+    def define(self, name, value=None):
         self._p[name] = value
 
     def __getitem__(self, name):
@@ -62,7 +63,7 @@ class ModelParameters:
         return len(self._p)
 
     def __add__(self, other):
-        concat = ModelParameters()
+        concat = ModelErrorParameters()
         for name in self.names:
             concat.define(name, self[name])
         for name in other.names:
@@ -73,226 +74,108 @@ class ModelParameters:
         return str(self._p)
 
 
-class LatentParameters:
+class LatentParameter(list):
+    """
+    Stores a single latent parameter as a list of tuple(key, parameter_name)
+    to indicate to which (possibly multiple) individual parameters it is 
+    connected. 
+
+    Do deal with the case of vector-valued parameters, it keeps track of its 
+    length `N` and its start index `start_idx` in the global parameter vector.
+
+    Remark: The user should interact with this class only via the interfaces of
+            "LatentParameters".
+    """
+    def __init__(self):
+        self.N = None
+        self.start_idx = None
+
+    def add(self, key, name, N):
+        assert not (key, name) in self
+        if self.N is None:
+            self.N = N
+        else:
+            assert self.N == N
+
+        self.append((key, name))
+
+    def __str__(self):
+        if self.N == 1:
+            idx_range = str(self.start_idx)
+        else:
+            idx_range = f"{self.start_idx}..{self.start_idx+N}"
+
+        return f"{idx_range:10} {list.__str__(self)}"
+
+    def extract(self, all_numbers):
+        if self.N == 1:
+            return all_numbers[self.start_idx]
+        else:
+            return all_numbers[self.start_idx : self.start_idx + self.N]
+
+
+class LatentParameters(OrderedDict):
     """
     The purpose of this class is to map the named(!) parameters of multiple 
     `ModelParameters` to a vector just containing numbers and vice versa. 
 
-    The individual `ModelParameters` objects are identified by a `key`. Please
-    see the documentation of the individual methods for further information.
-    Note that they will all refer to the following example:
-
-
-    Documentation by example:
-
-    +---------------------+                   +-----------------------+
-    | model_parameters_AE |                   |  model_parameters_BE  |
-    | key = AE            |                   |      key = BE         |
-    |                     |  LatentParameters |                       |
-    |                     |                   |                       |
-    |       apple +------------> 0            |    + football         |
-    |                     |                   |    |                  |
-    |    soccer +--------------> 1 <---------------+            egg   |
-    |                     |                   |                       |
-    |            fries +  |      2 <--------------+ holiday           |
-    |                  |  |                   |                       |
-    |   vacation       +-------> 3 <---------------+ chips            |
-    |                     |                   |                       |
-    |           blue +---------> 4            |                       |
-    |                     |                   |                       |
-    +---------------------+                   +-----------------------+
-
-    Each entry of the illustrated LatentParameters is stored as a 
-    key:name dict in self._index_mapping. 
-    See self.__getitem__ or self.parameter for examples.
-
-    The reverse mapping is stored as a
-    name:key dict in self._parameter_mapping.
-
-    Remark:
-        The key always defaults to None. This means that not providing a key
-        means working on a single ModelParameters.
+    The individual `ModelErrorParameters` objects are identified by a `key`. 
     """
-
     def __init__(self):
-        self._all_parameters = {}
-        self._index_mapping = [] 
-        self._parameter_mapping = {}
+        self._all_parameter_lists = {}
+        self._total_length = None
 
-    def define_model_parameters(self, model_parameters, key=None):
-        """
-        Adds a `ModelParameters`.
+    def define_parameter_list(self, parameter_list, key=None):
+        assert key not in self._all_parameter_lists
+        self._all_parameter_lists[key] = parameter_list
 
-        .define_model_parameters(model_parameters_AE, AE)
-        .define_model_parameters(model_parameters_BE, BE)
-        """
-        assert key not in self._all_parameters
-        self._all_parameters[key] = model_parameters
+    def add(self, latent_name, parameter_name, key=None):
+        assert key in self._all_parameter_lists
+        assert self._all_parameter_lists[key].has(parameter_name)
 
-    def _add(self, name, key, index=None):
-        """
-        Internal method to add parameter `name` of `key` to the `index`th latent
-        parameter.
-        """
-        assert not self.exists(name, key)
-        assert name in self._all_parameters[key].names
+        try:
+            N = len(self._all_parameter_lists[key][parameter_name])
+        except:
+            N = 1
 
-        if index is None:
-            index = len(self._index_mapping)
-            self._index_mapping.append({})
+        if latent_name not in self:
+            self[latent_name] = LatentParameter()
 
-        self._index_mapping[index][key] = name
-        self._parameter_mapping[(name, key)] = index
-        return index
+        self[latent_name].add(key, parameter_name, N)
+        self._update_idx()
 
-    def exists(self, name, key):
-        """
-        .exists(soccer, AE) == True
-        .exists(soccer, BE) == False
-        """
-        return (name, key) in self._parameter_mapping
+    def exists(self, parameter_name, key=None):
+        for latent in self.values():
+            if (key, parameter_name) in latent:
+                return True
+        return False
 
-    def add(self, name, key=None):
-        """
-        Add parameter `name` of `key` as a _new_ latent variable. 
+    def global_range(self, parameter_name):
+        latent = self[parameter_name]
+        return list(range(latent.start_idx, latent.start_idx+latent.N))
 
-        .add(apple, AE) == 0
-        .add(soccer, AE) == 1
-        .add(holiday, BE) == 2
-        .add(fries, AE) == 3
-        .add(blue, AE) == 4
-        """
-        return self._add(name, key)
+    def add_by_name(self, latent_name):
+        for key, prm_list in self._all_parameter_lists.items():
+            if prm_list.has(latent_name):
+                self.add(latent_name, latent_name, key)
 
-    def add_shared(self, index, name, key=None):
-        """
-        Add parameter `name` of `key` to an _existing_ `index`th latent variable.
+    def _update_idx(self):
+        self._total_length = 0
+        for key, latent in self.items():
+            latent.start_idx = self._total_length
+            self._total_length += latent.N or 0
 
-        .add_shared(1, football, BE) == 1
-        .add_shared(3, chips, BE) == 3
-        """
-        return self._add(name, key, index)
-
-    def add_by_name(self, name):
-        """
-        Sets all the parameters `name` to the same latent variable.
-        """
-        entry = None
-        for key, model_parameters in self._all_parameters.items():
-            if model_parameters.has(name):
-                if entry is None:
-                    entry = self.add(name, key)
-                else:
-                    self.add_shared(entry, name, key)
-        return entry
-
-    def parameter(self, index):
-        """
-        Returns a `key`:`name` dictionary of the `index`th latent variable.
-
-        .parameter(0) == {AE:apple}
-        .parameter(1) == {AE:soccer, BE:football}
-        """
-        return self._index_mapping[index]
-
-    def indices_of(self, key):
-        """
-        Returns the indices of all latent parameters of `key`.
-
-        .indices_of(AE) == [0, 1, 3, 4]
-        .indices_of(BE) == [1, 2, 3]
-        """
-        return [i for i, mapping in enumerate(self._index_mapping) if key in mapping]
-
-    def index_of(self, name, key=None):
-        """
-        Returns the index of parameter `name` of `key`.
-
-        .index_of(apple, AE) == 0
-        .index_of(chips, BE) == 3
-        """
-        return self._parameter_mapping[(name, key)]
-
-    def __len__(self):
-        """
-        Returns the number of latent variables.
-
-        .__len__() == 5
-        """
-        return len(self._index_mapping)
-
-    def __getitem__(self, index):
-        """
-        Pythonic wrapper for self.parameter.
-        """
-        return self.parameter(index)
-
-    def update(self, numbers, return_copy=True):
-        """
-        Returns a dictionary key:ModelParameters where the latent variables
-        are set to `numbers`.
-
-        .update(self, [0, 10, 20, 30, 40]) ==
-         {AE: [salmon[unchanged], apple[0], soccer[10], fries[30], 
-               vacation[unchanged], blue[40],
-          BE: [football[10], egg[unchanged], holiday[20], chips[30]]}
-        """
-        assert len(numbers) == len(self)
-
-        if return_copy:
-            updated_parameters = copy.deepcopy(self._all_parameters)
-        else:
-            updated_parameters = self._all_parameters
-
-        for number, parameters in zip(numbers, self):
-            for (key, name) in parameters.items():
-                updated_parameters[key][name] = number
-        return updated_parameters
+    def update(self, number_vector):
+        assert len(number_vector) == self._total_length
+        for l in self.values():
+            latent_numbers = l.extract(number_vector)
+            for (key, prm_name) in l:
+                self._all_parameter_lists[key][prm_name] = latent_numbers
+        return self._all_parameter_lists
 
     def __str__(self):
-        return "\n".join([f"{i:} {prm}" for i, prm in enumerate(self)])
+        s = ""
+        for key, latent in self.items():
+            s += f"{key:10}: {latent} \n"
+        return s
 
-
-class UncorrelatedNormalPrior:
-    def __init__(self, latent):
-        self.latent = latent
-        if len(self.latent) != 0:
-            raise RuntimeError(
-                "This class takes now takes care of setting the"
-                "latent parameters. You may not define them beforehand!"
-            )
-        self.distributions = []
-
-    def add(self, name, mean, sd, key=None):
-        entry = self.latent.add(name, key)
-        self.distributions.append((mean, sd))
-        return entry
-
-    def add_shared(self, key_name_pairs, mean, sd):
-        index = None 
-        for (key, name) in key_name_pairs:
-            if index is None:
-                entry = self.add(name, mean, sd, key)
-            else:
-                self.latent.add_shared(index, name, key)
-        return index
-
-    def to_MVN(self):
-        from bayes.vb import MVN
-        import numpy as np
-
-        N = len(self.distributions)
-
-        mean = [d[0] for d in self.distributions]
-        prec = [1 / d[1] ** 2 for d in self.distributions]
-
-        return MVN(mean, np.diag(prec))
-
-    def __str__(self):
-        return str(self.prm)
-
-    def __len__(self):
-        return len(self.distributions)
-
-    def distribution_of(self, name, key):
-        return self.distributions[self.latent.index_of(name, key)]
