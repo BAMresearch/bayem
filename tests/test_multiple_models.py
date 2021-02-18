@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import *
-from bayes.multi_model_error import *
+from bayes.inference_problem import *
 
 np.random.seed(6174)
 
@@ -45,10 +45,7 @@ class ModelError:
         self.fw, self.data = fw, data
 
     def __call__(self, named_parameters):
-        return self.fw(named_parameters) - self.data
-
-    def evaluate(self, named_parameters):
-        return OrderedDict({'sensor_1': self.fw(named_parameters) - self.data})
+        return {"sensor": self.fw(named_parameters) - self.data}
 
 class Test_VB(unittest.TestCase):
 
@@ -79,11 +76,11 @@ class Test_VB(unittest.TestCase):
       
     def test_joint_evaluate(self):
         # Define two separate parameter lists, one for each model.
-        p1 = ModelParameters()
+        p1 = ModelErrorParameters()
         p1.define("A")
         p1.define("B")
 
-        p2 = ModelParameters()
+        p2 = ModelErrorParameters()
         p2.define("A")
         p2.define("B")
 
@@ -93,30 +90,28 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        me = MultiModelError()
-        key1 = me.add(me1, p1)
-        me.latent.add("B", key1)
-        key2 = me.add(me2, p2)
-        me.latent.add("B", key2)
-        me.latent.add_by_name("A")
+        problem = VariationalBayesProblem()
+        key1 = problem.add_model_error(me1, p1)
+        key2 = problem.add_model_error(me2, p2)
+
+        problem.latent.add("B1", "B", key1)
+        problem.latent.add("B2", "B", key2)
+        problem.latent.add_by_name("A")
 
         parameter_vec = np.array([1,2,4])
-        error_full_vector = me(parameter_vec)
-        all_model_errors = me.evaluate(parameter_vec)
-        error_list = []
-        for key, single_me in all_model_errors.items():
-            error_list.append(single_me['sensor_1'])
+        error_full_vector = problem(parameter_vec)
+        error_multi = multi_me([4, 1, 4, 2])
 
-        np.testing.assert_almost_equal(np.concatenate(error_list), error_full_vector)
+        np.testing.assert_almost_equal(error_full_vector[None], error_multi)
 
     
     def test_joint(self):
         # Define two separate parameter lists, one for each model.
-        p1 = ModelParameters()
+        p1 = ModelErrorParameters()
         p1.define("A")
         p1.define("B")
 
-        p2 = ModelParameters()
+        p2 = ModelErrorParameters()
         p2.define("A")
         p2.define("B")
 
@@ -126,18 +121,22 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        me = MultiModelError()
-        key1 = me.add(me1, p1)
-        key2 = me.add(me2, p2)
+        problem = VariationalBayesProblem()
+        key1 = problem.add_model_error(me1, p1)
+        key2 = problem.add_model_error(me2, p2)
         print(key1, key2)
+    
+        problem.latent.add("A1", "A", key1)
+        problem.latent.add("B1", "B", key1)
+        problem.latent.add("A2", "A", key2)
+        problem.latent.add("B2", "B", key2)
 
-        prior = me.uncorrelated_normal_prior()
-        prior.add("A", A1+0.5, 2, key1)
-        prior.add("B", B1+0.5, 2, key1)
-        prior.add("A", A2+0.5, 2, key2)
-        prior.add("B", B2+0.5, 2, key2)
+        problem.set_normal_prior("A1", A1+0.5, 2)
+        problem.set_normal_prior("B1", B1+0.5, 2)
+        problem.set_normal_prior("A2", A2+0.5, 2)
+        problem.set_normal_prior("B2", B2+0.5, 2)
 
-        info = variational_bayes(me, prior.to_MVN())
+        info = problem.run()
         print(info)
         self.check_posterior(info)
 
