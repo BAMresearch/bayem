@@ -1,4 +1,3 @@
-import copy
 from collections import OrderedDict
 
 """
@@ -86,6 +85,7 @@ class LatentParameter(list):
     Remark: The user should interact with this class only via the interfaces of
             "LatentParameters".
     """
+
     def __init__(self):
         self.N = None
         self.start_idx = None
@@ -103,7 +103,7 @@ class LatentParameter(list):
         if self.N == 1:
             idx_range = str(self.start_idx)
         else:
-            idx_range = f"{self.start_idx}..{self.start_idx+N}"
+            idx_range = f"{self.start_idx}..{self.start_idx+self.N}"
 
         return f"{idx_range:10} {list.__str__(self)}"
 
@@ -121,6 +121,7 @@ class LatentParameters(OrderedDict):
 
     The individual `ModelErrorParameters` objects are identified by a `key`. 
     """
+
     def __init__(self):
         self._all_parameter_lists = {}
         self._total_length = None
@@ -152,7 +153,7 @@ class LatentParameters(OrderedDict):
 
     def global_range(self, parameter_name):
         latent = self[parameter_name]
-        return list(range(latent.start_idx, latent.start_idx+latent.N))
+        return list(range(latent.start_idx, latent.start_idx + latent.N))
 
     def add_by_name(self, latent_name):
         for key, prm_list in self._all_parameter_lists.items():
@@ -178,4 +179,3 @@ class LatentParameters(OrderedDict):
         for key, latent in self.items():
             s += f"{key:10}: {latent} \n"
         return s
-

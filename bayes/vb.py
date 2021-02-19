@@ -2,8 +2,6 @@ import numpy as np
 import scipy.stats
 import scipy.special as special
 
-from numpy.linalg import multi_dot as multi_dot
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -141,7 +139,7 @@ def check_pattern(pattern, N=None):
     else:
         if N != max(flat_pattern) + 1:
             error = f"The highest noise pattern index {max(flat_pattern)} "
-            error += f"does not match the length of the model error (N)!"
+            error += f"does not match the length of the model error {N}!"
             raise ValueError(error)
 
     for i in range(N):
@@ -292,7 +290,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
         gamma distrubuted noise prior
         If noise0 is None, a noninformative gamma prior is chosen 
         automatically according to the noise pattern.
-    
+
     tolerance:
         free energy change that causes the algorithm to stop
 
@@ -425,11 +423,13 @@ class VB:
                 )
                 s[i] = 1 / s_inv
 
-            if 'index_ARD' in kwargs:
-                index_ARD = kwargs['index_ARD']
+            if "index_ARD" in kwargs:
+                index_ARD = kwargs["index_ARD"]
                 n_ARD_param = len(index_ARD)
-                L0[index_ARD, index_ARD] = 1 / (m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD])
-                r = 2 / (m[index_ARD]**2 + np.diag(L_inv)[index_ARD])
+                L0[index_ARD, index_ARD] = 1 / (
+                    m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
+                )
+                r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
 
             logger.debug(f"current mean: {m}")
@@ -450,9 +450,13 @@ class VB:
                 f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
-                if 'index_ARD' in kwargs:
+                if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
-                        f_new += (d[j]-2)*(np.log(s[i]) - special.digamma(d[j])) - d[j]*(1+np.log(r[j])) - special.gammaln(d[j])
+                        f_new += (
+                            (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
+                            - d[j] * (1 + np.log(r[j]))
+                            - special.gammaln(d[j])
+                        )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
             if self.stop_criteria([s, c, m, L], f_new, i_iter):
@@ -485,17 +489,17 @@ class VB:
 
         # stop?
         if self.n_trials >= self.n_trials_max:
-            self.result.message = f"Stopping because free energy did not "
-            self.result.message += "increase within {self.n_trials_max} iterations."
+            self.result.message = "Stopping because free energy did not "
+            self.result.message += f"increase within {self.n_trials_max} iterations."
             return True
 
         if i_iter >= self.iter_max:
-            self.result.message = f"Stopping because the maximum number of "
+            self.result.message = "Stopping because the maximum number of "
             self.result.message = "iterations is reached."
             return True
 
         if abs(f_new - self.f_old) <= self.tolerance:
-            self.result.message = f"Tolerance reached!"
+            self.result.message = "Tolerance reached!"
             self.result.success = True
             return True
 

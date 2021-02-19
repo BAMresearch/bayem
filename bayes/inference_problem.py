@@ -1,10 +1,13 @@
 import numpy as np
-from .parameters import *
-from .vb import *
+from .parameters import LatentParameters
+from collections import OrderedDict
+from .vb import variational_bayes, MVN, Gamma
+
 
 class ModelError:
     def __call__(self, parameter_list):
         raise NotImplementedError("Override this!")
+
 
 class InferenceProblem:
     def __init__(self):
@@ -27,12 +30,13 @@ class InferenceProblem:
             result[key] = me(prm_lists[key])
         return result
 
+
 class NoiseGroup(set):
     def __init__(self, gamma):
         self.gamma = gamma
-        
-def vb_wrap(me, param0, noise0):
 
+
+def vb_wrap(me, param0, noise0):
     def f(number_vector):
         errors_by_noise = me(number_vector)
         return np.concatenate(list(errors_by_noise.values()))
@@ -48,6 +52,7 @@ def vb_wrap(me, param0, noise0):
 
     return variational_bayes(f, param0, noise0)
 
+
 class VariationalBayesProblem(InferenceProblem):
     def __init__(self):
         super().__init__()
@@ -56,8 +61,8 @@ class VariationalBayesProblem(InferenceProblem):
     def set_normal_prior(self, latent_name, mean, sd):
         assert latent_name in self.latent
         self.latent[latent_name].vb_prior = (mean, sd)
-    
-    def define_noise_group(self, name, sd_mean, sd_scale=1.):
+
+    def define_noise_group(self, name, sd_mean, sd_scale=1.0):
         assert name not in self.noise_groups
         self.noise_groups[name] = NoiseGroup(Gamma.FromSD(sd_mean, sd_scale))
 
@@ -92,10 +97,8 @@ class VariationalBayesProblem(InferenceProblem):
             errors_by_noise[None] = np.concatenate(errors)
 
         return errors_by_noise
-        
 
     def prior_MVN(self):
-        from bayes.vb import MVN
 
         means = []
         precs = []
@@ -109,8 +112,6 @@ class VariationalBayesProblem(InferenceProblem):
         return MVN(means, np.diag(precs))
 
     def prior_noise(self):
-        from bayes.vb import Gamma
-
         if not self.noise_groups:
             return None
 
