@@ -1,8 +1,13 @@
 from bayes.parameters import *
 from bayes.inference_problem import *
-import itertools
 
-import scipy.optimize
+"""
+Not really a test yet.
+
+At the bottom it demonstrates how to infer the VariationalBayesProblem
+with pymc3.
+
+"""
 
 class Sensor:
     def __init__(self, name, shape=(1, 1)):
@@ -104,51 +109,41 @@ if __name__ == "__main__":
 
     problem.set_normal_prior("A", 40., 5.)
     problem.set_normal_prior("B", 6000., 300.)
-    
-    problem.define_noise_group("prec_exp1", 3*noise_sd1)
-    problem.define_noise_group("prec_exp2", 3*noise_sd2)
-    
-    problem.add_to_noise_group("prec_exp1", s1, key1)
-    problem.add_to_noise_group("prec_exp1", s2, key1)
-    problem.add_to_noise_group("prec_exp1", s3, key1)
+  
+    noise1 = NoiseTerm()
+    noise1.add(s1, key1)
+    noise1.add(s2, key1)
+    noise1.add(s3, key1)
 
-    problem.add_to_noise_group("prec_exp2", s1, key2)
-    problem.add_to_noise_group("prec_exp2", s2, key2)
-    problem.add_to_noise_group("prec_exp2", s3, key2)
+    noise2 = NoiseTerm()
+    noise2.add(s1, key2)
+    noise2.add(s2, key2)
+    noise2.add(s3, key2)
 
-    print(problem.latent)
+    noise_key1 = problem.add_noise_model(noise1)
+    noise_key2 = problem.add_noise_model(noise2)
+
+    problem.set_noise_prior(noise_key1, 3*noise_sd1)
+    problem.set_noise_prior(noise_key2, 3*noise_sd2)
 
     info = problem.run()
+    print(info)
 
-    # We now transform the vb problem into a sampling problem. 
-    # 1) Define an additional parameter list for the noise hyperparameters
-    #    and add it
+    """
+    We now transform the vb problem into a sampling problem. 
 
-    hyper_prm, hyper_key = ModelErrorParameters(), "hyper"
-    problem.latent.define_parameter_list(hyper_prm, hyper_key)
-    for name in problem.noise_groups:
-        hyper_prm.define(name)
-        problem.latent.add(name, name, hyper_key)
 
-    print(problem.latent)
+    1)  Set the parameters of the noise models latent. For convenience (since
+        there is only one parameter per noise model), we define the global 
+        name of the latent parameter to be the noise_key.
+    """
+    for noise_key in problem.noise_prior:
+        problem.latent.add(noise_key, "precision", noise_key)
 
-    # 2) Define a log likelihood function based on the noise groups
-    def log_like_f(number_vector):
-        me_by_noise = problem(number_vector)
-
-        log_like = 0.0
-        for noise_name, error in me_by_noise.items():
-            precision = hyper_prm[noise_name]
-            log_like = log_like - 0.5 * (
-                len(error) * np.log(2.0 * np.pi / precision)
-                + np.sum(np.square(error * precision))
-            )
-        return log_like
-
-    # 3) Define prior distributions in a tool of your choice!
-    import pymc3 as pm
+    """
+    2)  Wrap problem.loglike for a tool of your choice
+    """
     import theano.tensor as tt
-    
     class LogLike(tt.Op):
         itypes = [tt.dvector]  # expects a vector of parameter values when called
         otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
@@ -160,42 +155,49 @@ if __name__ == "__main__":
             result = self.likelihood(theta)
             outputs[0][0] = np.array(result)  # output the log-likelihood
 
-    pymc3_log_like = LogLike(log_like_f)
+    pymc3_log_like = LogLike(problem.loglike)
+    
+    """
+    3)  Define prior distributions in a tool of your choice!
+    """
+    import pymc3 as pm
+    
     pymc3_prior = [None] * len(problem.latent)
 
-    with pm.Model() as model:
-        for name, latent in problem.latent.items():
-            idx = latent.start_idx
-            assert latent.N == 1 # vector parameters not yet supported!
-            try:
-                mean, sd = latent.vb_prior
-                # It is a parameter prior normal prior
-                pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
-            except AttributeError:
-                # it is a noise prior
-                gamma = problem.noise_groups[name].gamma
-                s, c = gamma.s[0], gamma.c[0]
-                alpha, beta = s, 1./c
-                print(alpha, beta, alpha/beta)
-                pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
-                print(gamma)
+    model = pm.Model()
+    with model:
+        for name, (mean, sd) in problem.prm_prior.items():
+            idx = problem.latent[name].start_idx
+            assert problem.latent[name].N == 1 # vector parameters not yet supported!
+            pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
 
+        for name, gamma in problem.noise_prior.items():
+            idx = problem.latent[name].start_idx
+            s, c = gamma.s[0], gamma.c[0]
+            alpha, beta = s, 1./c
+            pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
+
+
+    """
+    4)  Go!
+    """
+    with model:
         theta = tt.as_tensor_variable(pymc3_prior)
         pm.Potential("likelihood", pymc3_log_like(theta))
 
-        # trace = pm.sample()
         trace = pm.sample(
-                draws=500,
+                draws=1000,
                 step=pm.Metropolis(),
                 chains=4,
                 tune=100, 
                 discard_tuned_samples=True,
             )
+
     summary = pm.summary(trace)
     print(summary)
 
     print(1./info.noise.mean[0]**0.5, 1./info.noise.mean[1]**0.5)
    
     means = summary["mean"]
-    print(1./means["prec_exp1"]**0.5, 1./means["prec_exp2"]**0.5)
+    print(1./means[noise_key1]**0.5, 1./means[noise_key2]**0.5)
 
