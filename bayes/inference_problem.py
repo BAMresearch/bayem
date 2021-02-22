@@ -1,7 +1,7 @@
 import numpy as np
 from .parameters import LatentParameters, ModelErrorParameters
 from collections import OrderedDict
-from .vb import variational_bayes, MVN, Gamma, noninformative_gamma_prior
+from .vb import variational_bayes, MVN, Gamma
 
 
 class ModelError:
@@ -107,24 +107,6 @@ class InferenceProblem:
         return log_like
 
 
-
-
-def vb_wrap(me, param0, noise0):
-    def f(number_vector):
-        errors_by_noise = me(number_vector)
-        return np.concatenate(list(errors_by_noise.values()))
-
-    errors_by_noise = me(param0.mean)
-    f.noise_pattern = []
-    i = 0
-    for error in errors_by_noise.values():
-        N = len(error)
-        f.noise_pattern.append(list(range(i, i + N)))
-        i += N
-
-    return variational_bayes(f, param0, noise0)
-
-
 class VariationalBayesProblem(InferenceProblem):
     def __init__(self):
         super().__init__()
@@ -143,22 +125,22 @@ class VariationalBayesProblem(InferenceProblem):
         if not self.noise_models:
             default = SingleNoise()
             noise_key = self.add_noise_model(default, default.define_parameters())
-            self.noise_prior[noise_key] = noninformative_gamma_prior(1)
+            self.noise_prior[noise_key] = Gamma.Noninformative()
 
     def run(self):
         self._use_default_noise()
         MVN = self.prior_MVN()
         noise = self.prior_noise()
-        info = vb_wrap(self, MVN, noise)
+        info = variational_bayes(self, MVN, noise)
         return info
 
     def __call__(self, number_vector):
         self._use_default_noise()
         me = super().__call__(number_vector)
 
-        errors_by_noise = OrderedDict()
-        for noise_name, noise in self.noise_models.items():
-            errors_by_noise[noise_name] = noise.vector_contribution(me)
+        errors_by_noise = []
+        for noise in self.noise_models.values():
+            errors_by_noise.append(noise.vector_contribution(me))
 
         return errors_by_noise
 
@@ -180,11 +162,4 @@ class VariationalBayesProblem(InferenceProblem):
         return MVN(means, np.diag(precs))
 
     def prior_noise(self):
-        scales = []
-        shapes = []
-        for gamma in self.noise_prior.values():
-            assert len(gamma.c) == 1
-            scales.append(gamma.c[0])
-            shapes.append(gamma.s[0])
-
-        return Gamma(c=scales, s=shapes)
+        return list(self.noise_prior.values())

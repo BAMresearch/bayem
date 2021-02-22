@@ -59,7 +59,7 @@ class ModelError:
 
 class ModelErrorWithJacobian(ModelError): 
     def jacobian(self, parameters):
-        jac = -self._forward_model.jacobian(parameters)
+        jac = self._forward_model.jacobian(parameters)
         repetitions = self._data.shape[0] // jac.shape[0]
         return stack_data(jac, repetitions)
 
@@ -96,7 +96,7 @@ class Test_VB(unittest.TestCase):
             self.assertLess(posterior_std, 0.3)
             self.assertAlmostEqual(posterior_mean, param_true[i], delta=2 * posterior_std)
             
-        post_noise_precision = noise_post.mean[0]
+        post_noise_precision = noise_post[0].mean
         post_noise_std = 1. / post_noise_precision**0.5
         self.assertAlmostEqual(post_noise_std, noise_std, delta=noise_std/100)
         

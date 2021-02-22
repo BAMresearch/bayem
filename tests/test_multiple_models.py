@@ -64,7 +64,7 @@ class Test_VB(unittest.TestCase):
             self.assertLess(posterior_std, 0.3)
             self.assertAlmostEqual(posterior_mean, param_true, delta=2 * posterior_std)
 
-        post_noise_precision = noise_post.mean[0]
+        post_noise_precision = noise_post[0].mean
         post_noise_std = 1.0 / post_noise_precision ** 0.5
         self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 10)
 
@@ -104,11 +104,10 @@ class Test_VB(unittest.TestCase):
         problem.latent.add_by_name("A")
 
         parameter_vec = np.array([1, 2, 4])
-        error_dict = problem(parameter_vec)
-        error_full_vector = list(error_dict.values())[0]
+        error_list = problem(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
-        np.testing.assert_almost_equal(error_full_vector, error_multi)
+        np.testing.assert_almost_equal(error_list[0], error_multi)
 
     def test_joint(self):
         # Define two separate parameter lists, one for each model.
