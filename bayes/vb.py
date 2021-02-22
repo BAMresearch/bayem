@@ -161,8 +161,9 @@ class Jacobian:
 
 class VerifiedModelError:
     """
-    Forwards the model_error and tries to add additional information that may
-    not be provided by the user, e.g. a noise_pattern or a numeric jacobian.
+    Brings the user-provided forward model in a algorithm-compatible form.
+    * transforms a simple (numpy) vector output into a list of length 1
+    * adds a CDF jacobian, if not provided
     """
 
     def __init__(self, model_error):
@@ -212,30 +213,24 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
     exception that capital lambda L in the paper is here referred to as L.
 
     model_error that contains
-        k(parameter_means):
-            difference of the forward model to the data
+        __call__(parameter_means):
+            * difference of the forward model to the data
+            * list of numpy vectors where each list corresponds to one noise group
+            * alternatively: just a numpy vector for the case of exactly one
+                             noise group
 
         jacobian(parameter_means) [optional]:
-            total jacobian of the forward model w.r.t. the parameters
-
-        noise_pattern [optional]:
-            mapping of the sensor index to a sensor type
-            E.g.: noise_pattern [[0,3], [1,2,4]] means that there are two 
-            noise terms. The first noise term affects sensors 0 and 3, 
-            the second one sensors 1,2 and 4.
-            If you provide a noise pattern, each row of k must be present 
-            in the pattern.
-
-            If noise_pattern is not provided, a single noise for all the 
-            sensors is assumed.
-
+            * total jacobian of the forward model w.r.t. the parameters
+            * list of numpy matrices where each list corresponds to one noise group
+            * alternatively: just a numpy matrix for the case of exactly one
+                             noise group
     param0:
         multivariate normal distributed parameter prior
 
     noise0:
-        gamma distrubuted noise prior
+        list of gamma distributions for the noise prior
         If noise0 is None, a noninformative gamma prior is chosen 
-        automatically according to the noise pattern.
+        automatically according to the number of noise groups.
 
     tolerance:
         free energy change that causes the algorithm to stop

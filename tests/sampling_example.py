@@ -1,3 +1,5 @@
+import unittest
+
 from bayes.parameters import *
 from bayes.inference_problem import *
 
