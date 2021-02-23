@@ -50,6 +50,7 @@ class MyModelError(ModelError):
     def __init__(self, fw, data):
         self._fw = fw
         self._ts, self._sensor_data = data
+        self.parameter_list = fw.parameter_list()
 
     def __call__(self, prm):
         sensors = list(self._sensor_data.keys())
@@ -102,12 +103,13 @@ if __name__ == "__main__":
     me2 = MyModelError(fw, data2)
 
     problem = VariationalBayesProblem()
-    key1 = problem.add_model_error(me1, fw.parameter_list())
-    key2 = problem.add_model_error(me2, fw.parameter_list())
+    key1 = problem.add_model_error(me1)
+    key2 = problem.add_model_error(me2)
 
-    problem.latent.add("A", "A", key1)
-    problem.latent.add("A", "A", key2)
-    problem.latent.add_by_name("B")
+    problem.latent["A"].add(me1.parameter_list, "A")
+    problem.latent["A"].add(me2.parameter_list, "A")
+    # or simply
+    problem.define_shared_latent_parameter_by_name("B")
 
     problem.set_normal_prior("A", 40., 5.)
     problem.set_normal_prior("B", 6000., 300.)
@@ -140,7 +142,8 @@ if __name__ == "__main__":
         name of the latent parameter to be the noise_key.
     """
     for noise_key in problem.noise_prior:
-        problem.latent.add(noise_key, "precision", noise_key)
+        noise_parameters = problem.noise_models[noise_key].parameter_list
+        problem.latent[noise_key].add(noise_parameters, "precision")
 
     """
     2)  Wrap problem.loglike for a tool of your choice
@@ -175,7 +178,7 @@ if __name__ == "__main__":
 
         for name, gamma in problem.noise_prior.items():
             idx = problem.latent[name].start_idx
-            s, c = gamma.s[0], gamma.c[0]
+            s, c = gamma.s, gamma.c
             alpha, beta = s, 1./c
             pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
 
@@ -198,7 +201,7 @@ if __name__ == "__main__":
     summary = pm.summary(trace)
     print(summary)
 
-    print(1./info.noise.mean[0]**0.5, 1./info.noise.mean[1]**0.5)
+    print(1./info.noise[0].mean**0.5, 1./info.noise[1].mean**0.5)
    
     means = summary["mean"]
     print(1./means[noise_key1]**0.5, 1./means[noise_key2]**0.5)
