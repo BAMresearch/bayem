@@ -1,15 +1,15 @@
 import unittest
-from bayes.parameters import ModelErrorParameters
+from bayes.parameters import ParameterList
 from bayes.latent import LatentParameters
 
 
 class TestLatentParameters(unittest.TestCase):
     def setUp(self):
-        self.pA = ModelErrorParameters()
+        self.pA = ParameterList()
         self.pA.define("A", 0)
         self.pA.define("shared", 2)
 
-        self.pB = ModelErrorParameters()
+        self.pB = ParameterList()
         self.pB.define("B", 1)
         self.pB.define("shared", 2)
 
@@ -21,7 +21,7 @@ class TestLatentParameters(unittest.TestCase):
         latent = LatentParameters()
         latent["latentA"].add(self.pA, "A")
 
-        another_pA = ModelErrorParameters()
+        another_pA = ParameterList()
         another_pA.define("A", 0)
         another_pA.define("shared", 2)
         latent["latentA"].add(another_pA, "A")

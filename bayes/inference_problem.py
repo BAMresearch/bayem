@@ -1,5 +1,5 @@
 import numpy as np
-from .parameters import ModelErrorParameters
+from .parameters import ParameterList
 from .latent import LatentParameters
 from collections import OrderedDict
 from .vb import variational_bayes, MVN, Gamma
@@ -8,13 +8,29 @@ from .vb import variational_bayes, MVN, Gamma
 class ModelError:
     def __call__(self, parameter_list):
         raise NotImplementedError("Override this!")
-   
 
-class SingleSensorNoise:
+
+class NoiseModelInterface:
     def __init__(self):
-        self.parameter_list = ModelErrorParameters()
-        self.parameter_list.define("sigma")
+        self.parameter_list = ParameterList()
 
+    def vector_contribution(self, raw_me):
+        raise NotImplementedError()
+
+    def loglike_contribution(self, raw_me, prm):
+        raise NotImplementedError()
+
+    def _loglike_term(self, error, sigma):
+        return -0.5 * (
+            len(error) * np.log(2.0 * np.pi * sigma ** 2)
+            + np.sum(np.square(error / sigma ** 2))
+        )
+
+
+class SingleSensorNoise(NoiseModelInterface):
+    """
+    Noise model with single term for _all_ contributions of the model error.
+    """
     def vector_contribution(self, raw_me):
         vector_terms = []
         for exp_me in raw_me.values():
@@ -22,26 +38,31 @@ class SingleSensorNoise:
                 vector_terms.append(sensor_me)
         return np.concatenate(vector_terms)
 
-class SingleNoise:
-    def __init__(self):
-        self.parameter_list = ModelErrorParameters()
-        self.parameter_list.define("sigma")
 
+
+class SingleNoise(NoiseModelInterface):
+    """
+    Noise model with single term for _all_ contributions of the model error.
+    The difference to `SingleSensorNoise` is that each model error is assumed
+    to be just a vector instead of a dict with sensor key.
+    """
     def vector_contribution(self, raw_me):
         vector_terms = []
         for exp_me in raw_me.values():
             vector_terms.append(exp_me)
         return np.concatenate(vector_terms)
 
-class NoiseTerm:
-    def __init__(self, sensor=None, key=None):
-        if sensor is None:
-            self.terms = []
-        else:
-            self.terms = [(sensor, key)]
 
-        self.parameter_list = ModelErrorParameters()
+
+class UncorrelatedNoiseTerm(NoiseModelInterface):
+    """
+    Uncorrelated noise term that allows to specify exactly which output 
+    (defined by key and sensor) from the model error is taken for the term.
+    """
+    def __init__(self):
+        super().__init__()
         self.parameter_list.define("precision")
+        self.terms = []
 
     def add(self, sensor, key=None):
         self.terms.append((sensor, key))
@@ -54,30 +75,26 @@ class NoiseTerm:
 
     def loglike_contribution(self, raw_me, prm):
         error = self.vector_contribution(raw_me)
-        return -0.5 * (
-            len(error) * np.log(2.0 * np.pi / prm["precision"])
-            + np.sum(np.square(error * prm["precision"]))
-        )
+        return self._loglike_term(error, sigma=1/prm["precision"]**0.5)
 
 
 class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameters()
-        self.model_errors = OrderedDict()
-        self.noise_models = OrderedDict()
+        self.model_errors = OrderedDict() # key : model_error
+        self.noise_models = OrderedDict() # key : noise_model
 
-    def add_model_error(self, model_error, name=None):
+    def add_model_error(self, model_error, key=None):
         try:
             model_error.parameter_list
         except AttributeError:
             raise Exception("The model_error _must_ have a .parameter_list!")
-            
 
-        name = name or len(self.model_errors)
-        assert name not in self.model_errors
+        key = key or len(self.model_errors)
+        assert key not in self.model_errors
 
-        self.model_errors[name] = model_error
-        return name
+        self.model_errors[key] = model_error
+        return key
 
     def add_noise_model(self, noise_model, key=None):
         try:
@@ -109,9 +126,11 @@ class InferenceProblem:
         for key, me in self.model_errors.items():
             raw_me[key] = me(me.parameter_list)
 
-        log_like = 0.
+        log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
-            log_like += noise_term.loglike_contribution(raw_me, noise_term.parameter_list)
+            log_like += noise_term.loglike_contribution(
+                raw_me, noise_term.parameter_list
+            )
 
         return log_like
 

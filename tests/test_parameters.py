@@ -1,15 +1,15 @@
 import unittest
-from bayes.parameters import ModelErrorParameters
+from bayes.parameters import ParameterList
 
 
 class TestParameters(unittest.TestCase):
     def setUp(self):
-        self.p = ModelErrorParameters()
+        self.p = ParameterList()
         self.p.define("pA", 0.0)
         self.p.define("pB", 0.0)
 
     def test_concat(self):
-        p1 = ModelErrorParameters()
+        p1 = ParameterList()
         p1.define("A", 17)
 
         p1 += self.p

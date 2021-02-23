@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 from bayes.vb import *
-from bayes.parameters import ModelErrorParameters
+from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem
 
 np.random.seed(6174)
@@ -49,7 +49,7 @@ def model(prm):
 class ModelError:
     def __init__(self, fw, data):
         self.fw, self.data = fw, data
-        self.parameter_list = ModelErrorParameters()
+        self.parameter_list = ParameterList()
         self.parameter_list.define("A")
         self.parameter_list.define("B")
 

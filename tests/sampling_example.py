@@ -1,7 +1,12 @@
 import unittest
+import numpy as np
 
-from bayes.parameters import *
-from bayes.inference_problem import *
+from bayes.parameters import ParameterList
+from bayes.inference_problem import (
+    VariationalBayesProblem,
+    UncorrelatedNoiseTerm,
+    ModelError,
+)
 
 """
 Not really a test yet.
@@ -11,6 +16,7 @@ with pymc3.
 
 """
 
+
 class Sensor:
     def __init__(self, name, shape=(1, 1)):
         self.name = name
@@ -18,6 +24,7 @@ class Sensor:
 
     def __repr__(self):
         return f"{self.name} {self.shape}"
+
 
 class MySensor(Sensor):
     def __init__(self, name, position):
@@ -40,7 +47,7 @@ class MyForwardModel:
         return result
 
     def parameter_list(self):
-        p = ModelErrorParameters()
+        p = ParameterList()
         p.define("A", None)
         p.define("B", None)
         return p
@@ -111,15 +118,15 @@ if __name__ == "__main__":
     # or simply
     problem.define_shared_latent_parameter_by_name("B")
 
-    problem.set_normal_prior("A", 40., 5.)
-    problem.set_normal_prior("B", 6000., 300.)
-  
-    noise1 = NoiseTerm()
+    problem.set_normal_prior("A", 40.0, 5.0)
+    problem.set_normal_prior("B", 6000.0, 300.0)
+
+    noise1 = UncorrelatedNoiseTerm()
     noise1.add(s1, key1)
     noise1.add(s2, key1)
     noise1.add(s3, key1)
 
-    noise2 = NoiseTerm()
+    noise2 = UncorrelatedNoiseTerm()
     noise2.add(s1, key2)
     noise2.add(s2, key2)
     noise2.add(s3, key2)
@@ -127,8 +134,8 @@ if __name__ == "__main__":
     noise_key1 = problem.add_noise_model(noise1)
     noise_key2 = problem.add_noise_model(noise2)
 
-    problem.set_noise_prior(noise_key1, 3*noise_sd1)
-    problem.set_noise_prior(noise_key2, 3*noise_sd2)
+    problem.set_noise_prior(noise_key1, 3 * noise_sd1)
+    problem.set_noise_prior(noise_key2, 3 * noise_sd2)
 
     info = problem.run()
     print(info)
@@ -149,39 +156,40 @@ if __name__ == "__main__":
     2)  Wrap problem.loglike for a tool of your choice
     """
     import theano.tensor as tt
+
     class LogLike(tt.Op):
         itypes = [tt.dvector]  # expects a vector of parameter values when called
         otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
+
         def __init__(self, loglike):
             self.likelihood = loglike
 
         def perform(self, node, inputs, outputs):
-            theta, = inputs  # this will contain my variables
+            (theta,) = inputs  # this will contain my variables
             result = self.likelihood(theta)
             outputs[0][0] = np.array(result)  # output the log-likelihood
 
     pymc3_log_like = LogLike(problem.loglike)
-    
+
     """
     3)  Define prior distributions in a tool of your choice!
     """
     import pymc3 as pm
-    
+
     pymc3_prior = [None] * len(problem.latent)
 
     model = pm.Model()
     with model:
         for name, (mean, sd) in problem.prm_prior.items():
             idx = problem.latent[name].start_idx
-            assert problem.latent[name].N == 1 # vector parameters not yet supported!
+            assert problem.latent[name].N == 1  # vector parameters not yet supported!
             pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
 
         for name, gamma in problem.noise_prior.items():
             idx = problem.latent[name].start_idx
             s, c = gamma.s, gamma.c
-            alpha, beta = s, 1./c
+            alpha, beta = s, 1.0 / c
             pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
-
 
     """
     4)  Go!
@@ -191,18 +199,17 @@ if __name__ == "__main__":
         pm.Potential("likelihood", pymc3_log_like(theta))
 
         trace = pm.sample(
-                draws=1000,
-                step=pm.Metropolis(),
-                chains=4,
-                tune=100, 
-                discard_tuned_samples=True,
-            )
+            draws=1000,
+            step=pm.Metropolis(),
+            chains=4,
+            tune=100,
+            discard_tuned_samples=True,
+        )
 
     summary = pm.summary(trace)
     print(summary)
 
-    print(1./info.noise[0].mean**0.5, 1./info.noise[1].mean**0.5)
-   
-    means = summary["mean"]
-    print(1./means[noise_key1]**0.5, 1./means[noise_key2]**0.5)
+    print(1.0 / info.noise[0].mean ** 0.5, 1.0 / info.noise[1].mean ** 0.5)
 
+    means = summary["mean"]
+    print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
