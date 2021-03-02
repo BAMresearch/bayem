@@ -8,9 +8,10 @@ class LatentParameter(list):
     individual (ParameterList, name) pairs stored in this list.
     """
 
-    def __init__(self, latent_parameters):
+    def __init__(self, latent_parameters, name):
         # we first need an instance of the global list to update the indices!
         self._latent_parameters = latent_parameters
+        self._name = name  # for better RuntimeErrors
 
         self.N = None  # number of (scalar) parameters of this
         self.start_idx = None  # start index in the
@@ -21,8 +22,17 @@ class LatentParameter(list):
         if we change the value of this LatentParameter in `update`,
         `parameter_name` of `parameter_list` will be changed as well.
         """
-        assert parameter_name in parameter_list
-        assert not self.has(parameter_list, parameter_name)
+        if parameter_name not in parameter_list:
+            raise RuntimeError(
+                f"Parameter {parameter_name} is not part of {parameter_list},"
+                f"so it cannot be added to the latent variable {self._name}."
+            )
+
+        if self.has(parameter_list, parameter_name):
+            raise RuntimeError(
+                f"Parameter {parameter_name} of {parameter_list} is already"
+                f"associated with latent parameter {self._name}!"
+            )
 
         try:
             N = len(parameter_list[parameter_name])
@@ -33,7 +43,12 @@ class LatentParameter(list):
             self.N = N
             self._update_idx()
         else:
-            assert self.N == N
+            if self.N != N:
+                raise RuntimeError(
+                    f"The latent parameter {self._name} is defined with length"
+                    f"{self.N}. This does not match length {N} of parameter"
+                    f"of {parameter_name} in {parameter_list}!"
+                )
 
         self.append((parameter_list, parameter_name))
 
@@ -87,12 +102,30 @@ class LatentParameter(list):
         Extracts the `global_index_range` from `number_vector` and assigns it
         to all (parameter_list,parameter_name) pairs in `self`.
         """
-        values = itemgetter(*self.global_index_range())(number_vector)
+        values = self.values(number_vector)
         for parameter_list, parameter_name in self:
             parameter_list[parameter_name] = values
 
+    def values(self, number_vector):
+        return itemgetter(*self.global_index_range())(number_vector)
+
     def has(self, parameter_list, parameter_name):
         return (parameter_list, parameter_name) in self
+
+    def value(self, number_vector=None):
+        """
+        Returns the value this latent parameter either from (one of) its 
+        parameter list(s) or from `number_vector`, if provided.
+        """
+        if number_vector is None:
+            if not self:  # = self is empty
+                raise RuntimeError(f"There is no parameter associated to {self._name}!")
+
+            parameter_list, parameter_name = self[0]
+            return parameter_list[parameter_name]
+
+        else:
+            return self.values(number_vector)
 
 
 class LatentParameters(OrderedDict):
@@ -109,5 +142,12 @@ class LatentParameters(OrderedDict):
         `self` - so the LatentParameters - to the newly created
         LatentParameter.
         """
-        self[latent_name] = LatentParameter(self)
+        self[latent_name] = LatentParameter(self, latent_name)
         return self[latent_name]
+
+    def __str__(self):
+        l_max = max(len(name) for name in self)
+        s = ""
+        for latent_name, latent in self.items():
+            s += f"{latent_name:{l_max}} = {latent.value()}\n"
+        return s

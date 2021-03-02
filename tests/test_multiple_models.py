@@ -53,8 +53,8 @@ class ModelError:
         self.parameter_list.define("A")
         self.parameter_list.define("B")
 
-    def __call__(self, named_parameters):
-        return self.fw(named_parameters) - self.data
+    def __call__(self):
+        return self.fw(self.parameter_list) - self.data
 
 
 class Test_VB(unittest.TestCase):

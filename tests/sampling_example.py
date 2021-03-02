@@ -2,11 +2,8 @@ import unittest
 import numpy as np
 
 from bayes.parameters import ParameterList
-from bayes.inference_problem import (
-    VariationalBayesProblem,
-    UncorrelatedNoiseTerm,
-    ModelError,
-)
+from bayes.inference_problem import VariationalBayesProblem, ModelError
+from bayes.noise import UncorrelatedNoiseTerm
 
 """
 Not really a test yet.
@@ -59,9 +56,9 @@ class MyModelError(ModelError):
         self._ts, self._sensor_data = data
         self.parameter_list = fw.parameter_list()
 
-    def __call__(self, prm):
+    def __call__(self):
         sensors = list(self._sensor_data.keys())
-        model_response = self._fw(prm, sensors, self._ts)
+        model_response = self._fw(self.parameter_list, sensors, self._ts)
         error = {}
         for sensor in sensors:
             error[sensor] = model_response[sensor] - self._sensor_data[sensor]

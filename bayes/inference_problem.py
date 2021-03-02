@@ -1,94 +1,23 @@
 import numpy as np
 from .parameters import ParameterList
 from .latent import LatentParameters
+from .noise import SingleNoise
 from collections import OrderedDict
 from .vb import variational_bayes, MVN, Gamma
 
 
 class ModelError:
-    def __call__(self, parameter_list):
+    def __call__(self):
         raise NotImplementedError("Override this!")
-
-
-class NoiseModelInterface:
-    def __init__(self):
-        self.parameter_list = ParameterList()
-
-    def vector_contribution(self, raw_me):
-        raise NotImplementedError()
-
-    def loglike_contribution(self, raw_me, prm):
-        raise NotImplementedError()
-
-    def _loglike_term(self, error, sigma):
-        return -0.5 * (
-            len(error) * np.log(2.0 * np.pi * sigma ** 2)
-            + np.sum(np.square(error / sigma ** 2))
-        )
-
-
-class SingleSensorNoise(NoiseModelInterface):
-    """
-    Noise model with single term for _all_ contributions of the model error.
-    """
-    def vector_contribution(self, raw_me):
-        vector_terms = []
-        for exp_me in raw_me.values():
-            for sensor_me in exp_me.values():
-                vector_terms.append(sensor_me)
-        return np.concatenate(vector_terms)
-
-
-
-class SingleNoise(NoiseModelInterface):
-    """
-    Noise model with single term for _all_ contributions of the model error.
-    The difference to `SingleSensorNoise` is that each model error is assumed
-    to be just a vector instead of a dict with sensor key.
-    """
-    def vector_contribution(self, raw_me):
-        vector_terms = []
-        for exp_me in raw_me.values():
-            vector_terms.append(exp_me)
-        return np.concatenate(vector_terms)
-
-
-
-class UncorrelatedNoiseTerm(NoiseModelInterface):
-    """
-    Uncorrelated noise term that allows to specify exactly which output 
-    (defined by key and sensor) from the model error is taken for the term.
-    """
-    def __init__(self):
-        super().__init__()
-        self.parameter_list.define("precision")
-        self.terms = []
-
-    def add(self, sensor, key=None):
-        self.terms.append((sensor, key))
-
-    def vector_contribution(self, raw_me):
-        vector_terms = []
-        for (sensor, key) in self.terms:
-            vector_terms.append(raw_me[key][sensor])
-        return np.concatenate(vector_terms)
-
-    def loglike_contribution(self, raw_me, prm):
-        error = self.vector_contribution(raw_me)
-        return self._loglike_term(error, sigma=1/prm["precision"]**0.5)
 
 
 class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameters()
-        self.model_errors = OrderedDict() # key : model_error
-        self.noise_models = OrderedDict() # key : noise_model
+        self.model_errors = OrderedDict()  # key : model_error
+        self.noise_models = OrderedDict()  # key : noise_model
 
     def add_model_error(self, model_error, key=None):
-        try:
-            model_error.parameter_list
-        except AttributeError:
-            raise Exception("The model_error _must_ have a .parameter_list!")
 
         key = key or len(self.model_errors)
         assert key not in self.model_errors
@@ -97,10 +26,6 @@ class InferenceProblem:
         return key
 
     def add_noise_model(self, noise_model, key=None):
-        try:
-            noise_model.parameter_list
-        except AttributeError:
-            raise Exception("The noise_model _must_ have a .parameter_list!")
 
         key = key or f"noise{len(self.noise_models)}"
 
@@ -112,11 +37,18 @@ class InferenceProblem:
         self.latent.update(number_vector)
         result = {}
         for key, me in self.model_errors.items():
-            result[key] = me(me.parameter_list)
+            result[key] = me()
         return result
 
     def define_shared_latent_parameter_by_name(self, name):
         for model_error in self.model_errors.values():
+            try:
+                prm = model_error.parameter_list
+            except AttributeError:
+                raise AttributeError(
+                    "This method requires the `model_error` to have a `parameter_list` attribute!"
+                )
+
             if name in model_error.parameter_list:
                 self.latent[name].add(model_error.parameter_list, name)
 
@@ -124,13 +56,11 @@ class InferenceProblem:
         self.latent.update(number_vector)
         raw_me = {}
         for key, me in self.model_errors.items():
-            raw_me[key] = me(me.parameter_list)
+            raw_me[key] = me()
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
-            log_like += noise_term.loglike_contribution(
-                raw_me, noise_term.parameter_list
-            )
+            log_like += noise_term.loglike_contribution(raw_me)
 
         return log_like
 
@@ -142,12 +72,27 @@ class VariationalBayesProblem(InferenceProblem):
         self.noise_prior = {}
 
     def set_normal_prior(self, latent_name, mean, sd):
-        assert latent_name in self.latent
+        if latent_name not in self.latent:
+            raise RuntimeError(
+                f"{latent_name} is not defined as a latent parameter. "
+                f"Call InferenceProblem.latent[{latent_name}].add(...) first."
+            )
         self.prm_prior[latent_name] = (mean, sd)
 
-    def set_noise_prior(self, name, sd_mean, sd_scale=1.0):
-        assert name in self.noise_models
-        self.noise_prior[name] = Gamma.FromSD(sd_mean, sd_scale)
+    def set_noise_prior(self, name, gamma_or_sd_mean, sd_scale=None):
+        if isinstance(gamma_or_sd_mean, Gamma):
+            gamma = gamma_or_sd_mean
+            assert sd_scale is None
+        else:
+            sd_scale = sd_scale or 1.
+            gamma = Gamma.FromSD(gamma_or_sd_mean, sd_scale)
+
+        if name not in self.noise_models:
+            raise RuntimeError(
+                f"{name} is not associated with noise model.. "
+                f"Call InferenceProblem.add_noise_model({name}, ...) first."
+            )
+        self.noise_prior[name] = gamma
 
     def _use_default_noise(self):
         if not self.noise_models:
