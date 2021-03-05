@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
-import bayes
+import bayes.correlation
+import bayes.vb
 
 
 class TestCorrelation(unittest.TestCase):

@@ -2,8 +2,6 @@ import numpy as np
 import scipy.stats
 import scipy.special as special
 
-from numpy.linalg import multi_dot as multi_dot
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,33 +39,34 @@ class MVN:
 
 
 class Gamma:
-    def __init__(self, s=1, c=1, name="Gamma"):
-        self.s = np.atleast_1d(s).astype(float)  # shape
-        self.c = np.atleast_1d(c).astype(float)  # scale
+    def __init__(self, s=1.0, c=1.0, name="Gamma"):
+        self.s = s  # shape
+        self.c = c  # scale
         self.name = name
 
     @property
     def mean(self):
         return self.s * self.c
 
-    def pdf(self, xs, i=0):
-        return scipy.stats.gamma.pdf(xs, a=self.s[i], scale=self.c[i])
+    def pdf(self, xs):
+        return scipy.stats.gamma.pdf(xs, a=self.s, scale=self.c)
 
-    def __str__(self):
-        return f"{self.name} with \n └── mean: {pretty_array(self.mean, 9)}"
+    def __repr__(self):
+        return f"{self.name} with \n └── mean: {self.mean, 9}"
 
     @classmethod
-    def FromSD(cls, sds, shape=1.0):
-        if isinstance(shape, float):
-            shape = np.ones_like(sds) * shape
+    def FromSD(cls, sd, shape=1.0):
+        return cls(shape, 1.0 / sd ** 2 / shape)
 
-        assert len(shape) == len(sds)
-
-        scale = []
-        for s, sd in zip(shape, sds):
-            scale.append(1.0 / sd ** 2 / s)
-
-        return cls(shape, scale)
+    @classmethod
+    def Noninformative(cls):
+        """
+        Suggested by @ilma following
+        https://projecteuclid.org/euclid.ejs/1320416981
+        or
+        https://math.stackexchange.com/questions/449234/vague-gamma-prior
+        """
+        return cls(s=1.0 / 3.0, c=0.0)
 
 
 def plot_pdf(
@@ -114,57 +113,6 @@ def plot_pdf(
         plt.show()
 
 
-def splitted_k_J(model_error, mean):
-    """
-    Evaluates the model_error (k) and the jacobian d/d_mean(k) and splits
-    the contributions according to the sensor pattern.
-    """
-    k = model_error(mean)
-    J = model_error.jacobian(mean)
-    pattern = model_error.noise_pattern
-    return split(k, pattern), split(J, pattern)
-
-
-def check_pattern(pattern, N=None):
-    """
-    Checks, if all the indices from 0..N (excluding N) are contained
-    in the noise pattern.
-    """
-    if pattern is None:
-        return
-
-    flat_pattern = [item for sublist in pattern for item in sublist]
-
-    if N is None:
-        N = max(flat_pattern) + 1
-    else:
-        if N != max(flat_pattern) + 1:
-            error = f"The highest noise pattern index {max(flat_pattern)} "
-            error += f"does not match the length of the model error (N)!"
-            raise ValueError(error)
-
-    for i in range(N):
-        if i not in flat_pattern:
-            raise ValueError(f"Index {i} not contained in pattern {pattern}.")
-
-    assert len(flat_pattern) == N
-
-
-def split(k, pattern):
-    """
-    Splits the vector `k` into len(pattern) subvectors, where each k_i contains 
-    the indices of `pattern[i]`.
-    """
-    if pattern is None:
-        return [k]
-
-    ks = []
-    for p in pattern:
-        ks.append(k[p])
-
-    return ks
-
-
 class CountedEval:
     def __init__(self, f):
         self._f = f
@@ -194,57 +142,55 @@ class Jacobian:
                 dx = 1.0e-10
 
             x[iParam] -= dx
-            f0 = self._f(x)
+            fs0 = self._f(x)
             x[iParam] += 2 * dx
-            f1 = self._f(x)
+            fs1 = self._f(x)
             x[iParam] -= dx
 
             if iParam == 0:
                 # allocate jac
-                jac = np.empty([len(f0), len(x)])
+                jac = []
+                for f0 in fs0:
+                    jac.append(np.empty([len(f0), len(x)]))
 
-            jac[:, iParam] = (f1 - f0) / (2 * dx)
+            for i, (f0, f1) in enumerate(zip(fs0, fs1)):
+                jac[i][:, iParam] = -(f1 - f0) / (2 * dx)
 
         return jac
 
 
 class VerifiedModelError:
     """
-    Forwards the model_error and tries to add additional information that may
-    not be provided by the user, e.g. a noise_pattern or a numeric jacobian.
+    Brings the user-provided forward model in a algorithm-compatible form.
+    * transforms a simple (numpy) vector output into a list of length 1
+    * adds a CDF jacobian, if not provided
     """
 
     def __init__(self, model_error):
         self._f = CountedEval(model_error)
-
-        try:
-            self.noise_pattern = model_error.noise_pattern
-            check_pattern(self.noise_pattern)
-            self.n_noise = len(self.noise_pattern)
-
-        except AttributeError:
-            logger.debug("No ModelError.noise_pattern. Assuming single noise.")
-            self.noise_pattern = None
-            self.n_noise = 1
+        self.n_jac = 0
 
         try:
             self._jac = model_error.jacobian
-        except AttributeError:
-            logger.debug("No ModelError.jacobian. Using central differences")
-            self._jac = Jacobian(self._f)
-
-        self.n_jac = 0
+        except:
+            self._jac = Jacobian(self.__call__)
 
     def __call__(self, parameters):
-        return self._f(parameters)
+        f = self._f(parameters)
+        if not isinstance(f, list):
+            f = [f]
+        return f
 
     def jacobian(self, parameters):
-        # somehow, per definition in the algorithm of Chappell2009, jacobian
-        # refers to MINUS dk/dparameters...
+        jac = self._jac(parameters)
+        if not isinstance(jac, list):
+            jac = [jac]
         self.n_jac += 1
-        J = -self._jac(parameters)
+        return jac
 
-        return J
+    @property
+    def n(self):
+        return self._f.n
 
 
 def variational_bayes(model_error, param0, noise0=None, **kwargs):
@@ -267,31 +213,25 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
     exception that capital lambda L in the paper is here referred to as L.
 
     model_error that contains
-        k(parameter_means):
-            difference of the forward model to the data
+        __call__(parameter_means):
+            * difference of the forward model to the data
+            * list of numpy vectors where each list corresponds to one noise group
+            * alternatively: just a numpy vector for the case of exactly one
+                             noise group
 
         jacobian(parameter_means) [optional]:
-            total jacobian of the forward model w.r.t. the parameters
-
-        noise_pattern [optional]:
-            mapping of the sensor index to a sensor type
-            E.g.: noise_pattern [[0,3], [1,2,4]] means that there are two 
-            noise terms. The first noise term affects sensors 0 and 3, 
-            the second one sensors 1,2 and 4.
-            If you provide a noise pattern, each row of k must be present 
-            in the pattern.
-
-            If noise_pattern is not provided, a single noise for all the 
-            sensors is assumed.
-
+            * total jacobian of the forward model w.r.t. the parameters
+            * list of numpy matrices where each list corresponds to one noise group
+            * alternatively: just a numpy matrix for the case of exactly one
+                             noise group
     param0:
         multivariate normal distributed parameter prior
 
     noise0:
-        gamma distrubuted noise prior
+        list of gamma distributions for the noise prior
         If noise0 is None, a noninformative gamma prior is chosen 
-        automatically according to the noise pattern.
-    
+        automatically according to the number of noise groups.
+
     tolerance:
         free energy change that causes the algorithm to stop
 
@@ -370,32 +310,31 @@ class VB:
             self.n_trials_max = kwargs["n_trials_max"]
 
         model_error = VerifiedModelError(model_error)
+        k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
 
         if noise0 is None:
-            noise0 = noninformative_gamma_prior(model_error.n_noise)
+            noise0 = [Gamma.Noninformative() for i in range(len(k))]
 
-        if model_error.n_noise != len(noise0.s):
-            error = f"Your noise pattern contains {model_error.n_noise} noise "
-            error += f" terms, your noise prior contains {len(noise0.s)}."
+        if isinstance(noise0, Gamma):
+            noise0 = [noise0]
+
+        if len(k) != len(noise0):
+            error = f"Your model error contains {len(k)} noise "
+            error += f" terms, your noise prior contains {len(noise0)}."
             raise ValueError(error)
 
         # adapt notation
-        s = np.copy(noise0.s)
-        c = np.copy(noise0.c)
+        s = [n.s for n in noise0]
+        c = [n.c for n in noise0]
         m = np.copy(param0.mean)
         L = np.copy(param0.precision)
 
-        s0 = np.copy(s)
-        c0 = np.copy(c)
         m0 = np.copy(m)
         L0 = np.copy(L)
+        s0 = np.copy(s)
+        c0 = np.copy(c)
 
         self.param_stored = [np.copy(s), np.copy(c), np.copy(m), np.copy(L)]
-
-        k_full, J_full = model_error(m0), model_error.jacobian(m0)
-        check_pattern(model_error.noise_pattern, len(k_full))
-        k = split(k_full, model_error.noise_pattern)
-        J = split(J_full, model_error.noise_pattern)
 
         N = len(s)
         i_iter = 0
@@ -410,7 +349,7 @@ class VB:
             Lm += L0 @ m0
             m = Lm @ L_inv
 
-            k, J = splitted_k_J(model_error, m)
+            k, J = model_error(m), model_error.jacobian(m)
 
             # noise parameter update
             for i in range(N):
@@ -424,11 +363,13 @@ class VB:
                 )
                 s[i] = 1 / s_inv
 
-            if 'index_ARD' in kwargs:
-                index_ARD = kwargs['index_ARD']
+            if "index_ARD" in kwargs:
+                index_ARD = kwargs["index_ARD"]
                 n_ARD_param = len(index_ARD)
-                L0[index_ARD, index_ARD] = 1 / (m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD])
-                r = 2 / (m[index_ARD]**2 + np.diag(L_inv)[index_ARD])
+                L0[index_ARD, index_ARD] = 1 / (
+                    m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
+                )
+                r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
 
             logger.debug(f"current mean: {m}")
@@ -449,9 +390,13 @@ class VB:
                 f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
-                if 'index_ARD' in kwargs:
+                if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
-                        f_new += (d[j]-2)*(np.log(s[i]) - special.digamma(d[j])) - d[j]*(1+np.log(r[j])) - special.gammaln(d[j])
+                        f_new += (
+                            (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
+                            - d[j] * (1 + np.log(r[j]))
+                            - special.gammaln(d[j])
+                        )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
             if self.stop_criteria([s, c, m, L], f_new, i_iter):
@@ -461,11 +406,13 @@ class VB:
         logger.debug(f"Stopping VB. Iterations:{i_iter}, free energy change {delta_f}.")
 
         self.result.njev = model_error.n_jac
-        self.result.nfev = model_error._f.n
+        self.result.nfev = model_error.n
         self.result.nit = i_iter
 
         self.result.param = MVN(self.param_stored[2], self.param_stored[3])
-        self.result.noise = Gamma(self.param_stored[0], self.param_stored[1])
+        self.result.noise = []
+        for s, c in zip(self.param_stored[0], self.param_stored[1]):
+            self.result.noise.append(Gamma(s, c))
 
         return self.result
 
@@ -484,32 +431,20 @@ class VB:
 
         # stop?
         if self.n_trials >= self.n_trials_max:
-            self.result.message = f"Stopping because free energy did not "
-            self.result.message += "increase within {self.n_trials_max} iterations."
+            self.result.message = "Stopping because free energy did not "
+            self.result.message += f"increase within {self.n_trials_max} iterations."
             return True
 
         if i_iter >= self.iter_max:
-            self.result.message = f"Stopping because the maximum number of "
+            self.result.message = "Stopping because the maximum number of "
             self.result.message = "iterations is reached."
             return True
 
         if abs(f_new - self.f_old) <= self.tolerance:
-            self.result.message = f"Tolerance reached!"
+            self.result.message = "Tolerance reached!"
             self.result.success = True
             return True
 
         # go on.
         self.f_old = f_new
         return False
-
-
-def noninformative_gamma_prior(n_priors):
-    """
-    Suggested by @ilma following
-    https://projecteuclid.org/euclid.ejs/1320416981
-    or
-    https://math.stackexchange.com/questions/449234/vague-gamma-prior
-    """
-    s = np.full(n_priors, 1.0 / 3.0)
-    c = np.full(n_priors, 0.0)
-    return Gamma(s=s, c=c)
