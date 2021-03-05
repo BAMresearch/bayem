@@ -6,10 +6,36 @@ from collections import OrderedDict
 from .vb import variational_bayes, MVN, Gamma
 
 
-class ModelError:
+class ModelErrorInterface:
+    def __init__(self):
+        self.parameter_list = ParameterList()
+
     def __call__(self):
         raise NotImplementedError("Override this!")
 
+    def jacobian(self):
+        jac = dict()
+        for i, prm in enumerate(self.parameter_list.names):
+            # we need "i" to check for i=0
+
+            prm0 = self.parameter_list[prm]
+            dx = prm0 * 1.0e-7  # approx prm * sqrt(machine precision)
+            if dx == 0:
+                dx = 1.0e-10
+
+            self.parameter_list[prm] = prm0 - dx
+            me0 = self()
+            self.parameter_list[prm] = prm0 + dx
+            me1 = self()
+            self.parameter_list[prm] = prm0
+
+            for key in me0:
+                if i == 0:
+                    jac[key] = dict()
+
+                jac[key][prm] = (me1[key] - me0[key]) / (2 * dx)
+
+        return jac
 
 class InferenceProblem:
     def __init__(self):
