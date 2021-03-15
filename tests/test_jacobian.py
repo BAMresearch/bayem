@@ -15,14 +15,19 @@ class TestModelError(ModelErrorInterface):
         return {"out1": self.xs * A + B ** 2, "out2": self.xs * A ** 2 + B * self.xs}
 
 
-class TestModelErrorPartial(TestModelError):
-    def jacobian():
-        jac = super().jacobian()
-        return jac
+class TestModelErrorVectorPrm(ModelErrorInterface):
+    def __init__(self):
+        super().__init__()
+        self.parameter_list.define("X", [1.0, 2.0, 3.0])
+
+    def __call__(self):
+        x = np.asarray(self.parameter_list["X"])
+        return {"out": np.concatenate([x ** 2, x ** 3])}
 
 
 class TestJacobian(unittest.TestCase):
-    def check_jac(self, me):
+    def test_scalar_prm(self):
+        me = TestModelError()
         A, B = me.parameter_list["A"], me.parameter_list["B"]
         jac = me.jacobian()
         check = np.testing.assert_array_almost_equal  # just to make it shorter
@@ -31,8 +36,13 @@ class TestJacobian(unittest.TestCase):
         check(jac["out2"]["A"], me.xs * 2 * A)
         check(jac["out2"]["B"], me.xs)
 
-    def test_scalar_prm(self):
-        self.check_jac(TestModelError())
+    def test_vector_prm(self):
+        me = TestModelErrorVectorPrm()
+        x = np.asarray(me.parameter_list["X"])
+        jac = me.jacobian()
+
+        jac_correct = np.concatenate([np.diag(2 * x), np.diag(3 * x ** 2)])
+        np.testing.assert_array_almost_equal(jac["out"]["X"], jac_correct)
 
 
 if __name__ == "__main__":

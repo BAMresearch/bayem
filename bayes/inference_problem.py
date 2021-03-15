@@ -11,31 +11,69 @@ class ModelErrorInterface:
         self.parameter_list = ParameterList()
 
     def __call__(self):
+        """
+        Evaluate the model error based on `self.parameter_list` as a dict of
+        {some_key: numpy.array}.
+        """
         raise NotImplementedError("Override this!")
 
     def jacobian(self):
         jac = dict()
-        for i, prm in enumerate(self.parameter_list.names):
-            # we need "i" to check for i=0
+        for prm_name in self.parameter_list.names:
 
-            prm0 = self.parameter_list[prm]
-            dx = prm0 * 1.0e-7  # approx prm * sqrt(machine precision)
+            try:
+                N = len(self.parameter_list[prm_name])
+                prm_jac = self._jacobian_vector_prm(prm_name, N)
+            except TypeError:
+                prm_jac = self._jacobian_scalar_prm(prm_name)
+
+            for key in prm_jac:
+                if key not in jac:
+                    jac[key] = dict()
+
+                jac[key][prm_name] = prm_jac[key]
+
+        return jac
+
+    def _jacobian_scalar_prm(self, prm_name):
+        prm0 = self.parameter_list[prm_name]
+        dx = prm0 * 1.0e-7  # approx prm * sqrt(machine precision)
+        if dx == 0:
+            dx = 1.0e-10
+
+        self.parameter_list[prm_name] = prm0 - dx
+        me0 = self()
+        self.parameter_list[prm_name] = prm0 + dx
+        me1 = self()
+        self.parameter_list[prm_name] = prm0
+
+        jac = dict()
+        for key in me0:
+            jac[key] = (me1[key] - me0[key]) / (2 * dx)
+        return jac
+
+    def _jacobian_vector_prm(self, prm_name, N):
+        prm0 = np.copy(self.parameter_list[prm_name])
+        jac = dict()
+
+        for row in range(N):
+            dx = prm0[row] * 1.0e-7  # approx prm * sqrt(machine precision)
             if dx == 0:
                 dx = 1.0e-10
 
-            self.parameter_list[prm] = prm0 - dx
+            self.parameter_list[prm_name][row] = prm0[row] - dx
             me0 = self()
-            self.parameter_list[prm] = prm0 + dx
+            self.parameter_list[prm_name][row] = prm0[row] + dx
             me1 = self()
-            self.parameter_list[prm] = prm0
+            self.parameter_list[prm_name][row] = prm0[row]
 
             for key in me0:
-                if i == 0:
-                    jac[key] = dict()
+                if key not in jac:
+                    jac[key] = np.empty((len(me0[key]), N))
 
-                jac[key][prm] = (me1[key] - me0[key]) / (2 * dx)
-
+                jac[key][:, row] = (me1[key] - me0[key]) / (2 * dx)
         return jac
+
 
 class InferenceProblem:
     def __init__(self):
@@ -110,7 +148,7 @@ class VariationalBayesProblem(InferenceProblem):
             gamma = gamma_or_sd_mean
             assert sd_scale is None
         else:
-            sd_scale = sd_scale or 1.
+            sd_scale = sd_scale or 1.0
             gamma = Gamma.FromSD(gamma_or_sd_mean, sd_scale)
 
         if name not in self.noise_models:
