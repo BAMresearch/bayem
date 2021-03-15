@@ -39,7 +39,7 @@ class ModelErrorInterface:
         prm0 = self.parameter_list[prm_name]
         dx = prm0 * 1.0e-7  # approx prm * sqrt(machine precision)
         if dx == 0:
-            dx = 1.0e-10
+            dx = 1.0e-7
 
         self.parameter_list[prm_name] = prm0 - dx
         me0 = self()
@@ -59,7 +59,7 @@ class ModelErrorInterface:
         for row in range(N):
             dx = prm0[row] * 1.0e-7  # approx prm * sqrt(machine precision)
             if dx == 0:
-                dx = 1.0e-10
+                dx = 1.0e-7
 
             self.parameter_list[prm_name][row] = prm0[row] - dx
             me0 = self()

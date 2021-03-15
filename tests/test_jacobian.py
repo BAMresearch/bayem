@@ -6,8 +6,8 @@ from bayes.inference_problem import ModelErrorInterface
 class TestModelError(ModelErrorInterface):
     def __init__(self):
         super().__init__()
-        self.parameter_list.define("A", 17.0)
-        self.parameter_list.define("B", 42.0)
+        self.parameter_list.define("A", 42.0)
+        self.parameter_list.define("B", 0.0)
         self.xs = np.linspace(0.0, 1.0, 3)
 
     def __call__(self):
@@ -23,6 +23,15 @@ class TestModelErrorVectorPrm(ModelErrorInterface):
     def __call__(self):
         x = np.asarray(self.parameter_list["X"])
         return {"out": np.concatenate([x ** 2, x ** 3])}
+
+
+class TestModelErrorVectorPrm2(ModelErrorInterface):
+    def __init__(self):
+        super().__init__()
+        self.parameter_list.define("X", [0.0, 42.0])
+
+    def __call__(self):
+        return {"out": np.r_[6174 + sum(self.parameter_list["X"])]}
 
 
 class TestJacobian(unittest.TestCase):
@@ -42,6 +51,13 @@ class TestJacobian(unittest.TestCase):
         jac = me.jacobian()
 
         jac_correct = np.concatenate([np.diag(2 * x), np.diag(3 * x ** 2)])
+        np.testing.assert_array_almost_equal(jac["out"]["X"], jac_correct)
+
+    def test_vector_prm2(self):
+        me = TestModelErrorVectorPrm2()
+        jac = me.jacobian()
+
+        jac_correct = np.array([[1, 1]])
         np.testing.assert_array_almost_equal(jac["out"]["X"], jac_correct)
 
 
