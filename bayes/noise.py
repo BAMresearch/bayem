@@ -35,7 +35,20 @@ class SingleSensorNoise(NoiseModelInterface):
                 )
             for sensor_me in exp_me.values():
                 vector_terms.append(sensor_me)
-        return np.concatenate(vector_terms)
+        return vector_terms
+
+    def jacobian_contribution(self, raw_jacobian):
+        jacobian_terms = []
+        for exp_jacobian in raw_jacobian.values():
+            if not isinstance(exp_jacobian, dict):
+                raise RuntimeError(
+                    "The `SingleSensorNoise` model assumes that your model "
+                    "error returns a dict {some_key : numbers}, but yours did "
+                    "not. Use `SingleNoise` instead."
+                )
+            for sensor_jacobian in exp_jacobian.values():
+                jacobian_terms.append(sensor_jacobian)
+        return jacobian_terms
 
 
 class SingleNoise(NoiseModelInterface):

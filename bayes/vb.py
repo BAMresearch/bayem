@@ -495,9 +495,9 @@ class VBNew:
 
         # adapt notation
         s, c = {}, {}
-        for noise_key, gamma in noise0.items():
-            s[noise_key] = gamma.s
-            c[noise_key] = gamma.c
+        for n, gamma in noise0.items():
+            s[n] = gamma.s
+            c[n] = gamma.c
         m = np.copy(param0.mean)
         L = np.copy(param0.precision)
 
@@ -515,11 +515,11 @@ class VBNew:
             L = np.copy(L0)
             Lm = L0 @ m0
 
-            for noise_key in noise0:
-                k, J = ks[noise_key], Js[noise_key]
+            for n in noise0:
+                k, J = ks[n], Js[n]
                 for i in range(len(k)):
-                    L += s[noise_key] * c[noise_key] * J[i].T @ J[i]
-                    Lm += s[noise_key] * c[noise_key] * J[i].T @ (k[i] + J[i] @ m)
+                    L += s[n] * c[n] * J[i].T @ J[i]
+                    Lm += s[n] * c[n] * J[i].T @ (k[i] + J[i] @ m)
             
             L_inv = np.linalg.inv(L)
             m = Lm @ L_inv
@@ -527,17 +527,17 @@ class VBNew:
             ks, Js = model_error(m), model_error.jacobian(m)
 
             # noise parameter update
-            for noise_key in noise0:
-                k, J = ks[noise_key], Js[noise_key]
+            for n in noise0:
+                k, J = ks[n], Js[n]
                 # formula (30)
                 N = sum([len(k_entry) for k_entry in k])
-                c[noise_key] = N / 2 + c0[noise_key]
+                c[n] = N / 2 + c0[n]
                 # formula (31)
-                s_inv = 1/s0[noise_key]
+                s_inv = 1/s0[n]
                 for i in range(len(k)):
                     s_inv += 0.5 * k[i].T @ k[i] + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
                 
-                s[noise_key] = 1 / s_inv
+                s[n] = 1 / s_inv
 
             if "index_ARD" in kwargs:
                 index_ARD = kwargs["index_ARD"]

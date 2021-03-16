@@ -3,7 +3,7 @@ from .parameters import ParameterList
 from .latent import LatentParameters
 from .noise import SingleNoise
 from collections import OrderedDict
-from .vb import variational_bayes, MVN, Gamma
+from .vb import vb_new, MVN, Gamma
 
 
 class ModelErrorInterface:
@@ -103,6 +103,8 @@ class InferenceProblem:
         for key, me in self.model_errors.items():
             result[key] = me()
         return result
+    
+
 
     def define_shared_latent_parameter_by_name(self, name):
         for model_error in self.model_errors.values():
@@ -168,16 +170,28 @@ class VariationalBayesProblem(InferenceProblem):
         self._use_default_noise()
         MVN = self.prior_MVN()
         noise = self.prior_noise()
-        info = variational_bayes(self, MVN, noise)
+        info = vb_new(self, MVN, noise)
         return info
+
+    def jacobian(self, number_vector):
+        self.latent.update(number_vector)
+        jac = {}
+        for key, me in self.model_errors.items():
+            jac[key] = me.jacobian()
+
+        jacs_by_noise = {}
+        for key, noise in self.noise_models.items():
+            jacs_by_noise[key] = noise.jacobian_contribution(jac)
+
+        return jacs_by_noise
 
     def __call__(self, number_vector):
         self._use_default_noise()
         me = super().__call__(number_vector)
 
-        errors_by_noise = []
-        for noise in self.noise_models.values():
-            errors_by_noise.append(noise.vector_contribution(me))
+        errors_by_noise = {}
+        for key, noise in self.noise_models.items():
+            errors_by_noise[key] = noise.vector_contribution(me)
 
         return errors_by_noise
 
@@ -199,4 +213,4 @@ class VariationalBayesProblem(InferenceProblem):
         return MVN(means, np.diag(precs))
 
     def prior_noise(self):
-        return list(self.noise_prior.values())
+        return self.noise_prior
