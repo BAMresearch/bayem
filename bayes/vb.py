@@ -512,7 +512,7 @@ class VBNew:
         while True:
             i_iter += 1
 
-            L = L0
+            L = np.copy(L0)
             Lm = L0 @ m0
 
             for noise_key in noise0:
@@ -602,10 +602,6 @@ class VBNew:
 
     def stop_criteria(self, prms, f_new, i_iter):
         self.n_trials += 1
-        if i_iter> 20:
-            return True
-        else:
-            return False
 
         # parameter update
         self.result.free_energies.append(f_new)

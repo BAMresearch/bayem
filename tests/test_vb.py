@@ -86,7 +86,7 @@ class Test_VB(unittest.TestCase):
                 posterior_mean, param_true[i], delta=2 * posterior_std
             )
 
-        post_noise_precision = noise_post[0].mean
+            post_noise_precision = noise_post["noise0"].mean
         post_noise_sd = 1.0 / post_noise_precision ** 0.5
         self.assertAlmostEqual(post_noise_sd, noise_sd, delta=noise_sd / 100)
 
