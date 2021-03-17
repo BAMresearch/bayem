@@ -50,7 +50,7 @@ class TestFreeEnergy(unittest.TestCase):
         for i_iter in range(inference.iter_max):
             param_new = [param_sample[i_iter]]
             f_new     = free_energy_sample[i_iter]
-            if inference.stop_criteria(param_new,f_new, i_iter):
+            if inference.stop_criteria(f_new, i_iter):
                 break
 
         print(inference.f_stored, max(free_energy_sample),  inference.tolerance )

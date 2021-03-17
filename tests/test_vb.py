@@ -1,7 +1,6 @@
 import numpy as np
 import unittest
 from bayes.vb import *
-from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
 from bayes.parameters import ParameterList
 from bayes.noise import SingleSensorNoise
 
@@ -10,14 +9,8 @@ class ForwardModel:
     def __init__(self):
         self.xs = np.linspace(0.01, 0.1, 10)
 
-    def parameters(self):
-        p = ParameterList()
-        p.define("m")
-        p.define("c")
-        return p
-
     def __call__(self, parameters):
-        m, c = parameters["m"], parameters["c"]
+        m, c = parameters
         v = [c + x * m for x in self.xs]
         return np.array(v)
 
@@ -28,7 +21,7 @@ class ForwardModel:
         return np.array([d_dm, d_dc]).T
 
 
-class ModelError(ModelErrorInterface):
+class ModelError(VariationalBayesModelError):
     def __init__(self, forward_model, data):
         """
         forward_model:
@@ -38,21 +31,21 @@ class ModelError(ModelErrorInterface):
         """
         self._forward_model = forward_model
         self._data = data
-        self.parameter_list = forward_model.parameters()
 
-    def __call__(self):
-        model = self._forward_model(self.parameter_list)
-        errors = {}
+    def __call__(self, parameters):
+        model = self._forward_model(parameters)
+        errors = []
         for sensor, data in self._data.items():
-            errors[sensor] = model - data
+            errors.append(model - data)
 
-        return errors
+        return {"noise0": np.concatenate(errors)}
 
 
 class ModelErrorWithJacobian(ModelError):
     def jacobian(self, parameters):
         jac = -self._forward_model.jacobian(parameters)
-        return {"noise0": [jac] * len(self._data)}
+        full_jac = np.tile(jac, (len(self._data), 1))
+        return {"noise0": full_jac}
 
 
 class Test_VB(unittest.TestCase):
@@ -60,38 +53,25 @@ class Test_VB(unittest.TestCase):
         np.random.seed(6174)
 
         fw = ForwardModel()
-        param_true = fw.parameters()
-        param_true["m"] = 7.0
-        param_true["c"] = 10.0
+        param_true = [7.0, 10.0]
         noise_sd = 0.1
 
         data = {}
         perfect_data = fw(param_true)
         for sensor in range(n_data):
-            data[sensor] = perfect_data + np.random.normal(0, noise_sd, len(perfect_data))
+            data[sensor] = perfect_data + np.random.normal(
+                0, noise_sd, len(perfect_data)
+            )
 
         if given_jac:
             me = ModelErrorWithJacobian(fw, data)
         else:
             me = ModelError(fw, data)
 
-        problem = VariationalBayesProblem()
-        problem.add_model_error(me)
-        problem.latent["m"].add(me.parameter_list, "m")
-        problem.latent["c"].add(me.parameter_list, "c")
+        param_prior = MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
+        noise_prior = {"noise0": Gamma.FromSD(3*noise_sd)}
 
-        problem.set_normal_prior("m", 6, 0.33)
-        problem.set_normal_prior("c", 11, 0.33)
-
-        noise_key = problem.add_noise_model(SingleSensorNoise())
-        problem.set_noise_prior(noise_key, Gamma(s=0.1, c=1000))
-
-        info = problem.run()
-
-        # param_prior = MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
-        # noise_prior = {"noise0": Gamma(s=0.1, c=1000)}
-
-        info = vb_new(me, param_prior, noise_prior)
+        info = variational_bayes(me, param_prior, noise_prior)
         param_post, noise_post = info.param, info.noise
 
         if plot:
@@ -121,8 +101,8 @@ class Test_VB(unittest.TestCase):
     def test_vb_with_numeric_jac(self):
         self.run_vb(n_data=1000, given_jac=False)
 
-    # def test_vb_with_given_jac(self):
-        # self.run_vb(n_data=1000, given_jac=True, plot=False)
+    def test_vb_with_given_jac(self):
+        self.run_vb(n_data=1000, given_jac=True, plot=False)
 
 
 if __name__ == "__main__":

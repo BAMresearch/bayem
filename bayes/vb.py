@@ -114,28 +114,24 @@ def plot_pdf(
         plt.show()
 
 
-class CountedEval:
-    def __init__(self, f):
-        self._f = f
-        self.n = 0
+class VariationalBayesModelError:
 
-    def __call__(self, *args, **kwargs):
-        self.n += 1
-        return self._f(*args, **kwargs)
-
-
-class Jacobian:
-    def __init__(self, f):
-        self._f = f
-
-    def __call__(self, xp):
+    def __call__(self, number_vector):
         """
-        calculate the numeric jacobian via central differences.
-
-        We _could_ change the argument x directly. For safety, we make a copy
-        at the beginning and work with that.
+        Returns a dict of type 
+            {noise_key : model_error_vector}
         """
-        x = np.copy(xp)
+        raise NotImplementedError()
+
+    def jacobian(self, number_vector):
+        """
+        Returns a dict of type 
+            {noise_key : d_model_error_d_number_vector_matrix}
+
+        By default, this is a numeric Jacobian calculated by central
+        differences.
+        """
+        x = np.copy(number_vector)
 
         for iParam in range(len(x)):
             dx = x[iParam] * 1.0e-7  # approx x0 * sqrt(machine precision)
@@ -143,57 +139,21 @@ class Jacobian:
                 dx = 1.0e-10
 
             x[iParam] -= dx
-            fs0 = self._f(x)
+            fs0 = self(x)
             x[iParam] += 2 * dx
-            fs1 = self._f(x)
+            fs1 = self(x)
             x[iParam] -= dx
 
             if iParam == 0:
                 # allocate jac
-                jac = []
-                for f0 in fs0:
-                    jac.append(np.empty([len(f0), len(x)]))
+                jac = {}
+                for noise_key, f0 in fs0.items():
+                    jac[noise_key] = np.empty([len(f0), len(x)])
 
-            for i, (f0, f1) in enumerate(zip(fs0, fs1)):
-                jac[i][:, iParam] = -(f1 - f0) / (2 * dx)
+            for n in fs0:
+                jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
 
         return jac
-
-
-class VerifiedModelError:
-    """
-    Brings the user-provided forward model in a algorithm-compatible form.
-    * transforms a simple (numpy) vector output into a list of length 1
-    * adds a CDF jacobian, if not provided
-    """
-
-    def __init__(self, model_error):
-        self._f = CountedEval(model_error)
-        self.n_jac = 0
-
-        try:
-            self._jac = model_error.jacobian
-        except:
-            self._jac = Jacobian(self.__call__)
-
-    def __call__(self, parameters):
-        f = self._f(parameters)
-        if not isinstance(f, list):
-            f = [f]
-        return f
-
-    def jacobian(self, parameters):
-        jac = self._jac(parameters)
-        if not isinstance(jac, list):
-            jac = [jac]
-        self.n_jac += 1
-        return jac
-
-    @property
-    def n(self):
-        return self._f.n
-
-
 
 
 def variational_bayes(model_error, param0, noise0=None, **kwargs):
@@ -273,12 +233,11 @@ class VBResult:
 
     def __init__(self):
         self.param = None
-        self.noise = None
+        self.noise = {}
         self.success = False
         self.message = ""
         self.free_energies = []
-        self.nfev = 0
-        self.njev = 0
+        self.f_max = -np.inf
         self.nit = 0
 
     def __str__(self):
@@ -290,11 +249,20 @@ class VBResult:
 
         return s
 
+    def try_update(self, f_new, mean, precision, shapes, scales):
+        self.free_energies.append(f_new)
+        if f_new > self.f_max:
+            # update
+            self.f_max = f_new
+            self.param = MVN(mean, precision)
+
+            for n in shapes:
+                self.noise[n] = Gamma(s=shapes[n], c=scales[n])
+
 
 class VB:
     def __init__(self, n_trials_max=10, iter_max=50, tolerance=0.1):
         self.f_old = -np.inf
-        self.f_stored = -np.inf
         self.param_stored = None
         self.n_trials = 0
         self.n_trials_max = n_trials_max
@@ -312,50 +280,48 @@ class VB:
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
 
-        model_error = VerifiedModelError(model_error)
         k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
 
         if noise0 is None:
-            noise0 = [Gamma.Noninformative() for i in range(len(k))]
+            noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
 
-        if isinstance(noise0, Gamma):
-            noise0 = [noise0]
-
-        if len(k) != len(noise0):
-            error = f"Your model error contains {len(k)} noise "
-            error += f" terms, your noise prior contains {len(noise0)}."
-            raise ValueError(error)
+        for noise_key in k:
+            if noise_key not in noise0:
+                error = f"Your model error contains the noise key {noise_key},"
+                error += f"which is not given in your noise prior!"
+                raise ValueError(error)
 
         # adapt notation
-        s = [n.s for n in noise0]
-        c = [n.c for n in noise0]
+        s, c = {}, {}
+        for n, gamma in noise0.items():
+            s[n] = gamma.s
+            c[n] = gamma.c
         m = np.copy(param0.mean)
         L = np.copy(param0.precision)
 
         m0 = np.copy(m)
         L0 = np.copy(L)
-        s0 = np.copy(s)
-        c0 = np.copy(c)
+        s0 = copy.copy(s)
+        c0 = copy.copy(c)
 
-        self.param_stored = [np.copy(s), np.copy(c), np.copy(m), np.copy(L)]
+        self.param_stored = [np.copy(s), np.copy(c), copy.copy(m), copy.copy(L)]
 
-        N = len(s)
         i_iter = 0
         while True:
             i_iter += 1
 
             # fw model parameter update
-            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in range(N)]) + L0
+            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
 
-            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in range(N)])
+            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
             Lm += L0 @ m0
             m = Lm @ L_inv
 
             k, J = model_error(m), model_error.jacobian(m)
 
             # noise parameter update
-            for i in range(N):
+            for i in noise0:
                 # formula (30)
                 c[i] = len(k[i]) / 2 + c0[i]
                 # formula (31)
@@ -384,7 +350,7 @@ class VB:
             (sign, logdet) = np.linalg.slogdet(L)
             f_new += 0.5 * sign * logdet
 
-            for i in range(N):
+            for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
@@ -402,187 +368,8 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            if self.stop_criteria([s, c, m, L], f_new, i_iter):
-                break
-
-        delta_f = self.f_old - f_new
-        logger.debug(f"Stopping VB. Iterations:{i_iter}, free energy change {delta_f}.")
-
-        self.result.njev = model_error.n_jac
-        self.result.nfev = model_error.n
-        self.result.nit = i_iter
-
-        self.result.param = MVN(self.param_stored[2], self.param_stored[3])
-        self.result.noise = []
-        for s, c in zip(self.param_stored[0], self.param_stored[1]):
-            self.result.noise.append(Gamma(s, c))
-
-        return self.result
-
-    def stop_criteria(self, prms, f_new, i_iter):
-        self.n_trials += 1
-
-        # parameter update
-        self.result.free_energies.append(f_new)
-
-        if f_new > self.f_stored:
-            self.param_stored = [np.copy(x) for x in prms]
-            self.f_stored = f_new
-
-        if f_new > self.f_old:
-            self.n_trials = 0
-
-        # stop?
-        if self.n_trials >= self.n_trials_max:
-            self.result.message = "Stopping because free energy did not "
-            self.result.message += f"increase within {self.n_trials_max} iterations."
-            return True
-
-        if i_iter >= self.iter_max:
-            self.result.message = "Stopping because the maximum number of "
-            self.result.message = "iterations is reached."
-            return True
-
-        if abs(f_new - self.f_old) <= self.tolerance:
-            self.result.message = "Tolerance reached!"
-            self.result.success = True
-            return True
-
-        # go on.
-        self.f_old = f_new
-        return False
-
-
-
-def vb_new(model_error, param0, noise0=None, **kwargs):
-    vb = VBNew()
-    return vb.run(model_error, param0, noise0, **kwargs)
-
-class VBNew:
-    def __init__(self, n_trials_max=10, iter_max=50, tolerance=0.1):
-        self.f_old = -np.inf
-        self.f_stored = -np.inf
-        self.param_stored = None
-        self.n_trials = 0
-        self.n_trials_max = n_trials_max
-        self.tolerance = tolerance
-        self.iter_max = iter_max
-
-        self.result = VBResult()
-
-    def run(self, model_error, param0, noise0=None, **kwargs):
-
-        if "tolerance" in kwargs:
-            self.tolerance = kwargs["tolerance"]
-        if "iter_max" in kwargs:
-            self.iter_max = kwargs["iter_max"]
-        if "n_trials_max" in kwargs:
-            self.n_trials_max = kwargs["n_trials_max"]
-
-        ks= model_error(param0.mean)
-        Js = model_error.jacobian(param0.mean)
-
-        # if noise0 is None:
-            # noise0 = [Gamma.Noninformative() for i in range(len(ks))]
-
-        # if isinstance(noise0, Gamma):
-            # noise0 = [noise0]
-
-        if len(ks) != len(noise0):
-            error = f"Your model error contains {len(ks)} noise "
-            error += f" terms, your noise prior contains {len(noise0)}."
-            raise ValueError(error)
-
-        # adapt notation
-        s, c = {}, {}
-        for n, gamma in noise0.items():
-            s[n] = gamma.s
-            c[n] = gamma.c
-        m = np.copy(param0.mean)
-        L = np.copy(param0.precision)
-
-        m0 = np.copy(m)
-        L0 = np.copy(L)
-        s0 = copy.copy(s)
-        c0 = copy.copy(c)
-
-        self.param_stored = [np.copy(s), np.copy(c), np.copy(m), np.copy(L)]
-
-        i_iter = 0
-        while True:
-            i_iter += 1
-
-            L = np.copy(L0)
-            Lm = L0 @ m0
-
-            for n in noise0:
-                k, J = ks[n], Js[n]
-                for i in range(len(k)):
-                    L += s[n] * c[n] * J[i].T @ J[i]
-                    Lm += s[n] * c[n] * J[i].T @ (k[i] + J[i] @ m)
-            
-            L_inv = np.linalg.inv(L)
-            m = Lm @ L_inv
-
-            ks, Js = model_error(m), model_error.jacobian(m)
-
-            # noise parameter update
-            for n in noise0:
-                k, J = ks[n], Js[n]
-                # formula (30)
-                N = sum([len(k_entry) for k_entry in k])
-                c[n] = N / 2 + c0[n]
-                # formula (31)
-                s_inv = 1/s0[n]
-                for i in range(len(k)):
-                    s_inv += 0.5 * k[i].T @ k[i] + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                
-                s[n] = 1 / s_inv
-
-            if "index_ARD" in kwargs:
-                index_ARD = kwargs["index_ARD"]
-                n_ARD_param = len(index_ARD)
-                L0[index_ARD, index_ARD] = 1 / (
-                    m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
-                )
-                r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
-                d = 0.5 * np.ones(n_ARD_param)
-
-            logger.debug(f"current mean: {m}")
-            logger.debug(f"current precision: {L}")
-
-            # free energy caluclation, formula (23) slightly rearranged
-            # to account for the loop over all noise groups
-            f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
-            (sign, logdet) = np.linalg.slogdet(L)
-            f_new += 0.5 * sign * logdet
-
-            for n in noise0:
-                k, J = ks[n], Js[n]
-
-                N = sum([len(k_entry) for k_entry in k])
-
-                f_new += -s[n] * c[n] / s0[n] + (N / 2 + c0[n] - 1) * (
-                    np.log(s[n]) + special.digamma(c[n])
-                )
-                f_new += -s[n] * np.log(c[n]) - special.gammaln(c[n])
-                f_new += -c[n] + (N / 2 + c[n] - 1) * (
-                    np.log(s[n]) + special.digamma(c[n])
-                )
-
-                for i in range(len(k)):
-                    f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-
-                if "index_ARD" in kwargs:
-                    for j in range(n_ARD_param):
-                        f_new += (
-                            (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
-                            - d[j] * (1 + np.log(r[j]))
-                            - special.gammaln(d[j])
-                        )
-            logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
-
-            if self.stop_criteria([s, c, m, L], f_new, i_iter):
+            self.result.try_update(f_new, m, L, s, c)
+            if self.stop_criteria(f_new, i_iter):
                 break
 
         delta_f = self.f_old - f_new
@@ -592,23 +379,10 @@ class VBNew:
         # self.result.nfev = model_error.n
         self.result.nit = i_iter
 
-        self.result.param = MVN(self.param_stored[2], self.param_stored[3])
-        self.result.noise = {}
-        for n in noise0:
-            self.result.noise[n] = Gamma(s[n], c[n])
-
-        self.result.param = MVN(m, L)
         return self.result
 
-    def stop_criteria(self, prms, f_new, i_iter):
+    def stop_criteria(self, f_new, i_iter):
         self.n_trials += 1
-
-        # parameter update
-        self.result.free_energies.append(f_new)
-
-        if f_new > self.f_stored:
-            self.param_stored = [np.copy(x) for x in prms]
-            self.f_stored = f_new
 
         if f_new > self.f_old:
             self.n_trials = 0
