@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem
+from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
 
 np.random.seed(6174)
 
@@ -46,7 +46,7 @@ def model(prm):
     return prm["A"] * xs + prm["B"]
 
 
-class ModelError:
+class ModelError(ModelErrorInterface):
     def __init__(self, fw, data):
         self.fw, self.data = fw, data
         self.parameter_list = ParameterList()
@@ -54,7 +54,7 @@ class ModelError:
         self.parameter_list.define("B")
 
     def __call__(self):
-        return self.fw(self.parameter_list) - self.data
+        return {"dummy": self.fw(self.parameter_list) - self.data}
 
 
 class Test_VB(unittest.TestCase):
@@ -64,12 +64,13 @@ class Test_VB(unittest.TestCase):
             posterior_mean = param_post.mean[i]
             posterior_std = param_post.std_diag[i]
 
-            self.assertLess(posterior_std, 0.3)
+            self.assertLess(posterior_std, 0.4)
             self.assertAlmostEqual(posterior_mean, param_true, delta=2 * posterior_std)
 
-        post_noise_precision = noise_post[0].mean
+        post_noise_precision = noise_post.mean
+
         post_noise_std = 1.0 / post_noise_precision ** 0.5
-        self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 10)
+        self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 5)
 
         self.assertLess(info.nit, 20)
 
@@ -101,7 +102,7 @@ class Test_VB(unittest.TestCase):
         error_list = problem(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
-        np.testing.assert_almost_equal(error_list[0], error_multi)
+        np.testing.assert_almost_equal(error_list["noise0"], error_multi)
 
     def test_joint(self):
         # Define two ModelErrors, but note that both use the same model.

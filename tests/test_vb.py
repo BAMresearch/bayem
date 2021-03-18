@@ -11,14 +11,13 @@ class ForwardModel:
 
     def __call__(self, parameters):
         m, c = parameters
-        v = [c + x * m for x in self.xs]
-        return np.array(v)
+        return c + self.xs * m
 
     def jacobian(self, parameters):
         m, c = parameters
-        d_dm = [x for x in self.xs]
-        d_dc = [1 for x in self.xs]
-        return np.array([d_dm, d_dc]).T
+        d_dm = self.xs
+        d_dc = np.ones_like(self.xs)
+        return np.vstack([d_dm, d_dc]).T
 
 
 class ModelError(VariationalBayesModelError):
@@ -35,7 +34,7 @@ class ModelError(VariationalBayesModelError):
     def __call__(self, parameters):
         model = self._forward_model(parameters)
         errors = []
-        for sensor, data in self._data.items():
+        for data in self._data:
             errors.append(model - data)
 
         return {"noise0": np.concatenate(errors)}
@@ -56,12 +55,10 @@ class Test_VB(unittest.TestCase):
         param_true = [7.0, 10.0]
         noise_sd = 0.1
 
-        data = {}
+        data = []
         perfect_data = fw(param_true)
-        for sensor in range(n_data):
-            data[sensor] = perfect_data + np.random.normal(
-                0, noise_sd, len(perfect_data)
-            )
+        for _ in range(n_data):
+            data.append(perfect_data + np.random.normal(0, noise_sd, len(perfect_data)))
 
         if given_jac:
             me = ModelErrorWithJacobian(fw, data)

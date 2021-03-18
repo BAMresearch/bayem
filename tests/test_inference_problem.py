@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 from bayes.vb import Gamma
 from bayes.parameters import ParameterList
-from bayes.noise import SingleNoise
+from bayes.noise import SingleSensorNoise
 from bayes.inference_problem import VariationalBayesProblem, InferenceProblem
 
 
@@ -13,7 +13,7 @@ class ModelError:
 
     def __call__(self):
         x = np.linspace(0, 1, 10)
-        return x * self.parameter_list["B"]
+        return {"dummy": x * self.parameter_list["B"]}
 
 
 class TestProblem(unittest.TestCase):
@@ -46,13 +46,13 @@ class TestVBProblem(unittest.TestCase):
         self.assertRaises(Exception, p.set_normal_prior, "not B", 0.0, 1.0)
 
         self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
-        p.add_noise_model(SingleNoise(), key="noise")
+        p.add_noise_model(SingleSensorNoise(), key="noise")
         p.set_noise_prior("noise", 1.0, 1.0)
         p.set_noise_prior("noise", Gamma.Noninformative())
 
         result = p([0.1])
         self.assertEqual(len(result), 1)  # one noise group
-        self.assertEqual(len(result[0]), 10)
+        self.assertEqual(len(result["noise"]), 10)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ class SingleSensorNoise(NoiseModelInterface):
                 )
             for sensor_me in exp_me.values():
                 vector_terms.append(sensor_me)
-        return vector_terms
+        return np.concatenate(vector_terms)
 
     def jacobian_contribution(self, raw_jacobian):
         jacobian_terms = []
@@ -48,27 +48,9 @@ class SingleSensorNoise(NoiseModelInterface):
                 )
             for sensor_jacobian in exp_jacobian.values():
                 jacobian_terms.append(sensor_jacobian)
-        return jacobian_terms
 
-
-class SingleNoise(NoiseModelInterface):
-    """
-    Noise model with single term for _all_ contributions of the model error.
-    The difference to `SingleSensorNoise` is that each model error is assumed
-    to be just a vector instead of a dict with sensor key.
-    """
-
-    def vector_contribution(self, raw_me):
-        vector_terms = []
-        for exp_me in raw_me.values():
-            if isinstance(exp_me, dict):
-                raise RuntimeError(
-                    "The `SingleNoise` model assumes that your model error "
-                    "returns just a list of numbers (e.g. numpy array), "
-                    "yours returned a dict. Use `SingleSensorNoise` instead."
-                )
-            vector_terms.append(exp_me)
-        return np.concatenate(vector_terms)
+        jacobian = np.vstack(jacobian_terms)
+        return jacobian
 
 
 class UncorrelatedNoiseTerm(NoiseModelInterface):

@@ -305,10 +305,14 @@ class VB:
 
         k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
 
+        return_single_noise = False
+
         if noise0 is None:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
+            if len(noise0) == 1:
+                return_single_noise = True
 
-        return_single_noise = False
+
         if isinstance(noise0, Gamma):
             # if a single Gamma is provided as prior, a single noise should
             # be returned as posterior.
@@ -427,9 +431,10 @@ class VB:
 
         if f_new > self.f_old:
             self.n_trials = 0
-            # Update free energy here such that the "stop_criteria" is testable
-            # individually:
-            self.result.f_max = f_new
+
+        # Update free energy here such that the "stop_criteria" is testable
+        # individually:
+        self.result.f_max = max(self.result.f_max, f_new)
 
         # stop?
         if self.n_trials >= self.n_trials_max:

@@ -1,9 +1,9 @@
 import numpy as np
 from .parameters import ParameterList
 from .latent import LatentParameters
-from .noise import SingleNoise
+from .noise import SingleSensorNoise
 from collections import OrderedDict
-from .vb import MVN, Gamma
+from .vb import MVN, Gamma, variational_bayes, VariationalBayesModelError
 
 
 class ModelErrorInterface:
@@ -17,9 +17,10 @@ class ModelErrorInterface:
         """
         raise NotImplementedError("Override this!")
 
-    def jacobian(self):
+    def jacobian(self, latent_names=None):
         jac = dict()
-        for prm_name in self.parameter_list.names:
+        latent_names = latent_names or self.parameter_list.names
+        for prm_name in latent_names:
 
             try:
                 N = len(self.parameter_list[prm_name])
@@ -103,8 +104,6 @@ class InferenceProblem:
         for key, me in self.model_errors.items():
             result[key] = me()
         return result
-    
-
 
     def define_shared_latent_parameter_by_name(self, name):
         for model_error in self.model_errors.values():
@@ -131,7 +130,7 @@ class InferenceProblem:
         return log_like
 
 
-class VariationalBayesProblem(InferenceProblem):
+class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
     def __init__(self):
         super().__init__()
         self.prm_prior = {}
@@ -162,22 +161,44 @@ class VariationalBayesProblem(InferenceProblem):
 
     def _use_default_noise(self):
         if not self.noise_models:
-            default = SingleNoise()
+            default = SingleSensorNoise()
             noise_key = self.add_noise_model(default)
-            self.noise_prior[noise_key] = Gamma.Noninformative()
+            self.noise_prior = Gamma.Noninformative()
 
     def run(self):
         self._use_default_noise()
         MVN = self.prior_MVN()
         noise = self.prior_noise()
-        info = vb_new(self, MVN, noise)
+        info = variational_bayes(self, MVN, noise)
         return info
 
     def jacobian(self, number_vector):
         self.latent.update(number_vector)
         jac = {}
         for key, me in self.model_errors.items():
-            jac[key] = me.jacobian()
+            sensor_parameter_jac = me.jacobian() 
+            # sensor_parameter_jac contains a 
+            # dict (sensor) of 
+            # dict (parameter)
+            #
+            # We now flatten the last dict (parameter) in the order of the 
+            # latent parameters for a valid VB input.
+            sensor_jac = {}
+            for sensor, parameter_jac in sensor_parameter_jac.items():
+                N = len(list(parameter_jac.values())[0])
+                stacked_jac = np.zeros((N, len(number_vector)))
+                for latent in self.latent.values():
+                    for (prm_list, name) in latent: 
+                        if prm_list == me.parameter_list:
+                            jjjwtf = parameter_jac[name]
+                            if len(jjjwtf.shape) == 1:
+                                jjjwtf = np.atleast_2d(jjjwtf).T
+
+                            stacked_jac[:,latent.global_index_range()]=-jjjwtf
+                sensor_jac[sensor] = stacked_jac
+
+            jac[key] = sensor_jac
+
 
         jacs_by_noise = {}
         for key, noise in self.noise_models.items():
