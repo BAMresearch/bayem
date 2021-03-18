@@ -115,7 +115,6 @@ def plot_pdf(
 
 
 class VariationalBayesModelError:
-
     def __call__(self, number_vector):
         """
         Returns a dict of type 
@@ -154,6 +153,18 @@ class VariationalBayesModelError:
                 jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
 
         return jac
+
+
+class VBModelErrorWrapper(VariationalBayesModelError):
+    def __init__(self, any_me):
+        self.any_me = any_me
+
+    def __call__(self, number_vector):
+        k = self.any_me(number_vector)
+        if not isinstance(k, dict):
+            return {"tmp_noise" : k}
+        else: 
+            return k
 
 
 def variational_bayes(model_error, param0, noise0=None, **kwargs):
@@ -271,6 +282,15 @@ class VB:
 
         self.result = VBResult()
 
+    def _evaluate_model_error(self, model_error, mean):
+        k, J = model_error(mean), model_error.jacobian(mean)
+        if not isinstance(k, dict):
+            # We define a dummy dict with noise_key "tmp_noise" to bring
+            # k and J in the right format.
+            return {"tmp_noise": k}, {"tmp_noise": J}
+        else:
+            return k, J
+
     def run(self, model_error, param0, noise0=None, **kwargs):
 
         if "tolerance" in kwargs:
@@ -280,10 +300,26 @@ class VB:
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
 
+        if not isinstance(model_error, VariationalBayesModelError):
+            model_error = VBModelErrorWrapper(model_error)
+
         k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
 
         if noise0 is None:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
+
+        return_single_noise = False
+        if isinstance(noise0, Gamma):
+            # if a single Gamma is provided as prior, a single noise should
+            # be returned as posterior.
+            return_single_noise = True
+            if len(k) != 1:
+                error = "Passing a single Gamma distribution, so without the "
+                error += "dict-pattern {noise_key : Gamma}, is only valid if "
+                error += "the provided model error has a single noise group!"
+                raise ValueError(error)
+            noise_key = list(k.keys())[0]
+            noise0 = {noise_key: noise0}
 
         for noise_key in k:
             if noise_key not in noise0:
@@ -379,6 +415,11 @@ class VB:
         # self.result.nfev = model_error.n
         self.result.nit = i_iter
 
+        if return_single_noise:
+            assert len(self.result.noise) == 1
+            noise = list(self.result.noise.values())[0]
+            self.result.noise = noise
+
         return self.result
 
     def stop_criteria(self, f_new, i_iter):
@@ -386,6 +427,9 @@ class VB:
 
         if f_new > self.f_old:
             self.n_trials = 0
+            # Update free energy here such that the "stop_criteria" is testable
+            # individually:
+            self.result.f_max = f_new
 
         # stop?
         if self.n_trials >= self.n_trials_max:

@@ -3,7 +3,7 @@ from .parameters import ParameterList
 from .latent import LatentParameters
 from .noise import SingleNoise
 from collections import OrderedDict
-from .vb import vb_new, MVN, Gamma
+from .vb import MVN, Gamma
 
 
 class ModelErrorInterface:

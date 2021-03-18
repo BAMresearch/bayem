@@ -8,11 +8,13 @@ A, B, sd = 7.0, 42.0, 0.1
 data = A * x + B + np.random.normal(0, sd, len(x))
 
 
-def me_list(parameters):
-    return [parameters[0] * x + parameters[1] - data]
+def me_dict(parameters):
+    return {"noise": parameters[0] * x + parameters[1] - data}
+
 
 def me_vector(parameters):
     return parameters[0] * x + parameters[1] - data
+
 
 class Test_VB(unittest.TestCase):
     def run_vb(self, model_error):
@@ -41,14 +43,14 @@ class Test_VB(unittest.TestCase):
                 posterior_mean, correct_value, delta=2 * posterior_std
             )
 
-        post_noise_precision = noise_post[0].mean
+        post_noise_precision = noise_post.mean
         post_noise_std = 1.0 / post_noise_precision ** 0.5
         self.assertAlmostEqual(post_noise_std, sd, delta=sd / 100)
 
         self.assertLess(info.nit, 20)
 
-    def test_list(self):
-        self.run_vb(me_list)
+    def test_dict(self):
+        self.run_vb(me_dict)
 
     def test_vector(self):
         self.run_vb(me_vector)
