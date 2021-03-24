@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem, ModelError
+from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
 from bayes.noise import UncorrelatedNoiseTerm
 
 """
@@ -50,7 +50,7 @@ class MyForwardModel:
         return p
 
 
-class MyModelError(ModelError):
+class MyModelError(ModelErrorInterface):
     def __init__(self, fw, data):
         self._fw = fw
         self._ts, self._sensor_data = data
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     summary = pm.summary(trace)
     print(summary)
 
-    print(1.0 / info.noise[0].mean ** 0.5, 1.0 / info.noise[1].mean ** 0.5)
+    print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
 
     means = summary["mean"]
     print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)

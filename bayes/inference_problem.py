@@ -4,6 +4,7 @@ from .latent import LatentParameters
 from .noise import SingleSensorNoise
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesModelError
+from .jacobian import *
 
 
 class ModelErrorInterface:
@@ -24,9 +25,9 @@ class ModelErrorInterface:
 
             try:
                 N = len(self.parameter_list[prm_name])
-                prm_jac = self._jacobian_vector_prm(prm_name, N)
+                prm_jac = d_model_error_d_vector_parameter(self, prm_name)
             except TypeError:
-                prm_jac = self._jacobian_scalar_prm(prm_name)
+                prm_jac = d_model_error_d_scalar_parameter(self, prm_name)
 
             for key in prm_jac:
                 if key not in jac:
@@ -34,45 +35,6 @@ class ModelErrorInterface:
 
                 jac[key][prm_name] = prm_jac[key]
 
-        return jac
-
-    def _jacobian_scalar_prm(self, prm_name):
-        prm0 = self.parameter_list[prm_name]
-        dx = prm0 * 1.0e-7  # approx prm * sqrt(machine precision)
-        if dx == 0:
-            dx = 1.0e-7
-
-        self.parameter_list[prm_name] = prm0 - dx
-        me0 = self()
-        self.parameter_list[prm_name] = prm0 + dx
-        me1 = self()
-        self.parameter_list[prm_name] = prm0
-
-        jac = dict()
-        for key in me0:
-            jac[key] = (me1[key] - me0[key]) / (2 * dx)
-        return jac
-
-    def _jacobian_vector_prm(self, prm_name, N):
-        prm0 = np.copy(self.parameter_list[prm_name])
-        jac = dict()
-
-        for row in range(N):
-            dx = prm0[row] * 1.0e-7  # approx prm * sqrt(machine precision)
-            if dx == 0:
-                dx = 1.0e-7
-
-            self.parameter_list[prm_name][row] = prm0[row] - dx
-            me0 = self()
-            self.parameter_list[prm_name][row] = prm0[row] + dx
-            me1 = self()
-            self.parameter_list[prm_name][row] = prm0[row]
-
-            for key in me0:
-                if key not in jac:
-                    jac[key] = np.empty((len(me0[key]), N))
-
-                jac[key][:, row] = (me1[key] - me0[key]) / (2 * dx)
         return jac
 
 
@@ -176,29 +138,62 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
         self.latent.update(number_vector)
         jac = {}
         for key, me in self.model_errors.items():
-            sensor_parameter_jac = me.jacobian() 
-            # sensor_parameter_jac contains a 
-            # dict (sensor) of 
-            # dict (parameter)
-            #
-            # We now flatten the last dict (parameter) in the order of the 
-            # latent parameters for a valid VB input.
+            sensor_parameter_jac = me.jacobian()
+            """
+            sensor_parameter_jac contains a 
+                dict (sensor) of 
+                dict (parameter)
+            
+            We now flatten the last dict (parameter) in the order of the 
+            latent parameters for a valid VB input.
+
+            This is challenging/ugly because:
+                * The "parameter" in sensor_parameter_jac is not the same
+                  as the corresponding _global_ parameter in the latent
+                  parameters.
+                * Some of the latent parameters may not be part of 
+                  sensor_parameter_jac, because it only is a parameter of a 
+                  different model error. We have to fill it with zeros of the
+                  right dimension
+
+
+            """
             sensor_jac = {}
             for sensor, parameter_jac in sensor_parameter_jac.items():
-                N = len(list(parameter_jac.values())[0])
-                stacked_jac = np.zeros((N, len(number_vector)))
-                for latent in self.latent.values():
-                    for (prm_list, name) in latent: 
-                        if prm_list == me.parameter_list:
-                            jjjwtf = parameter_jac[name]
-                            if len(jjjwtf.shape) == 1:
-                                jjjwtf = np.atleast_2d(jjjwtf).T
+                first_jac = list(parameter_jac.values())[0]
+                N = len(first_jac)
 
-                            stacked_jac[:,latent.global_index_range()]=-jjjwtf
+                # We allocate "stacked_jac" where each column corresponds
+                # to a number in the "number_vector".
+                stacked_jac = np.zeros((N, len(number_vector)))
+
+                # For each global latent parameter, we now need to find its
+                # _local_ name, so the name in the parameter_list of the
+                # model_error.
+                for latent in self.latent.values():
+                    for (prm_list, name) in latent:
+                        if prm_list == me.parameter_list:
+                            # The _global_ latent parameter is part of the
+                            # current model error!
+                            J = parameter_jac[name]
+
+                            # If it is a scalar parameter, the user may have
+                            # defined as a vector of length N. We need to
+                            # transform it to a matrix Nx1.
+                            if len(J.shape) == 1:
+                                J = np.atleast_2d(J).T
+
+                            stacked_jac[:, latent.global_index_range()] = -J
+                        else:
+                            # Just for explaination. The global parameter is
+                            # _not_ a parameter of the model_error and we
+                            # need fill it with zeros. This is done by
+                            # initializing "stacked_jac" with zeros above.
+                            pass
+
                 sensor_jac[sensor] = stacked_jac
 
             jac[key] = sensor_jac
-
 
         jacs_by_noise = {}
         for key, noise in self.noise_models.items():

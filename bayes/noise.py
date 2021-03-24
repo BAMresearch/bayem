@@ -78,6 +78,12 @@ class UncorrelatedNoiseTerm(NoiseModelInterface):
         sigma = 1.0 / self.parameter_list["precision"] ** 0.5
         return self._loglike_term(error, sigma)
 
+    def jacobian_contribution(self, raw_jacobian):
+        jacobian_terms = []
+        for (sensor, key) in self.terms:
+            jacobian_terms.append(raw_jacobian[key][sensor])
+        jacobian = np.vstack(jacobian_terms)
+        return jacobian
 
 class UncorrelatedSensorNoise(NoiseModelInterface):
     """

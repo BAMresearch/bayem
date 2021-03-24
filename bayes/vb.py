@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import scipy.stats
 import scipy.special as special
+from .jacobian import d_model_error_d_vector
 
 import logging
 
@@ -130,30 +131,7 @@ class VariationalBayesModelError:
         By default, this is a numeric Jacobian calculated by central
         differences.
         """
-        x = np.copy(number_vector)
-
-        for iParam in range(len(x)):
-            dx = x[iParam] * 1.0e-7  # approx x0 * sqrt(machine precision)
-            if dx == 0:
-                dx = 1.0e-10
-
-            x[iParam] -= dx
-            fs0 = self(x)
-            x[iParam] += 2 * dx
-            fs1 = self(x)
-            x[iParam] -= dx
-
-            if iParam == 0:
-                # allocate jac
-                jac = {}
-                for noise_key, f0 in fs0.items():
-                    jac[noise_key] = np.empty([len(f0), len(x)])
-
-            for n in fs0:
-                jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
-
-        return jac
-
+        return d_model_error_d_vector(self, number_vector)
 
 class VBModelErrorWrapper(VariationalBayesModelError):
     def __init__(self, any_me):
