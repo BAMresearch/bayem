@@ -38,6 +38,13 @@ def d_model_error_d_vector(model_error, number_vector):
     return jac
 
 
+def d_model_error_d_named_parameter(model_error, prm_name):
+    if hasattr(model_error.parameter_list[prm_name], "__len__"):
+        return d_model_error_d_vector_parameter(model_error, prm_name)
+    else:
+        return d_model_error_d_scalar_parameter(model_error, prm_name)
+
+
 def d_model_error_d_scalar_parameter(model_error, prm_name):
     """
     Calculates the derivative of `model_error` w.r.t the named parameter 

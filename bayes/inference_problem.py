@@ -22,13 +22,7 @@ class ModelErrorInterface:
         jac = dict()
         latent_names = latent_names or self.parameter_list.names
         for prm_name in latent_names:
-
-            try:
-                N = len(self.parameter_list[prm_name])
-                prm_jac = d_model_error_d_vector_parameter(self, prm_name)
-            except TypeError:
-                prm_jac = d_model_error_d_scalar_parameter(self, prm_name)
-
+            prm_jac = d_model_error_d_named_parameter(self, prm_name)
             for key in prm_jac:
                 if key not in jac:
                     jac[key] = dict()
