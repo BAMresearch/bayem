@@ -24,7 +24,7 @@ def d_model_error_d_vector(model_error, number_vector):
         fs0 = model_error(x)
         x[iParam] += 2 * dx
         fs1 = model_error(x)
-        x[iParam] -= dx
+        x[iParam] = number_vector[iParam]
 
         if iParam == 0:
             # allocate jac
