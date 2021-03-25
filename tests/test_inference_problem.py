@@ -13,7 +13,7 @@ class ModelError:
 
     def __call__(self):
         x = np.linspace(0, 1, 10)
-        return {"dummy": x * self.parameter_list["B"]}
+        return {"dummy_sensor": x * self.parameter_list["B"]}
 
 
 class TestProblem(unittest.TestCase):

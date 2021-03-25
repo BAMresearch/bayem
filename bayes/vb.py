@@ -41,17 +41,17 @@ class MVN:
 
 
 class Gamma:
-    def __init__(self, s=1.0, c=1.0, name="Gamma"):
-        self.s = s  # shape
-        self.c = c  # scale
+    def __init__(self, shape=1.0, scale=1.0, name="Gamma"):
+        self.scale = scale
+        self.shape = shape
         self.name = name
 
     @property
     def mean(self):
-        return self.s * self.c
+        return self.scale * self.shape
 
     def pdf(self, xs):
-        return scipy.stats.gamma.pdf(xs, a=self.s, scale=self.c)
+        return scipy.stats.gamma.pdf(xs, a=self.shape, scale=self.scale)
 
     def __repr__(self):
         return f"{self.name} with \n └── mean: {self.mean, 9}"
@@ -68,7 +68,7 @@ class Gamma:
         or
         https://math.stackexchange.com/questions/449234/vague-gamma-prior
         """
-        return cls(s=1.0 / 3.0, c=0.0)
+        return cls(scale=1.0 / 3.0, shape=0.0)
 
 
 def plot_pdf(
@@ -246,7 +246,7 @@ class VBResult:
             self.param = MVN(mean, precision)
 
             for n in shapes:
-                self.noise[n] = Gamma(s=shapes[n], c=scales[n])
+                self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
 
 
 class VB:
@@ -312,8 +312,8 @@ class VB:
         # adapt notation
         s, c = {}, {}
         for n, gamma in noise0.items():
-            s[n] = gamma.s
-            c[n] = gamma.c
+            s[n] = gamma.scale
+            c[n] = gamma.shape
         m = np.copy(param0.mean)
         L = np.copy(param0.precision)
 
@@ -386,7 +386,7 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, m, L, s, c)
+            self.result.try_update(f_new, m, L, c, s)
             if self.stop_criteria(f_new, i_iter):
                 break
 

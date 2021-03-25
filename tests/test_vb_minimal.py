@@ -20,7 +20,7 @@ class Test_VB(unittest.TestCase):
     def run_vb(self, model_error):
 
         param_prior = MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = Gamma(s=0.1, c=1000)
+        noise_prior = Gamma(shape=0.1, scale=1000)
 
         info = variational_bayes(model_error, param_prior, noise_prior)
         param_post, noise_post = info.param, info.noise

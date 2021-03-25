@@ -66,7 +66,7 @@ class Test_VB(unittest.TestCase):
             [6, 11] + bias_param[0],
             ([1 / 3 ** 2, 1 / 3 ** 2] + bias_param[1]) * np.identity(2 + n_sensors),
         )
-        noise_prior = Gamma(s=0.5, c=2 * 1 / noise_std ** 2)
+        noise_prior = Gamma(scale=0.5, shape=2 * 1 / noise_std ** 2)
 
         vb = VB()
         info = vb.run(

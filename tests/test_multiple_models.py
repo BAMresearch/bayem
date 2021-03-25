@@ -7,8 +7,8 @@ from bayes.noise import SingleSensorNoise
 
 np.random.seed(6174)
 
-A1, B1, A2, B2 = 1.0, 2.0, 3.0, 4.0
-noise_sd = 0.1
+A1, B1, A2, B2 = 100.0, 200.0, 300.0, 400.0
+noise_sd = 12.
 
 N = 2000
 xs = np.linspace(0, 1, N)
@@ -65,7 +65,7 @@ class Test_VB(unittest.TestCase):
             posterior_mean = param_post.mean[i]
             posterior_std = param_post.std_diag[i]
 
-            self.assertLess(posterior_std, 0.4)
+            self.assertLess(posterior_std, 4)
             self.assertAlmostEqual(posterior_mean, param_true, delta=2 * posterior_std)
 
         if noise_key is None:
@@ -74,7 +74,7 @@ class Test_VB(unittest.TestCase):
             post_noise_precision = noise_post[noise_key].mean
 
         post_noise_std = 1.0 / post_noise_precision ** 0.5
-        self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 5)
+        self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 100)
 
         self.assertLess(info.nit, 20)
 
@@ -130,7 +130,7 @@ class Test_VB(unittest.TestCase):
         problem.set_normal_prior("B1", B1 + 0.5, 2)
         problem.set_normal_prior("A2", A2 + 0.5, 2)
         problem.set_normal_prior("B2", B2 + 0.5, 2)
-        
+
         noise_key = problem.add_noise_model(SingleSensorNoise())
         problem.set_noise_prior(noise_key, Gamma.Noninformative())
 
