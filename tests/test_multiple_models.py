@@ -3,6 +3,7 @@ import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
+from bayes.noise import SingleSensorNoise
 
 np.random.seed(6174)
 
@@ -54,11 +55,11 @@ class ModelError(ModelErrorInterface):
         self.parameter_list.define("B")
 
     def __call__(self):
-        return {"dummy": self.fw(self.parameter_list) - self.data}
+        return {"dummy_sensor": self.fw(self.parameter_list) - self.data}
 
 
 class Test_VB(unittest.TestCase):
-    def check_posterior(self, info):
+    def check_posterior(self, info, noise_key=None):
         param_post, noise_post = info.param, info.noise
         for i, param_true in enumerate([A1, B1, A2, B2]):
             posterior_mean = param_post.mean[i]
@@ -67,7 +68,10 @@ class Test_VB(unittest.TestCase):
             self.assertLess(posterior_std, 0.4)
             self.assertAlmostEqual(posterior_mean, param_true, delta=2 * posterior_std)
 
-        post_noise_precision = noise_post.mean
+        if noise_key is None:
+            post_noise_precision = noise_post.mean
+        else:
+            post_noise_precision = noise_post[noise_key].mean
 
         post_noise_std = 1.0 / post_noise_precision ** 0.5
         self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 5)
@@ -97,12 +101,13 @@ class Test_VB(unittest.TestCase):
         problem.latent["B1"].add(me1.parameter_list, "B")
         problem.latent["B2"].add(me2.parameter_list, "B")
         problem.define_shared_latent_parameter_by_name("A")
+        noise_key = problem.add_noise_model(SingleSensorNoise())
 
         parameter_vec = np.array([1, 2, 4])
         error_list = problem(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
-        np.testing.assert_almost_equal(error_list["noise0"], error_multi)
+        np.testing.assert_almost_equal(error_list[noise_key], error_multi)
 
     def test_joint(self):
         # Define two ModelErrors, but note that both use the same model.
@@ -125,12 +130,15 @@ class Test_VB(unittest.TestCase):
         problem.set_normal_prior("B1", B1 + 0.5, 2)
         problem.set_normal_prior("A2", A2 + 0.5, 2)
         problem.set_normal_prior("B2", B2 + 0.5, 2)
+        
+        noise_key = problem.add_noise_model(SingleSensorNoise())
+        problem.set_noise_prior(noise_key, Gamma.Noninformative())
 
         print(problem.prm_prior)
 
         info = problem.run()
         print(info)
-        self.check_posterior(info)
+        self.check_posterior(info, noise_key)
 
 
 if __name__ == "__main__":

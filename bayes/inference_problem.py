@@ -115,14 +115,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
             )
         self.noise_prior[name] = gamma
 
-    def _use_default_noise(self):
-        if not self.noise_models:
-            default = SingleSensorNoise()
-            noise_key = self.add_noise_model(default)
-            self.noise_prior = Gamma.Noninformative()
-
     def run(self):
-        self._use_default_noise()
         MVN = self.prior_MVN()
         noise = self.prior_noise()
         info = variational_bayes(self, MVN, noise)
@@ -132,7 +125,15 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
         self.latent.update(number_vector)
         jac = {}
         for key, me in self.model_errors.items():
-            sensor_parameter_jac = me.jacobian()
+
+            # For each global latent parameter, we now need to find its
+            # _local_ name, so the name in the parameter_list of the
+            # model_error ...
+            latent_names = self.latent.latent_names(me.parameter_list)
+            local_latent_names = [n[0] for n in latent_names]
+
+            # ... and only request the jacobian for the latent parameters. 
+            sensor_parameter_jac = me.jacobian(local_latent_names)
             """
             sensor_parameter_jac contains a 
                 dict (sensor) of 
@@ -150,7 +151,6 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
                   different model error. We have to fill it with zeros of the
                   right dimension
 
-
             """
             sensor_jac = {}
             for sensor, parameter_jac in sensor_parameter_jac.items():
@@ -161,29 +161,16 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
                 # to a number in the "number_vector".
                 stacked_jac = np.zeros((N, len(number_vector)))
 
-                # For each global latent parameter, we now need to find its
-                # _local_ name, so the name in the parameter_list of the
-                # model_error.
-                for latent in self.latent.values():
-                    for (prm_list, name) in latent:
-                        if prm_list == me.parameter_list:
-                            # The _global_ latent parameter is part of the
-                            # current model error!
-                            J = parameter_jac[name]
+                for (local_name, global_name) in latent_names:
+                    J = parameter_jac[local_name]
 
-                            # If it is a scalar parameter, the user may have
-                            # defined as a vector of length N. We need to
-                            # transform it to a matrix Nx1.
-                            if len(J.shape) == 1:
-                                J = np.atleast_2d(J).T
+                    # If it is a scalar parameter, the user may have
+                    # defined as a vector of length N. We need to
+                    # transform it to a matrix Nx1.
+                    if len(J.shape) == 1:
+                        J = np.atleast_2d(J).T
 
-                            stacked_jac[:, latent.global_index_range()] = -J
-                        else:
-                            # Just for explaination. The global parameter is
-                            # _not_ a parameter of the model_error and we
-                            # need fill it with zeros. This is done by
-                            # initializing "stacked_jac" with zeros above.
-                            pass
+                    stacked_jac[:, self.latent[global_name].global_index_range()] = -J
 
                 sensor_jac[sensor] = stacked_jac
 
@@ -196,7 +183,6 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
         return jacs_by_noise
 
     def __call__(self, number_vector):
-        self._use_default_noise()
         me = super().__call__(number_vector)
 
         errors_by_noise = {}
