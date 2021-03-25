@@ -117,8 +117,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
 
     def run(self):
         MVN = self.prior_MVN()
-        noise = self.prior_noise()
-        info = variational_bayes(self, MVN, noise)
+        info = variational_bayes(self, MVN, self.noise_prior)
         return info
 
     def jacobian(self, number_vector):
@@ -207,6 +206,3 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
                 precs.append(1.0 / sd ** 2)
 
         return MVN(means, np.diag(precs))
-
-    def prior_noise(self):
-        return self.noise_prior
