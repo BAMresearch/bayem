@@ -1,6 +1,15 @@
 import numpy as np
 
 
+def _find_dx(x0, delta=None):
+    if delta is not None:
+        return delta
+    dx = x0 * 1.0e-7 + 1.0e-7  # approx x0 * sqrt(machine precision)
+    if dx == 0:
+        dx = 1.0e-7
+    return dx
+
+
 def d_model_error_d_vector(model_error, number_vector):
     """
     Calculates the derivative of `model_error` w.r.t `number_vector`
@@ -16,9 +25,7 @@ def d_model_error_d_vector(model_error, number_vector):
     x = np.copy(number_vector)
 
     for iParam in range(len(x)):
-        dx = x[iParam] * 1.0e-7  # approx x0 * sqrt(machine precision)
-        if dx == 0:
-            dx = 1.0e-10
+        dx = _find_dx(x[iParam])
 
         x[iParam] -= dx
         fs0 = model_error(x)
@@ -29,8 +36,8 @@ def d_model_error_d_vector(model_error, number_vector):
         if iParam == 0:
             # allocate jac
             jac = {}
-            for noise_key, f0 in fs0.items():
-                jac[noise_key] = np.empty([len(f0), len(x)])
+            for key, f0 in fs0.items():
+                jac[key] = np.empty([len(f0), len(x)])
 
         for n in fs0:
             jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
@@ -59,9 +66,7 @@ def d_model_error_d_scalar_parameter(model_error, prm_name):
         dict of type {key : numpy_vector of length N}
     """
     prm0 = model_error.parameter_list[prm_name]
-    dx = prm0 * 1.0e-7  # approx prm * sqrt(machine precision)
-    if dx == 0:
-        dx = 1.0e-7
+    dx = _find_dx(prm0)
 
     model_error.parameter_list[prm_name] = prm0 - dx
     me0 = model_error()
@@ -94,9 +99,7 @@ def d_model_error_d_vector_parameter(model_error, prm_name):
     jac = dict()
 
     for row in range(M):
-        dx = prm0[row] * 1.0e-7  # approx prm * sqrt(machine precision)
-        if dx == 0:
-            dx = 1.0e-7
+        dx = _find_dx(prm0[row])
 
         model_error.parameter_list[prm_name][row] = prm0[row] - dx
         me0 = model_error()

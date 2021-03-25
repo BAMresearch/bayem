@@ -92,6 +92,5 @@ class TestJacobian(unittest.TestCase):
         check(jac["out2"]["A"], me.xs * 2 * A)
         check(jac["out2"]["B"], me.xs)
 
-
 if __name__ == "__main__":
     unittest.main()
