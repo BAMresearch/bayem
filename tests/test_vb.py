@@ -20,7 +20,7 @@ class ForwardModel:
         return np.vstack([d_dm, d_dc]).T
 
 
-class ModelError(VariationalBayesModelError):
+class ModelError(VariationalBayesInterface):
     def __init__(self, forward_model, data):
         """
         forward_model:

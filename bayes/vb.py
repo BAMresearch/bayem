@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import scipy.stats
 import scipy.special as special
-from .jacobian import d_model_error_d_vector
+from .jacobian import delta_x
 
 import logging
 
@@ -115,7 +115,7 @@ def plot_pdf(
         plt.show()
 
 
-class VariationalBayesModelError:
+class VariationalBayesInterface:
     def __call__(self, number_vector):
         """
         Returns a dict of type 
@@ -131,17 +131,55 @@ class VariationalBayesModelError:
         By default, this is a numeric Jacobian calculated by central
         differences.
         """
-        return d_model_error_d_vector(self, number_vector)
+        """
+        Calculates the derivative of `vb_model_error` w.r.t `number_vector`
 
-class VBModelErrorWrapper(VariationalBayesModelError):
-    def __init__(self, any_me):
-        self.any_me = any_me
+        vb_model_error:
+            function that takes the single argument of type `number_vector` and
+            returns a dict of type {key : numpy_vector of length N}
+        number_vector:
+            vector of numbers of length M
+        returns:
+            dict of type {key : numpy_matrix of shape NxM}
+        """
+        x = np.copy(number_vector)
+
+        for iParam in range(len(x)):
+            dx = delta_x(x[iParam])
+
+            x[iParam] -= dx
+            fs0 = self(x)
+            x[iParam] += 2 * dx
+            fs1 = self(x)
+            x[iParam] = number_vector[iParam]
+
+            if iParam == 0:
+                # allocate jac
+                jac = {}
+                for key, f0 in fs0.items():
+                    jac[key] = np.empty([len(f0), len(x)])
+
+            for n in fs0:
+                jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
+
+        return jac
+
+
+class VBModelErrorWrapper(VariationalBayesInterface):
+    def __init__(self, model_error):
+        """
+        For simple cases with only a single noise group, we want the
+        model error for variational bayes to just return a vector instead of
+        {"some_dummy_noise_key":vector}.
+        Still, to match the VariationalBayesInterface, we use this adapter.
+        """
+        self.model_error = model_error
 
     def __call__(self, number_vector):
-        k = self.any_me(number_vector)
+        k = self.model_error(number_vector)
         if not isinstance(k, dict):
-            return {"tmp_noise" : k}
-        else: 
+            return {"tmp_noise": k}
+        else:
             return k
 
 
@@ -257,17 +295,7 @@ class VB:
         self.n_trials_max = n_trials_max
         self.tolerance = tolerance
         self.iter_max = iter_max
-
         self.result = VBResult()
-
-    def _evaluate_model_error(self, model_error, mean):
-        k, J = model_error(mean), model_error.jacobian(mean)
-        if not isinstance(k, dict):
-            # We define a dummy dict with noise_key "tmp_noise" to bring
-            # k and J in the right format.
-            return {"tmp_noise": k}, {"tmp_noise": J}
-        else:
-            return k, J
 
     def run(self, model_error, param0, noise0=None, **kwargs):
 
@@ -278,7 +306,7 @@ class VB:
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
 
-        if not isinstance(model_error, VariationalBayesModelError):
+        if not isinstance(model_error, VariationalBayesInterface):
             model_error = VBModelErrorWrapper(model_error)
 
         k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
@@ -289,7 +317,6 @@ class VB:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
             if len(noise0) == 1:
                 return_single_noise = True
-
 
         if isinstance(noise0, Gamma):
             # if a single Gamma is provided as prior, a single noise should

@@ -3,8 +3,8 @@ from .parameters import ParameterList
 from .latent import LatentParameters
 from .noise import SingleSensorNoise
 from collections import OrderedDict
-from .vb import MVN, Gamma, variational_bayes, VariationalBayesModelError
-from .jacobian import *
+from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
+from .jacobian import d_model_error_d_named_parameter
 
 
 class ModelErrorInterface:
@@ -86,7 +86,7 @@ class InferenceProblem:
         return log_like
 
 
-class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
+class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def __init__(self):
         super().__init__()
         self.prm_prior = {}
@@ -121,6 +121,9 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
         return info
 
     def jacobian(self, number_vector):
+        """
+        overwrites VariationalBayesInterface.jacobian
+        """
         self.latent.update(number_vector)
         jac = {}
         for key, me in self.model_errors.items():
@@ -182,6 +185,9 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesModelError):
         return jacs_by_noise
 
     def __call__(self, number_vector):
+        """
+        overwrites VariationalBayesInterface.__call__
+        """
         me = super().__call__(number_vector)
 
         errors_by_noise = {}
