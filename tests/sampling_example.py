@@ -131,8 +131,8 @@ if __name__ == "__main__":
     noise_key1 = problem.add_noise_model(noise1)
     noise_key2 = problem.add_noise_model(noise2)
 
-    problem.set_noise_prior(noise_key1, 3 * noise_sd1)
-    problem.set_noise_prior(noise_key2, 3 * noise_sd2)
+    problem.set_noise_prior(noise_key1, 3 * noise_sd1, sd_shape=0.5)
+    problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
 
     info = problem.run()
     print(info)
@@ -184,8 +184,8 @@ if __name__ == "__main__":
 
         for name, gamma in problem.noise_prior.items():
             idx = problem.latent[name].start_idx
-            s, c = gamma.scale, gamma.shape
-            alpha, beta = s, 1.0 / c
+            shape, scale = gamma.shape, gamma.scale
+            alpha, beta = shape, 1.0 / scale
             pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
 
     """
