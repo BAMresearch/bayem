@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
         for name, gamma in problem.noise_prior.items():
             idx = problem.latent[name].start_idx
-            s, c = gamma.s, gamma.c
+            s, c = gamma.scale, gamma.shape
             alpha, beta = s, 1.0 / c
             pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
 
