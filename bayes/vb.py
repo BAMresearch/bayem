@@ -1,6 +1,8 @@
+import copy
 import numpy as np
 import scipy.stats
 import scipy.special as special
+from .jacobian import delta_x
 
 import logging
 
@@ -39,17 +41,17 @@ class MVN:
 
 
 class Gamma:
-    def __init__(self, s=1.0, c=1.0, name="Gamma"):
-        self.s = s  # shape
-        self.c = c  # scale
+    def __init__(self, shape=1.0, scale=1.0, name="Gamma"):
+        self.scale = scale
+        self.shape = shape
         self.name = name
 
     @property
     def mean(self):
-        return self.s * self.c
+        return self.scale * self.shape
 
     def pdf(self, xs):
-        return scipy.stats.gamma.pdf(xs, a=self.s, scale=self.c)
+        return scipy.stats.gamma.pdf(xs, a=self.shape, scale=self.scale)
 
     def __repr__(self):
         return f"{self.name} with \n └── mean: {self.mean, 9}"
@@ -66,7 +68,7 @@ class Gamma:
         or
         https://math.stackexchange.com/questions/449234/vague-gamma-prior
         """
-        return cls(s=1.0 / 3.0, c=0.0)
+        return cls(scale=1.0 / 3.0, shape=0.0)
 
 
 def plot_pdf(
@@ -113,84 +115,72 @@ def plot_pdf(
         plt.show()
 
 
-class CountedEval:
-    def __init__(self, f):
-        self._f = f
-        self.n = 0
-
-    def __call__(self, *args, **kwargs):
-        self.n += 1
-        return self._f(*args, **kwargs)
-
-
-class Jacobian:
-    def __init__(self, f):
-        self._f = f
-
-    def __call__(self, xp):
+class VariationalBayesInterface:
+    def __call__(self, number_vector):
         """
-        calculate the numeric jacobian via central differences.
-
-        We _could_ change the argument x directly. For safety, we make a copy
-        at the beginning and work with that.
+        Returns a dict of type 
+            {noise_key : model_error_vector}
         """
-        x = np.copy(xp)
+        raise NotImplementedError()
+
+    def jacobian(self, number_vector):
+        """
+        Returns a dict of type 
+            {noise_key : d_model_error_d_number_vector_matrix}
+
+        By default, this is a numeric Jacobian calculated by central
+        differences.
+        """
+        """
+        Calculates the derivative of `vb_model_error` w.r.t `number_vector`
+
+        vb_model_error:
+            function that takes the single argument of type `number_vector` and
+            returns a dict of type {key : numpy_vector of length N}
+        number_vector:
+            vector of numbers of length M
+        returns:
+            dict of type {key : numpy_matrix of shape NxM}
+        """
+        x = np.copy(number_vector)
 
         for iParam in range(len(x)):
-            dx = x[iParam] * 1.0e-7  # approx x0 * sqrt(machine precision)
-            if dx == 0:
-                dx = 1.0e-10
+            dx = delta_x(x[iParam])
 
             x[iParam] -= dx
-            fs0 = self._f(x)
+            fs0 = self(x)
             x[iParam] += 2 * dx
-            fs1 = self._f(x)
-            x[iParam] -= dx
+            fs1 = self(x)
+            x[iParam] = number_vector[iParam]
 
             if iParam == 0:
                 # allocate jac
-                jac = []
-                for f0 in fs0:
-                    jac.append(np.empty([len(f0), len(x)]))
+                jac = {}
+                for key, f0 in fs0.items():
+                    jac[key] = np.empty([len(f0), len(x)])
 
-            for i, (f0, f1) in enumerate(zip(fs0, fs1)):
-                jac[i][:, iParam] = -(f1 - f0) / (2 * dx)
+            for n in fs0:
+                jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
 
         return jac
 
 
-class VerifiedModelError:
-    """
-    Brings the user-provided forward model in a algorithm-compatible form.
-    * transforms a simple (numpy) vector output into a list of length 1
-    * adds a CDF jacobian, if not provided
-    """
-
+class VBModelErrorWrapper(VariationalBayesInterface):
     def __init__(self, model_error):
-        self._f = CountedEval(model_error)
-        self.n_jac = 0
+        """
+        For simple cases with only a single noise group, we want the
+        model error for variational bayes to just return a vector instead of
+        {"some_dummy_noise_key":vector}.
+        Still, to match the VariationalBayesInterface, we use this adapter.
+        """
+        self.model_error = model_error
 
-        try:
-            self._jac = model_error.jacobian
-        except:
-            self._jac = Jacobian(self.__call__)
-
-    def __call__(self, parameters):
-        f = self._f(parameters)
-        if not isinstance(f, list):
-            f = [f]
-        return f
-
-    def jacobian(self, parameters):
-        jac = self._jac(parameters)
-        if not isinstance(jac, list):
-            jac = [jac]
-        self.n_jac += 1
-        return jac
-
-    @property
-    def n(self):
-        return self._f.n
+    def __call__(self, number_vector):
+        k = self.model_error(number_vector)
+        if not isinstance(k, dict):
+            return {"tmp_noise": k}
+        else:
+            return k
 
 
 def variational_bayes(model_error, param0, noise0=None, **kwargs):
@@ -270,12 +260,11 @@ class VBResult:
 
     def __init__(self):
         self.param = None
-        self.noise = None
+        self.noise = {}
         self.success = False
         self.message = ""
         self.free_energies = []
-        self.nfev = 0
-        self.njev = 0
+        self.f_max = -np.inf
         self.nit = 0
 
     def __str__(self):
@@ -287,17 +276,25 @@ class VBResult:
 
         return s
 
+    def try_update(self, f_new, mean, precision, shapes, scales):
+        self.free_energies.append(f_new)
+        if f_new > self.f_max:
+            # update
+            self.f_max = f_new
+            self.param = MVN(mean, precision)
+
+            for n in shapes:
+                self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
+
 
 class VB:
     def __init__(self, n_trials_max=10, iter_max=50, tolerance=0.1):
         self.f_old = -np.inf
-        self.f_stored = -np.inf
         self.param_stored = None
         self.n_trials = 0
         self.n_trials_max = n_trials_max
         self.tolerance = tolerance
         self.iter_max = iter_max
-
         self.result = VBResult()
 
     def run(self, model_error, param0, noise0=None, **kwargs):
@@ -309,50 +306,67 @@ class VB:
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
 
-        model_error = VerifiedModelError(model_error)
+        if not isinstance(model_error, VariationalBayesInterface):
+            model_error = VBModelErrorWrapper(model_error)
+
         k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
 
+        return_single_noise = False
+
         if noise0 is None:
-            noise0 = [Gamma.Noninformative() for i in range(len(k))]
+            noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
+            if len(noise0) == 1:
+                return_single_noise = True
 
         if isinstance(noise0, Gamma):
-            noise0 = [noise0]
+            # if a single Gamma is provided as prior, a single noise should
+            # be returned as posterior.
+            return_single_noise = True
+            if len(k) != 1:
+                error = "Passing a single Gamma distribution, so without the "
+                error += "dict-pattern {noise_key : Gamma}, is only valid if "
+                error += "the provided model error has a single noise group!"
+                raise ValueError(error)
+            noise_key = list(k.keys())[0]
+            noise0 = {noise_key: noise0}
 
-        if len(k) != len(noise0):
-            error = f"Your model error contains {len(k)} noise "
-            error += f" terms, your noise prior contains {len(noise0)}."
-            raise ValueError(error)
+        for noise_key in k:
+            if noise_key not in noise0:
+                error = f"Your model error contains the noise key {noise_key},"
+                error += f"which is not given in your noise prior!"
+                raise ValueError(error)
 
         # adapt notation
-        s = [n.s for n in noise0]
-        c = [n.c for n in noise0]
+        s, c = {}, {}
+        for n, gamma in noise0.items():
+            s[n] = gamma.scale
+            c[n] = gamma.shape
         m = np.copy(param0.mean)
         L = np.copy(param0.precision)
 
         m0 = np.copy(m)
         L0 = np.copy(L)
-        s0 = np.copy(s)
-        c0 = np.copy(c)
+        s0 = copy.copy(s)
+        c0 = copy.copy(c)
 
-        self.param_stored = [np.copy(s), np.copy(c), np.copy(m), np.copy(L)]
+        self.param_stored = [np.copy(s), np.copy(c), copy.copy(m), copy.copy(L)]
 
-        N = len(s)
         i_iter = 0
         while True:
             i_iter += 1
 
             # fw model parameter update
-            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in range(N)]) + L0
+            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
 
-            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in range(N)])
+            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
             Lm += L0 @ m0
             m = Lm @ L_inv
 
             k, J = model_error(m), model_error.jacobian(m)
 
             # noise parameter update
-            for i in range(N):
+            for i in noise0:
                 # formula (30)
                 c[i] = len(k[i]) / 2 + c0[i]
                 # formula (31)
@@ -381,7 +395,7 @@ class VB:
             (sign, logdet) = np.linalg.slogdet(L)
             f_new += 0.5 * sign * logdet
 
-            for i in range(N):
+            for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
@@ -399,35 +413,33 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            if self.stop_criteria([s, c, m, L], f_new, i_iter):
+            self.result.try_update(f_new, m, L, c, s)
+            if self.stop_criteria(f_new, i_iter):
                 break
 
         delta_f = self.f_old - f_new
         logger.debug(f"Stopping VB. Iterations:{i_iter}, free energy change {delta_f}.")
 
-        self.result.njev = model_error.n_jac
-        self.result.nfev = model_error.n
+        # self.result.njev = model_error.n_jac
+        # self.result.nfev = model_error.n
         self.result.nit = i_iter
 
-        self.result.param = MVN(self.param_stored[2], self.param_stored[3])
-        self.result.noise = []
-        for s, c in zip(self.param_stored[0], self.param_stored[1]):
-            self.result.noise.append(Gamma(s, c))
+        if return_single_noise:
+            assert len(self.result.noise) == 1
+            noise = list(self.result.noise.values())[0]
+            self.result.noise = noise
 
         return self.result
 
-    def stop_criteria(self, prms, f_new, i_iter):
+    def stop_criteria(self, f_new, i_iter):
         self.n_trials += 1
-
-        # parameter update
-        self.result.free_energies.append(f_new)
-
-        if f_new > self.f_stored:
-            self.param_stored = [np.copy(x) for x in prms]
-            self.f_stored = f_new
 
         if f_new > self.f_old:
             self.n_trials = 0
+
+        # Update free energy here such that the "stop_criteria" is testable
+        # individually:
+        self.result.f_max = max(self.result.f_max, f_new)
 
         # stop?
         if self.n_trials >= self.n_trials_max:

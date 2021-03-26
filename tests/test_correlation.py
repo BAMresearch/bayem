@@ -67,7 +67,7 @@ class TestCorrelatedVB(unittest.TestCase):
             return (fw(prm) - data) @ transformation
 
         param_prior = bayes.vb.MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = bayes.vb.Gamma(s=0.1, c=1000)
+        noise_prior = bayes.vb.Gamma(shape=0.1, scale=1000)
 
         result = bayes.vb.variational_bayes(model_error, param_prior, noise_prior)
         self.assertTrue(result.success)

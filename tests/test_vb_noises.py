@@ -14,7 +14,10 @@ class ForwardModel:
 
     def __call__(self, all_prms):
         m, c = all_prms
-        return [c + m * self.x[0:int(N/2)], c + m * self.x[int(N/2):N]]
+        return {
+            "group0": c + m * self.x[0 : int(N / 2)],
+            "group1": c + m * self.x[int(N / 2) : N],
+        }
 
 
 class ModelError:
@@ -24,8 +27,8 @@ class ModelError:
 
     def __call__(self, prms):
         me = self._fw(prms)
-        me[0] -= self._data[0]
-        me[1] -= self._data[1]
+        me["group0"] -= self._data["group0"]
+        me["group1"] -= self._data["group1"]
         return me
 
 
@@ -56,8 +59,8 @@ class TestTwoNoises(unittest.TestCase):
         fw = ForwardModel()
         data = fw([PRM_A, PRM_B])
 
-        data[0] += np.random.normal(0, NOISE0_SD, len(data[0]))
-        data[1] += np.random.normal(0, NOISE1_SD, len(data[0]))
+        data["group0"] += np.random.normal(0, NOISE0_SD, len(data["group0"]))
+        data["group1"] += np.random.normal(0, NOISE1_SD, len(data["group1"]))
 
         param_prior = to_mvn([(6.0, 2.0), (15.0, 7.0)])
 
@@ -68,9 +71,9 @@ class TestTwoNoises(unittest.TestCase):
         self.assertAlmostEqual(param.mean[0], PRM_A, delta=2 * param.std_diag[0])
         self.assertAlmostEqual(param.mean[1], PRM_B, delta=2 * param.std_diag[1])
 
-        noise_sds = [1.0 / n.mean ** 0.5 for n in info.noise]
-        self.assertAlmostEqual(noise_sds[0], NOISE0_SD, delta=delta)
-        self.assertAlmostEqual(noise_sds[1], NOISE1_SD, delta=delta)
+        noise_sds = {n: 1.0 / gamma.mean ** 0.5 for n, gamma in info.noise.items()}
+        self.assertAlmostEqual(noise_sds["group0"], NOISE0_SD, delta=delta)
+        self.assertAlmostEqual(noise_sds["group1"], NOISE1_SD, delta=delta)
         print("noise prior was", noise_prior)
         print(param)
         print(noise_sds)
@@ -78,7 +81,9 @@ class TestTwoNoises(unittest.TestCase):
 
     def test_proper_noise(self):
         """Use a noise_prior that is based on the actual values"""
-        noise_prior = [Gamma.FromSD(NOISE0_SD*2), Gamma.FromSD(NOISE1_SD*2)]
+        noise_prior = {}
+        noise_prior["group0"] = Gamma.FromSD(NOISE0_SD * 2)
+        noise_prior["group1"] = Gamma.FromSD(NOISE1_SD * 2)
         self.run_test(noise_prior, delta=0.05)
 
     def test_noninformative_noise(self):

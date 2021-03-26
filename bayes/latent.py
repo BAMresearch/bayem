@@ -151,3 +151,14 @@ class LatentParameters(OrderedDict):
         for latent_name, latent in self.items():
             s += f"{latent_name:{l_max}} = {latent.value()}\n"
         return s
+
+    def latent_names(self, parameter_list):
+        """
+        Returns the latent parameter names of `parameter_list`.
+        """
+        names = []
+        for global_name, latent in self.items():
+            for (prm_list, local_name) in latent:
+                if prm_list == parameter_list:
+                    names.append((local_name, global_name))
+        return names

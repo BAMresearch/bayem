@@ -2,12 +2,13 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem
+from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
+from bayes.noise import SingleSensorNoise
 
 np.random.seed(6174)
 
-A1, B1, A2, B2 = 1.0, 2.0, 3.0, 4.0
-noise_sd = 0.1
+A1, B1, A2, B2 = 100.0, 200.0, 300.0, 400.0
+noise_sd = 12.
 
 N = 2000
 xs = np.linspace(0, 1, N)
@@ -46,7 +47,7 @@ def model(prm):
     return prm["A"] * xs + prm["B"]
 
 
-class ModelError:
+class ModelError(ModelErrorInterface):
     def __init__(self, fw, data):
         self.fw, self.data = fw, data
         self.parameter_list = ParameterList()
@@ -54,22 +55,26 @@ class ModelError:
         self.parameter_list.define("B")
 
     def __call__(self):
-        return self.fw(self.parameter_list) - self.data
+        return {"dummy_sensor": self.fw(self.parameter_list) - self.data}
 
 
 class Test_VB(unittest.TestCase):
-    def check_posterior(self, info):
+    def check_posterior(self, info, noise_key=None):
         param_post, noise_post = info.param, info.noise
         for i, param_true in enumerate([A1, B1, A2, B2]):
             posterior_mean = param_post.mean[i]
             posterior_std = param_post.std_diag[i]
 
-            self.assertLess(posterior_std, 0.3)
+            self.assertLess(posterior_std, 4)
             self.assertAlmostEqual(posterior_mean, param_true, delta=2 * posterior_std)
 
-        post_noise_precision = noise_post[0].mean
+        if noise_key is None:
+            post_noise_precision = noise_post.mean
+        else:
+            post_noise_precision = noise_post[noise_key].mean
+
         post_noise_std = 1.0 / post_noise_precision ** 0.5
-        self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 10)
+        self.assertAlmostEqual(post_noise_std, noise_sd, delta=noise_sd / 100)
 
         self.assertLess(info.nit, 20)
 
@@ -96,12 +101,13 @@ class Test_VB(unittest.TestCase):
         problem.latent["B1"].add(me1.parameter_list, "B")
         problem.latent["B2"].add(me2.parameter_list, "B")
         problem.define_shared_latent_parameter_by_name("A")
+        noise_key = problem.add_noise_model(SingleSensorNoise())
 
         parameter_vec = np.array([1, 2, 4])
         error_list = problem(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
-        np.testing.assert_almost_equal(error_list[0], error_multi)
+        np.testing.assert_almost_equal(error_list[noise_key], error_multi)
 
     def test_joint(self):
         # Define two ModelErrors, but note that both use the same model.
@@ -125,11 +131,14 @@ class Test_VB(unittest.TestCase):
         problem.set_normal_prior("A2", A2 + 0.5, 2)
         problem.set_normal_prior("B2", B2 + 0.5, 2)
 
+        noise_key = problem.add_noise_model(SingleSensorNoise())
+        problem.set_noise_prior(noise_key, Gamma.Noninformative())
+
         print(problem.prm_prior)
 
         info = problem.run()
         print(info)
-        self.check_posterior(info)
+        self.check_posterior(info, noise_key)
 
 
 if __name__ == "__main__":
