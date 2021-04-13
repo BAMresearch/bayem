@@ -1,1 +1,7 @@
-from .version import version as __version__
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("bayes")
+except PackageNotFoundError:
+    # package is not installed
+    pass

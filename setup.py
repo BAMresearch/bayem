@@ -1,7 +1,6 @@
 import setuptools
 
-import site
+setuptools.setup(
+    use_scm_version=True,
+)
 
-site.ENABLE_USER_SITE = True
-
-setuptools.setup()
