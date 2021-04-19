@@ -19,12 +19,13 @@ The goal is to investigate how sensitive the VB is with respect to:
 import unittest
 import numpy as np
 from bayes.vb import *
+import matplotlib.pyplot as plt
 
 scale_fs = 100.0 # some scale to make forces larger than displacements
 us = np.linspace(0, 1, 1000) # for displacements
 fs = np.linspace(0, 1, 1000) # for forces
 A, B = 7.0, 42.0
-sd_us, sd_fs = 0.1, 0.15 * scale_fs
+sd_us, sd_fs = 0.03, 0.05 * scale_fs
 
 def fw_us(ps):
     return ps[0] * us + ps[1]
@@ -65,12 +66,19 @@ class Me:
     def set_actualizers(self, actualizers):
         assert len(actualizers) == 2 # for A and B
         self.actualizers = actualizers
-    def set_data(self):
+    def set_data(self, _plot=True):
         np.random.seed(6174)
         self.data_us = fw_us([A, B]) + np.random.normal(0, sd_us, len(us))
         np.random.seed(1234)
         self.data_fs = self.weight_fw_fs * ( fw_fs([A, B]) + np.random.normal(0, sd_fs, len(fs)) )
-        
+        if _plot:
+            plt.figure()
+            plt.suptitle(f"Noisy data_us - weight_fs={self.weight_fw_fs}")
+            plt.subplot(1,2,1)
+            plt.plot(self.data_us)
+            plt.subplot(1,2,2)
+            plt.plot(self.data_fs)
+            plt.show()
 
 class Test_VB(unittest.TestCase):
     
