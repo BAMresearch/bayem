@@ -38,6 +38,17 @@ class TestLatentParameters(unittest.TestCase):
         self.assertEqual(self.pA["shared"], 42)
         self.assertEqual(self.pB["shared"], 42)
 
+    def test_set_value(self):
+        latent = LatentParameters()
+        latent["shared"].add(self.pA, "shared")
+        latent["shared"].add(self.pB, "shared")
+        latent["shared"].set_value(42)
+
+        self.assertEqual(self.pA["shared"], 42)
+        self.assertEqual(self.pA["shared"], 42)
+
+        self.assertRaises(Exception, latent["shared"].set_value, [1, 2, 3])
+
 
 if __name__ == "__main__":
     unittest.main()

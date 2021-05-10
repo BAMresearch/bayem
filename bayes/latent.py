@@ -1,6 +1,14 @@
 from collections import OrderedDict
 from operator import itemgetter
 
+def len_or_one(vector_or_scalar):
+    """
+    Returns the length of a vector or 1 for a scalar
+    """
+    try:
+        return len(vector_or_scalar)
+    except TypeError:  # "has no __len__"
+        return 1
 
 class LatentParameter(list):
     """
@@ -34,11 +42,8 @@ class LatentParameter(list):
                 f"associated with latent parameter {self._name}!"
             )
 
-        try:
-            N = len(parameter_list[parameter_name])
-        except TypeError:  # "has no __len__"
-            N = 1
-
+        N = len_or_one(parameter_list[parameter_name])
+        
         if self.N is None:
             self.N = N
             self._update_idx()
@@ -105,6 +110,17 @@ class LatentParameter(list):
         values = self.values(number_vector)
         for parameter_list, parameter_name in self:
             parameter_list[parameter_name] = values
+    
+    def set_value(self, value):
+        """
+        Updates the parameters associated to self in all parameter lists.
+        Checks, if the dimensions match.
+        """
+        assert self.N == len_or_one(value)
+
+        for parameter_list, parameter_name in self:
+            parameter_list[parameter_name] = value
+    
 
     def values(self, number_vector):
         return itemgetter(*self.global_index_range())(number_vector)
