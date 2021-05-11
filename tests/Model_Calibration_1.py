@@ -2,13 +2,15 @@ import unittest
 import numpy as np
 
 from bayes.parameters import ParameterList
-# from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
 
 import torch as th
 
 import pyro
 from pyro.distributions import Normal, Uniform, MultivariateNormal
-from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC
+from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC, HMC
+
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 """
 Not really a test yet.
@@ -71,11 +73,17 @@ if __name__ == "__main__":
     prm["A"] = A_correct
     prm["B"] = B_correct
 
-    np.random.seed(6174)
+    #np.random.seed(6174)
     noise_sd1 = 10
 
 
     def generate_data(N_time_steps, noise_sd):
+        """
+
+        :param N_time_steps:
+        :param noise_sd:
+        :return:
+        """
         time_steps = np.linspace(0, 1, N_time_steps)
         model_response = fw(prm, [s1, s2, s3], time_steps)
         sensor_data = {}
@@ -87,23 +95,34 @@ if __name__ == "__main__":
         return sensor_data
 
 
-    data1 = generate_data(20, noise_sd1)
+    data1 = generate_data(40, noise_sd1)
     data_obs_array = th.tensor(np.reshape(list(data1.values()), (-1,)))
+
+    print('Observed data', data_obs_array)
 
 
     # ---------------------------------------------------
     # A is unknown input and B,t,x is known input.
 
     def model(observed_data):
+        """
+        TODO: Add hyperpriro of the sensor noise and infer it also. Maybe a gamma dist
+        TODO: ADD a provision to include likelihood covariance structure
+        TODO: Add constraint that sometimes when negative value makes the solve unstable the posterior should have those. for eg E cant be negative
+        :param observed_data:
+        :return:
+        """
         A_prior = Normal(40, 100)  ## keeping it heavily uninformed
         A = pyro.sample("A", A_prior)
 
+        #gamma=pyro.distributions.Gamma()
         def observe_A_lkl(observed_data, obs_name):
             fw = MyForwardModel()
             prm = fw.parameter_list()
             prm["A"] = A
             prm["B"] = th.tensor(B_correct)
-            N_time_steps = 20
+            #print(A)
+            N_time_steps = 40
             time_steps = np.linspace(0, 1, N_time_steps)
             model_response = fw(prm, [s1, s2, s3], time_steps)
             model_res_array = []
@@ -112,9 +131,8 @@ if __name__ == "__main__":
 
             model_res_array = th.cat((model_res_array))
 
-            likelihood = MultivariateNormal(model_res_array.float(),
-                                            covariance_matrix=th.tensor(noise_sd1) * th.eye(
-                                                np.size(observed_data.numpy())))
+            #likelihood = MultivariateNormal(model_res_array.float(), covariance_matrix=(th.tensor(noise_sd1)**2) * th.eye(np.size(observed_data.numpy())))
+            likelihood = Normal(model_res_array.float(), noise_sd1**2)
             pyro.sample(obs_name, likelihood, obs=observed_data)
 
         observe_A_lkl(observed_data, "obs_1")
@@ -122,23 +140,58 @@ if __name__ == "__main__":
         return A
 
 
-    def main_MCMC(n):
-        # data=th.randn(500, 1)
-        nuts_kernel = NUTS(model)
-        mcmc = MCMC(nuts_kernel, num_samples=n)
+    def plot_hist(posterior):
+        plt.figure(figsize=(3, 3))
+        sns.histplot(posterior, kde=True, label="A_posterior", bins=20)
+        plt.legend()
+        plt.xlabel("A")
+        plt.ylabel("Observed Samples")
+        plt.show()
+
+        # plotting priors
+        A_prior = Normal(40, 100)
+        smpl = np.ndarray((100000))
+        for i in range(1, 100000):
+            smpl[i] = (pyro.sample("AA", A_prior))
+        plt.figure(figsize=(3, 3))
+        sns.kdeplot(data=smpl, label="A_prior")
+        plt.legend()
+        plt.xlabel("A")
+        plt.ylabel("Density")
+        plt.show()
+
+    def main_MCMC(n, kernel=None):
+        """
+
+        :param n:
+        :param kernel:
+        :return:
+        """
+        if kernel is None:
+            kernel = NUTS(model)
+        if kernel=="HMC":
+            print('Using HMC kernel')
+            kernel = HMC(model=model, step_size=1, num_steps=4)
+        #nuts_kernel = NUTS(model)
+        #HMC_kernel = HMC(model=model, step_size=1,num_steps=4)
+        mcmc = MCMC(kernel, num_samples=n)
         mcmc.run(data_obs_array.float())
         posterior = mcmc.get_samples()['A'].numpy()
-
+        #print(posterior)
+        mcmc.summary()
+        #mcmc.diagnostics()
         posterior_mean = np.mean(posterior)
         posterior_std_dev = np.std(posterior)
 
         # report results
         inferred_mu = posterior_mean
-        inferred_mu_uncertainty = 2*posterior_std_dev
+        inferred_mu_uncertainty = 2 * posterior_std_dev
         # print("The true Youngs modulus was %.3f " % E)
         print("The unknown parameter A inferred is %.3f +- %.4f" %
               (inferred_mu, inferred_mu_uncertainty))
+        plot_hist(posterior)
 
-
-    main_MCMC(100)
+    main_MCMC(500)
     print('The A_correct was taken as %.3f' % A_correct)
+
+    # TODO: implement SVI
