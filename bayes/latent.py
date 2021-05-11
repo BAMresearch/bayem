@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from operator import itemgetter
 
+
 def len_or_one(vector_or_scalar):
     """
     Returns the length of a vector or 1 for a scalar
@@ -9,6 +10,7 @@ def len_or_one(vector_or_scalar):
         return len(vector_or_scalar)
     except TypeError:  # "has no __len__"
         return 1
+
 
 class LatentParameter(list):
     """
@@ -43,7 +45,7 @@ class LatentParameter(list):
             )
 
         N = len_or_one(parameter_list[parameter_name])
-        
+
         if self.N is None:
             self.N = N
             self._update_idx()
@@ -110,7 +112,7 @@ class LatentParameter(list):
         values = self.values(number_vector)
         for parameter_list, parameter_name in self:
             parameter_list[parameter_name] = values
-    
+
     def set_value(self, value):
         """
         Updates the parameters associated to self in all parameter lists.
@@ -120,7 +122,6 @@ class LatentParameter(list):
 
         for parameter_list, parameter_name in self:
             parameter_list[parameter_name] = value
-    
 
     def values(self, number_vector):
         return itemgetter(*self.global_index_range())(number_vector)
@@ -142,6 +143,21 @@ class LatentParameter(list):
 
         else:
             return self.values(number_vector)
+
+    def unambiguous_value(self):
+        """
+        Returns the value this latent parameter either from (one of) its 
+        parameter list(s), checking that _all_ values are equal.
+        """
+        p_list0, p_name0 = self[0]
+        value0 = p_list0[p_name0]
+        for p_list, p_name in self:
+            value = p_list[p_name]
+            if value != value0:
+                msg = f"The values of the shared global parameter '{self._name}' differ in the individual parameter lists: \n Parameter '{p_name0, value0}' in \n{p_list0} vs. parameter '{p_name, value}' in \n{p_list}"
+                raise RuntimeError(msg)
+
+        return value0
 
 
 class LatentParameters(OrderedDict):
@@ -178,3 +194,22 @@ class LatentParameters(OrderedDict):
                 if prm_list == parameter_list:
                     names.append((local_name, global_name))
         return names
+
+    def start_vector(self, new_values={}):
+        v = []
+        for name, latent in self.items():
+            if name in new_values:
+                value = new_values[name]
+                N_value = len_or_one(value)
+                if latent.N != N_value:
+                    raise RuntimeError(f"Global parameter '{name}' has length {latent.N}, you provided {value} of length {N_value}.")
+            else:
+                value = latent.unambiguous_value()
+
+            if latent.N == 1:
+                v.append(value)
+            else:
+                for i in value:
+                    v.append(i)
+
+        return v
