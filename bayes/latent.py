@@ -195,11 +195,21 @@ class LatentParameters(OrderedDict):
                     names.append((local_name, global_name))
         return names
 
-    def start_vector(self, new_values={}):
+    def get_vector(self, overwrite={}):
+        """
+        Extracts a vector of global parameters from the individual parameter 
+        lists. If a global parameters is inside the `overwrite`, that value
+        is used instead.
+
+        overwrite:
+            dict {global parameter name: parameter value}
+            Note that the dimension of the parameter value must match the
+            the dimension of the parameter.
+        """
         v = []
         for name, latent in self.items():
-            if name in new_values:
-                value = new_values[name]
+            if name in overwrite:
+                value = overwrite[name]
                 N_value = len_or_one(value)
                 if latent.N != N_value:
                     raise RuntimeError(f"Global parameter '{name}' has length {latent.N}, you provided {value} of length {N_value}.")

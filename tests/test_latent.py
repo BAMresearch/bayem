@@ -58,30 +58,30 @@ class TestLatentParameters(unittest.TestCase):
         latent["shared"].add(self.pB, "shared")
         latent["list"].add(self.pB, "list")
 
-        v = latent.start_vector()
+        v = latent.get_vector()
         self.assertListEqual(v, [0, 1, 2, 3, 4])
 
-        v = latent.start_vector({"A": 42, "list": [61, 74]})
+        v = latent.get_vector({"A": 42, "list": [61, 74]})
         self.assertListEqual(v, [42, 1, 2, 61, 74])
 
         # check for dimensions errors
         with self.assertRaises(Exception) as msg:
-            v = latent.start_vector({"A": [1, 2, 3]})
+            v = latent.get_vector({"A": [1, 2, 3]})
         print(msg.exception)
 
         with self.assertRaises(Exception) as msg:
-            v = latent.start_vector({"list": [1, 2, 3]})
+            v = latent.get_vector({"list": [1, 2, 3]})
         print(msg.exception)
 
         # We expect an exception, if a shared parameter is not defined
         # unambiguously
         self.pA["shared"] = 20
         with self.assertRaises(RuntimeError) as msg:
-            v = latent.start_vector()
+            v = latent.get_vector()
         print(msg.exception)
 
         # Provinding a default value for that case is fine though:
-        v = latent.start_vector({"shared": 42})
+        v = latent.get_vector({"shared": 42})
 
 
 if __name__ == "__main__":
