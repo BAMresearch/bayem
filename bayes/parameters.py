@@ -51,6 +51,12 @@ class ParameterList:
         for name, value in other.p.items():
             concat.define(name, value)
         return concat
+    
+    def __str__(self):
+        s = ""
+        for name, value in self.p.items():
+            s += f"{name:20s} {value}\n"
+        return s
 
     @property
     def names(self):
