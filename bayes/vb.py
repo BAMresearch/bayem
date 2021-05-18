@@ -185,7 +185,7 @@ class VBModelErrorWrapper(VariationalBayesInterface):
             return k
 
 
-def variational_bayes(model_error, param0, noise0=None, **kwargs):
+def variational_bayes(model_error, param0, noise0=None, noise_first=False, **kwargs):
     """
     Nonlinear variational bayes algorithm according to
     @article{chappell2008variational,
@@ -241,6 +241,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
         VBResult defined below
     """
     vb = VB()
+    vb.noise_first = noise_first
     return vb.run(model_error, param0, noise0, **kwargs)
 
 
@@ -268,6 +269,7 @@ class VBResult:
         self.free_energies = []
         self.f_max = -np.inf
         self.nit = 0
+        self.noise_first = False # by default
 
     def __str__(self):
         s = "### VB Result ###\n"
@@ -298,6 +300,7 @@ class VB:
         self.tolerance = tolerance
         self.iter_max = iter_max
         self.result = VBResult()
+        self.noise_first = False # by default
 
     def run(self, model_error, param0, noise0=None, **kwargs):
 
@@ -352,11 +355,28 @@ class VB:
         c0 = copy.copy(c)
 
         self.param_stored = [np.copy(s), np.copy(c), copy.copy(m), copy.copy(L)]
+        
+        if self.noise_first:
+            L_inv = np.linalg.inv(L0)
 
         i_iter = 0
         while True:
             i_iter += 1
-
+            
+            if self.noise_first:
+                # noise parameter update
+                for i in noise0:
+                    # formula (30)
+                    c[i] = len(k[i]) / 2 + c0[i]
+                    # formula (31)
+                    s_inv = (
+                        1 / s0[i]
+                        + 0.5 * k[i].T @ k[i]
+                        + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                    )
+                    s[i] = 1 / s_inv
+                    logger.debug(f'\n Noise update first: current s (scale) and c (shape): {s[i]}, {c[i]}')
+            
             # fw model parameter update
             L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
@@ -366,18 +386,21 @@ class VB:
             m = Lm @ L_inv
 
             k, J = model_error(m), model_error.jacobian(m)
-
-            # noise parameter update
-            for i in noise0:
-                # formula (30)
-                c[i] = len(k[i]) / 2 + c0[i]
-                # formula (31)
-                s_inv = (
-                    1 / s0[i]
-                    + 0.5 * k[i].T @ k[i]
-                    + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                )
-                s[i] = 1 / s_inv
+            
+            
+            if not self.noise_first:
+                # noise parameter update
+                for i in noise0:
+                    # formula (30)
+                    c[i] = len(k[i]) / 2 + c0[i]
+                    # formula (31)
+                    s_inv = (
+                        1 / s0[i]
+                        + 0.5 * k[i].T @ k[i]
+                        + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                    )
+                    s[i] = 1 / s_inv
+                    logger.debug(f'\n Noise update second: current s (scale) and c (shape): {s[i]}, {c[i]}')
 
             if "index_ARD" in kwargs:
                 index_ARD = kwargs["index_ARD"]
@@ -430,7 +453,9 @@ class VB:
             assert len(self.result.noise) == 1
             noise = list(self.result.noise.values())[0]
             self.result.noise = noise
-
+        
+        self.result.noise_first = self.noise_first
+        
         return self.result
 
     def stop_criteria(self, f_new, i_iter):
