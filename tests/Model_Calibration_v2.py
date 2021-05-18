@@ -52,21 +52,25 @@ class MyForwardModel:
 
 
 # --- Wrapper for the forward solve class
-def wrapper_forward(B_correct, latent_para):
+def wrapper_forward(known_input, latent_para):
     """
-    Takes in unkown and known inputs and returns the function output as vector
-    :param B_correct:
+    Takes in unkown (latent) and known inputs and returns the function output as vector
+    :param known_input: (Dict type) ('known_parameters': , 'sensors': ,'time_steps': )
     :param latent_para:
     :return:
     """
+    known_para = known_input['known_parameters']
+    sensor_pos = known_input['sensors']
+    tot_time_steps = known_input['time_steps']
+
     fw = MyForwardModel()
     prm = fw.parameter_list()
     prm["A"] = latent_para
-    prm["B"] = th.tensor(B_correct)
+    prm["B"] = th.tensor(known_para)
 
-    N_time_steps = 40
-    time_steps = np.linspace(0, 1, N_time_steps)
-    model_response = fw(prm, [s1, s2, s3], time_steps)
+    time_steps = np.linspace(0, 1, tot_time_steps)
+    #model_response = fw(prm, [s1, s2, s3], time_steps)
+    model_response = fw(prm, sensor_pos, time_steps)
     model_res_array = []
     for sensor, mod_r in model_response.items():
         model_res_array.append(mod_r)
@@ -103,26 +107,48 @@ if __name__ == "__main__":
         #    return time_steps, sensor_data
         return sensor_data
 
-
-    data1 = generate_data(40, noise_sd1)
+    N_time_steps = 40
+    data1 = generate_data(N_time_steps, noise_sd1)
     data_obs_array = th.tensor(np.reshape(list(data1.values()), (-1,))).float()
 
-    # -------Metadata for Inference problem
+    # ----------------------------------------------
+    # -------------- Inference and prediction part starts from here
+    # -------------------------------------------------
+
+    # -- Metadata for Inference problem
     # TODO: Pass this through some JSON/YAML file
-    prior_hyperparameter = [40, 100]
+    prior_hyperparameter = [40, 10]
     prior_dist = "Normal"
-    forward_solve_wrapper = wrapper_forward
-    forward_solve_known_input = B_correct
     Observed_data = data_obs_array
     Noise_distribution = "Normal"
-    Noise_hyperparameter = noise_sd1
+    Noise_hyperparameter = noise_sd1 #TODO: test with correlated noise model
 
-    # -------- Setup the Inference problem
-    infer = Inference(prior_dist, prior_hyperparameter, forward_solve_wrapper, forward_solve_known_input, Observed_data,
+    # ---- Metadata for forward solve
+    forward_solve_wrapper = wrapper_forward
+    forward_solve_known_para = B_correct
+    sensors = [s1,s2,s3]
+    N_time_steps = N_time_steps
+    forward_input = {'known_parameters': B_correct, 'sensors': sensors, 'time_steps': N_time_steps}
+
+    # -- Setup the Inference problem
+    infer = Inference(prior_dist, prior_hyperparameter, forward_solve_wrapper, forward_input, Observed_data,
                       Noise_distribution, Noise_hyperparameter)
 
-    # --------- Solve the Inference problem
+    # -- Solve the Inference problem
+    # ---------- learns the posterior of latent parameter just from the noisy observed data
     posterior = infer.run(1000, kernel="NUTS")
 
-    # --------- Visualise
-    infer.visualize(posterior)
+    # -- Visualise
+    infer.visualize_prior_posterior(posterior)
+
+    # -- Predict
+    new_input_forward = {'known_parameters': B_correct, 'sensors': [s1,s2], 'time_steps': 2}
+    pred_pos = infer.predict(posterior,new_input_forward)
+    print("The predicted value of the forward solve is:")
+
+    infer.visualize_predictive_posterior(pred_pos) # visualise the posterior predictive
+
+    ground_truth = wrapper_forward(new_input_forward,A_correct)
+
+    print("The ground truth of the forward solve is:")
+    print(ground_truth)
