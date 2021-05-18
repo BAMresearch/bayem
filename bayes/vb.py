@@ -15,11 +15,26 @@ def pretty_array(a, offset=0):
 
 
 class MVN:
-    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN"):
+    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
         self.mean = np.atleast_1d(mean).astype(float)
         self.precision = np.atleast_2d(precision).astype(float)
         self.cov = np.linalg.inv(self.precision)
         self.name = name
+        self.parameter_names=parameter_names
+        
+        assert len(self.mean) == len(self.precision)
+
+        if self.parameter_names is not None:
+            assert len(self.parameter_names) == len(self.mean)
+
+    def index(self, parameter_name):
+        return self.parameter_names.index(parameter_name)
+
+    def named_mean(self, parameter_name):
+        return self.mean[self.index(parameter_name)]
+
+    def named_sd(self, parameter_name):
+        return self.std_diag[self.index(parameter_name)]
 
     @property
     def std_diag(self):
@@ -34,10 +49,23 @@ class MVN:
         return scipy.stats.norm.pdf(xs, self.mean[i], self.std_diag[i])
 
     def __str__(self):
+        if self.parameter_names is not None:
+            return self._named_str()
+        else:
+            s = f"{self.name} with \n"
+            s += f" ├── mean: {pretty_array(self.mean, 9)}\n"
+            s += f" ├── std:  {pretty_array(self.std_diag, 9)}"
+            return s
+
+    def _named_str(self):
+        N = max([len(s) for s in self.parameter_names])
         s = f"{self.name} with \n"
-        s += f" ├── mean: {pretty_array(self.mean, 9)}\n"
-        s += f" ├── std:  {pretty_array(self.std_diag, 9)}"
+        sd = self.std_diag
+        for i, name in enumerate(self.parameter_names):
+            s += f" ├── {name:{N}s} µ={self.mean[i]:10.6f} σ={sd[i]:10.6f} \n"
         return s
+
+
 
 
 class Gamma:
@@ -276,12 +304,12 @@ class VBResult:
 
         return s
 
-    def try_update(self, f_new, mean, precision, shapes, scales):
+    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
         self.free_energies.append(f_new)
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.param = MVN(mean, precision)
+            self.param = MVN(mean, precision, name="MVN posterior", parameter_names=parameter_names)
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
@@ -413,7 +441,7 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, m, L, c, s)
+            self.result.try_update(f_new, m, L, c, s, param0.parameter_names)
             if self.stop_criteria(f_new, i_iter):
                 break
 

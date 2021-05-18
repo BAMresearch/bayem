@@ -218,4 +218,4 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)
 
-        return MVN(means, np.diag(precs))
+        return MVN(means, np.diag(precs), name="MVN prior", parameter_names=list(self.latent.keys()))
