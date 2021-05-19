@@ -7,7 +7,7 @@ import numpy as np
 
 from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
-from bayes.Caliberation import Inference
+from bayes.Calibration import Inference
 
 import torch as th
 

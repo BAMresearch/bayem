@@ -1,5 +1,5 @@
 import unittest
-from bayes.Caliberation import *
+from bayes.Calibration import *
 from bayes.parameters import ParameterList
 # -------- Prerequisite fo the tests
 # Tests:-----------------------------------
