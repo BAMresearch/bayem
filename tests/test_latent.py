@@ -39,6 +39,10 @@ class TestLatentParameters(unittest.TestCase):
         self.assertEqual(self.pA["shared"], 42)
         self.assertEqual(self.pB["shared"], 42)
 
+        with self.assertRaises(Exception) as e:
+            latent.update([42, 42])
+        print("Expected exception: \n", e.exception)
+
     def test_set_value(self):
         latent = LatentParameters()
         latent["shared"].add(self.pA, "shared")
@@ -48,7 +52,9 @@ class TestLatentParameters(unittest.TestCase):
         self.assertEqual(self.pA["shared"], 42)
         self.assertEqual(self.pA["shared"], 42)
 
-        self.assertRaises(Exception, latent["shared"].set_value, [1, 2, 3])
+        with self.assertRaises(Exception) as e:
+            latent["shared"].set_value([1, 2, 3])
+        print("Expected exception: \n", e.exception)
 
     def test_start_vector(self):
         latent = LatentParameters()
@@ -65,20 +71,20 @@ class TestLatentParameters(unittest.TestCase):
         self.assertListEqual(v, [42, 1, 2, 61, 74])
 
         # check for dimensions errors
-        with self.assertRaises(Exception) as msg:
+        with self.assertRaises(Exception) as e:
             v = latent.get_vector({"A": [1, 2, 3]})
-        print(msg.exception)
+        print("Expected exception: \n", e.exception)
 
-        with self.assertRaises(Exception) as msg:
+        with self.assertRaises(Exception) as e:
             v = latent.get_vector({"list": [1, 2, 3]})
-        print(msg.exception)
+        print("Expected exception: \n", e.exception)
 
         # We expect an exception, if a shared parameter is not defined
         # unambiguously
         self.pA["shared"] = 20
-        with self.assertRaises(RuntimeError) as msg:
+        with self.assertRaises(RuntimeError) as e:
             v = latent.get_vector()
-        print(msg.exception)
+        print("Expected exception: \n", e.exception)
 
         # Provinding a default value for that case is fine though:
         v = latent.get_vector({"shared": 42})
