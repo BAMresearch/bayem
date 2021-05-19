@@ -36,7 +36,15 @@ class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
-        self.noise_models = OrderedDict()  # key : noise_model
+        self._noise_models = OrderedDict()  # key : noise_model
+
+    @property
+    def noise_models(self):
+        if not self._noise_models:
+            raise RuntimeError(
+                "You need to define and add a noise model first! See `bayes.noise` for options and then call `.add_noise_model` to add it to the inference problem."
+            )
+        return self._noise_models
 
     def add_model_error(self, model_error, key=None):
 
@@ -48,10 +56,10 @@ class InferenceProblem:
 
     def add_noise_model(self, noise_model, key=None):
 
-        key = key or f"noise{len(self.noise_models)}"
+        key = key or f"noise{len(self._noise_models)}"
 
-        assert key not in self.noise_models
-        self.noise_models[key] = noise_model
+        assert key not in self._noise_models
+        self._noise_models[key] = noise_model
         return key
 
     def __call__(self, number_vector):
@@ -133,8 +141,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             # model_error ...
             latent_names = self.latent.latent_names(me.parameter_list)
             local_latent_names = [n[0] for n in latent_names]
-
-            # ... and only request the jacobian for the latent parameters. 
+            # ... and only request the jacobian for the latent parameters.
             sensor_parameter_jac = me.jacobian(local_latent_names)
             """
             sensor_parameter_jac contains a 
