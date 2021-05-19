@@ -64,12 +64,25 @@ Example:
 
 class NoiseModelInterface:
     def vector_contribution(self, model_error_dict):
+        """
+        Rearranges the (model_error_key, sensor) ordering of 
+        `model_error_dict` a single numpy vector. 
+        """
         raise NotImplementedError("Implement me!")
 
     def jacobian_contribution(self, jacobian_dict):
+        """
+        Rearranges the (model_error_key, sensor) ordering of 
+        `jacobian_dict` a single numpy matrix. 
+        """
         raise NotImplementedError("Implement me!")
 
     def loglike_contribution(self, model_error_dict):
+        """
+        Rearranges the (model_error_key, sensor) ordering of 
+        `model_error_dict` a single numpy matrix and calculates its
+        contribution to a loglikelihood function.
+        """
         raise NotImplementedError("Implement me!")
 
 
@@ -78,39 +91,63 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
         self.parameter_list = ParameterList()
         self.parameter_list.define("precision")
         self._terms = []
-        self._lengths = []  # of the terms
+        self._lengths = []  # of the terms for a potential `self.split`
 
-    def add(self, sensor, key=None):
-        self._terms.append((sensor, key))
+    def add(self, sensor, model_error_key=None):
+        """
+        Adds a (`sensor`, `model_error_key`) pair to the noise model such that 
+        the corresponding output, e.g.
+            model_error_dict[model_error_key][sensor]
+        or 
+            jacobian_dict[model_error_key][sensor]
+        is added to the `self.vector_contribution` or 
+        `self.jacobian_contribution`, respectively.
+        """
+        self._terms.append((sensor, model_error_key))
 
     def _define_terms(self, model_error_dict):
         """
         Can be overwritten to automatically define `self._terms`
-        for certain special cases.
+        for certain special cases. See `UncorrelatedSensorNoise` or
+        `UncorrelatedSingleNoise` below.
         """
         pass
 
     def vector_contribution(self, model_error_dict):
+        """
+        overwritten
+        """
         return self._stack(model_error_dict)
-    
+
     def jacobian_contribution(self, jacobian_dict):
+        """
+        overwritten
+        """
         return self._stack(jacobian_dict)
 
     def loglike_contribution(self, model_error_dict):
+        """
+        overwritten
+        """
         error = self.vector_contribution(model_error_dict)
         sigma = 1.0 / self.parameter_list["precision"] ** 0.5
-        return self._loglike_term(error, sigma)
-
-    def _loglike_term(self, error, sigma):
         return -0.5 * (
             len(error) * np.log(2.0 * np.pi * sigma ** 2)
             + np.sum(np.square(error / sigma ** 2))
         )
 
     def _stack(self, dict_of_dicts):
+        """
+        Extracts the (sensor, model_error_key) from the nested `dict_of_dicts`
+        (could be both `model_error_dict` or `jacobian_dict`) and concatenates
+        them to a long numpy vector/matrix.
+
+        It keeps track of the dimension (self._lengths) of the individual terms
+        to reverse this operation in `self.split()`.
+        """
         self._define_terms(dict_of_dicts)
         terms = []
-        
+
         self._lengths = []
         for (sensor, key) in self._terms:
             term = dict_of_dicts[key][sensor]
@@ -120,7 +157,15 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
 
     def split(self, array):
         """
-        Reverse operation of `vector_contribution` and `jacobian_contribution` 
+        Reverse operation of `self._stack`. 
+
+        Use case:
+            You propagate the uncertainty via
+                J = jacobian_contribution(mean)
+                variance = J @ inferred_cov @ J.T
+                sd = sqrt(diag(variance))
+            and now want to split up the purely numeric sd back to the individual
+            terms.
         """
         if not self._lengths:
             raise RuntimeError(
@@ -146,10 +191,12 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
 
         return splitted
 
+
 class UncorrelatedSingleNoise(UncorrelatedNoiseModel):
     """
     Noise model with single term for _all_ contributions of the model error.
     """
+
     def _define_terms(self, model_error_dict):
         if self._terms:
             return
