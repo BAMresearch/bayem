@@ -118,7 +118,10 @@ class LatentParameter(list):
         Updates the parameters associated to self in all parameter lists.
         Checks, if the dimensions match.
         """
-        assert self.N == len_or_one(value)
+        if self.N != len_or_one(value):
+            raise RuntimeError(
+                f"Dimension mismatch: Global parameter '{self._name}' is of length {self.N} and you provided length {len_or_one(value)}!"
+            )
 
         for parameter_list, parameter_name in self:
             parameter_list[parameter_name] = value
@@ -162,6 +165,12 @@ class LatentParameter(list):
 
 class LatentParameters(OrderedDict):
     def update(self, number_vector):
+        n_parameters = sum(l.N for l in self.values())
+        if n_parameters != len(number_vector):
+            raise RuntimeError(
+                f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(number_vector)}!"
+            )
+
         for latent in self.values():
             latent.update(number_vector)
 
@@ -212,9 +221,15 @@ class LatentParameters(OrderedDict):
                 value = overwrite[name]
                 N_value = len_or_one(value)
                 if latent.N != N_value:
-                    raise RuntimeError(f"Global parameter '{name}' has length {latent.N}, you provided {value} of length {N_value}.")
+                    raise RuntimeError(
+                        f"Dimension mismatch: Global parameter '{name}' has length {latent.N}, you provided {value} of length {N_value}."
+                    )
             else:
-                value = latent.unambiguous_value()
+                try:
+                    value = latent.unambiguous_value()
+                except RuntimeError as e:
+                    msg_add = f"You can fix that adding the dict entry '{name}: your_value' to the optional 'overwrite' argument of this method."
+                    raise RuntimeError(str(e) + msg_add)
 
             if latent.N == 1:
                 v.append(value)
