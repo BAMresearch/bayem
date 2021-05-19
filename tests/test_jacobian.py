@@ -99,13 +99,16 @@ class OddEvenME(ModelErrorInterface):
         super().__init__()
         self.parameter_list.define("E_odd", 42.0)
         self.parameter_list.define("E_even", 4.0)
-        self.x_odd = np.r_[0, 1, 0, 1, 0, 1]
+        self.parameter_list.define("E_all", 4.0)
+        self.x_odd = np.r_[0, 2, 0, 2, 0, 2]
         self.x_even = np.r_[1, 0, 1, 0, 1, 0]
+        self.x_all = np.r_[3, 3, 3, 3, 3, 3]
 
     def __call__(self):
         return {
             "out": self.x_odd * self.parameter_list["E_odd"]
             + self.x_even * self.parameter_list["E_even"]
+            + self.x_all * self.parameter_list["E_all"]
         }
 
 
@@ -115,13 +118,16 @@ class TestJacobianJointGlobal(unittest.TestCase):
         jac = me.jacobian()
         CHECK(jac["out"]["E_odd"], me.x_odd)
         CHECK(jac["out"]["E_even"], me.x_even)
+        CHECK(jac["out"]["E_all"], me.x_all)
 
-    def test_joint(self):
+    def test_three_joints(self):
         me = OddEvenME()
         p = VariationalBayesProblem()
         p.add_model_error(me)
         p.latent["E"].add(me.parameter_list, "E_odd")
         p.latent["E"].add(me.parameter_list, "E_even")
+        p.latent["E"].add(me.parameter_list, "E_all")
+
         with self.assertRaises(Exception):
             p.jacobian([42.0])  # we have not defined a noise model yet!
 
@@ -129,7 +135,21 @@ class TestJacobianJointGlobal(unittest.TestCase):
 
         J = p.jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
-        print("J", J)
+        CHECK(J[:, 0], -me.x_odd - me.x_even - me.x_all)
+
+    def test_two_joints(self):
+        """
+        Checks if the joint jacobian is caluclated correctly, if only
+        two of the three parameters are defined latent.
+        """
+        me = OddEvenME()
+        p = VariationalBayesProblem()
+        p.add_model_error(me)
+        p.latent["E"].add(me.parameter_list, "E_odd")
+        p.latent["E"].add(me.parameter_list, "E_even")
+        noise_key = p.add_noise_model(SingleSensorNoise())
+
+        J = p.jacobian([42.0])[noise_key]
         CHECK(J[:, 0], -me.x_odd - me.x_even)
 
 
