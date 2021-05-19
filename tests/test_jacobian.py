@@ -1,6 +1,9 @@
 import unittest
 import numpy as np
-from bayes.inference_problem import ModelErrorInterface
+from bayes.inference_problem import ModelErrorInterface, VariationalBayesProblem
+from bayes.noise import SingleSensorNoise
+
+CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
 
 
 class DummyME(ModelErrorInterface):
@@ -61,11 +64,10 @@ class TestJacobian(unittest.TestCase):
         me = DummyME()
         A, B = me.parameter_list["A"], me.parameter_list["B"]
         jac = me.jacobian()
-        check = np.testing.assert_array_almost_equal  # just to make it shorter
-        check(jac["out1"]["A"], me.xs)
-        check(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
-        check(jac["out2"]["A"], me.xs * 2 * A)
-        check(jac["out2"]["B"], me.xs)
+        CHECK(jac["out1"]["A"], me.xs)
+        CHECK(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
+        CHECK(jac["out2"]["A"], me.xs * 2 * A)
+        CHECK(jac["out2"]["B"], me.xs)
 
     def test_vector_prm(self):
         me = DummyMEVectorPrm()
@@ -73,24 +75,63 @@ class TestJacobian(unittest.TestCase):
         jac = me.jacobian()
 
         jac_correct = np.concatenate([np.diag(2 * x), np.diag(3 * x ** 2)])
-        np.testing.assert_array_almost_equal(jac["out"]["X"], jac_correct)
+        CHECK(jac["out"]["X"], jac_correct)
 
     def test_vector_prm2(self):
         me = DummyMEVectorPrm2()
         jac = me.jacobian()
 
         jac_correct = np.array([[1, 1]])
-        np.testing.assert_array_almost_equal(jac["out"]["X"], jac_correct)
+        CHECK(jac["out"]["X"], jac_correct)
 
     def test_partial_jacobian_definition(self):
         me = DummyMEPartial()
         A, B = me.parameter_list["A"], me.parameter_list["B"]
         jac = me.jacobian()
-        check = np.testing.assert_array_almost_equal  # just to make it shorter
-        check(jac["out1"]["A"], me.xs)
-        check(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
-        check(jac["out2"]["A"], me.xs * 2 * A)
-        check(jac["out2"]["B"], me.xs)
+        CHECK(jac["out1"]["A"], me.xs)
+        CHECK(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
+        CHECK(jac["out2"]["A"], me.xs * 2 * A)
+        CHECK(jac["out2"]["B"], me.xs)
+
+
+class OddEvenME(ModelErrorInterface):
+    def __init__(self):
+        super().__init__()
+        self.parameter_list.define("E_odd", 42.0)
+        self.parameter_list.define("E_even", 4.0)
+        self.x_odd = np.r_[0, 1, 0, 1, 0, 1]
+        self.x_even = np.r_[1, 0, 1, 0, 1, 0]
+
+    def __call__(self):
+        return {
+            "out": self.x_odd * self.parameter_list["E_odd"]
+            + self.x_even * self.parameter_list["E_even"]
+        }
+
+
+class TestJacobianJointGlobal(unittest.TestCase):
+    def test_individual(self):
+        me = OddEvenME()
+        jac = me.jacobian()
+        CHECK(jac["out"]["E_odd"], me.x_odd)
+        CHECK(jac["out"]["E_even"], me.x_even)
+
+    def test_joint(self):
+        me = OddEvenME()
+        p = VariationalBayesProblem()
+        p.add_model_error(me)
+        p.latent["E"].add(me.parameter_list, "E_odd")
+        p.latent["E"].add(me.parameter_list, "E_even")
+        with self.assertRaises(Exception):
+            p.jacobian([42.0])  # we have not defined a noise model yet!
+
+        noise_key = p.add_noise_model(SingleSensorNoise())
+
+        J = p.jacobian([42.0])[noise_key]
+        self.assertEqual(J.shape, (6, 1))
+        print("J", J)
+        CHECK(J[:, 0], -me.x_odd - me.x_even)
+
 
 if __name__ == "__main__":
     unittest.main()
