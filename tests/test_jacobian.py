@@ -135,7 +135,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
 
         J = p.jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
-        CHECK(J[:, 0], -me.x_odd - me.x_even - me.x_all)
+        CHECK(J[:, 0], me.x_odd + me.x_even + me.x_all)
 
     def test_two_joints(self):
         """
@@ -150,7 +150,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
         noise_key = p.add_noise_model(SingleSensorNoise())
 
         J = p.jacobian([42.0])[noise_key]
-        CHECK(J[:, 0], -me.x_odd - me.x_even)
+        CHECK(J[:, 0], me.x_odd + me.x_even)
 
 
 if __name__ == "__main__":
