@@ -1,16 +1,105 @@
 import numpy as np
 from .parameters import ParameterList
 
+"""
+The inference problem provides:
+    model_error_dict:
+        {model_error_key: {sensor: vector of model_error}}
+    jacobian_dict:
+        {model_error_key: {sensor: {parameters : vector/matrix of jacobian}}}
+
+Both the loglikelihood function and VB require an input that is sorted by a
+`noise group`. The conversion (basically a concatenation) of various pairs of
+(model_error_key, sensor) is done via the `NoiseModelInterface`.
+
+Example:
+========
+    See test/test_noise.py for an exact implementation of the following example.
+
+    `TrussModelError` with model_error_key `truss_key` returns
+        {ForceSensor: [1,2,3], TemperatureSensor: [20]} 
+
+    and `BeamModelError` with model_error_key `beam_key` returns
+        {ForceSensor: [10, 20, 30], InclinationSensor: [0.42]}
+
+    Thus, the model_error_dict of a inference problem would look like:
+        {
+         truss_key:
+            {ForceSensor: [1,2,3], TemperatureSensor: [20]},
+         beam_key:
+            {ForceSensor: [10, 20, 30], InclinationSensor: [0.42]}
+        }
+
+
+    We now want three different noise terms. One for the two `ForceSensor`s, 
+    one for `TemperatureSensor` and one for `InclinationSensor`.
+
+    So we basically assign:
+        
+        noise_force : [(truss_key, ForceSensor), (beam_key, ForceSensor)]
+        noise_temp  : [(truss_key, TemperatureSensor)]
+        noise_incl  : [(beam_key, InclinationSensor)]
+
+    such that the model_error_dict is rearranged to:
+
+        {
+         noise_force : [1,2,3,10,20,30],
+         noise_temp  : [20],
+         noise_incl  : [0.42]
+        }
+
+    For convenience, there are multiple NoiseModels defined to simplify this
+    definition.
+
+    Also, there is a `split` method that converts an input like
+        noise_force : [1,2,3,10,20,30]
+    back to its individual contributions
+        {
+         truss_key: {ForceSensor: [1,2,3]}
+         beam_key: {ForceSensor: [10, 20, 30]}
+        }
+
+"""
+
 
 class NoiseModelInterface:
-    def __init__(self):
-        self.parameter_list = ParameterList()
-
     def vector_contribution(self, model_error_dict):
-        raise NotImplementedError()
+        raise NotImplementedError("Implement me!")
+
+    def jacobian_contribution(self, jacobian_dict):
+        raise NotImplementedError("Implement me!")
 
     def loglike_contribution(self, model_error_dict):
-        raise NotImplementedError()
+        raise NotImplementedError("Implement me!")
+
+
+class UncorrelatedNoiseModel(NoiseModelInterface):
+    def __init__(self):
+        self.parameter_list = ParameterList()
+        self.parameter_list.define("precision")
+        self._terms = []
+        self._lengths = []  # of the terms
+
+    def add(self, sensor, key=None):
+        self._terms.append((sensor, key))
+
+    def _define_terms(self, model_error_dict):
+        """
+        Can be overwritten to automatically define `self._terms`
+        for certain special cases.
+        """
+        pass
+
+    def vector_contribution(self, model_error_dict):
+        return self._stack(model_error_dict)
+    
+    def jacobian_contribution(self, jacobian_dict):
+        return self._stack(jacobian_dict)
+
+    def loglike_contribution(self, model_error_dict):
+        error = self.vector_contribution(model_error_dict)
+        sigma = 1.0 / self.parameter_list["precision"] ** 0.5
+        return self._loglike_term(error, sigma)
 
     def _loglike_term(self, error, sigma):
         return -0.5 * (
@@ -18,74 +107,59 @@ class NoiseModelInterface:
             + np.sum(np.square(error / sigma ** 2))
         )
 
+    def _stack(self, dict_of_dicts):
+        self._define_terms(dict_of_dicts)
+        terms = []
+        
+        self._lengths = []
+        for (sensor, key) in self._terms:
+            term = dict_of_dicts[key][sensor]
+            self._lengths.append(len(term))
+            terms.append(term)
+        return np.concatenate(terms)
 
-class SingleSensorNoise(NoiseModelInterface):
+    def split(self, array):
+        """
+        Reverse operation of `vector_contribution` and `jacobian_contribution` 
+        """
+        if not self._lengths:
+            raise RuntimeError(
+                "You have to evaluate (e.g. call .vector_contribution) at least once before attemting a .split()!"
+            )
+
+        total_length = sum(self._lengths)
+        if total_length != len(array):
+            raise RuntimeError(
+                f"Dimension mismatch: The noise model is of length {total_length}, you provided length {len(array)}."
+            )
+
+        splitted = {}
+        offset = 0
+        for length, (sensor, key) in zip(self._lengths, self._terms):
+            if key not in splitted:
+                splitted[key] = {}
+
+            term = array[offset : offset + length]
+            splitted[key][sensor] = term
+
+            offset += length
+
+        return splitted
+
+class UncorrelatedSingleNoise(UncorrelatedNoiseModel):
     """
     Noise model with single term for _all_ contributions of the model error.
     """
+    def _define_terms(self, model_error_dict):
+        if self._terms:
+            return
 
-    def vector_contribution(self, model_error_dict):
-        vector_terms = []
-        for exp_me in model_error_dict.values():
-            if not isinstance(exp_me, dict):
-                raise RuntimeError(
-                    "The `SingleSensorNoise` model assumes that your model "
-                    "error returns a dict {some_key : numbers}, but yours did "
-                    "not. Use `SingleNoise` instead."
-                )
-            for sensor_me in exp_me.values():
-                vector_terms.append(sensor_me)
-        return np.concatenate(vector_terms)
-
-    def jacobian_contribution(self, jacobian_dict):
-        jacobian_terms = []
-        for exp_jacobian in jacobian_dict.values():
-            if not isinstance(exp_jacobian, dict):
-                raise RuntimeError(
-                    "The `SingleSensorNoise` model assumes that your model "
-                    "error returns a dict {some_key : numbers}, but yours did "
-                    "not. Use `SingleNoise` instead."
-                )
-            for sensor_jacobian in exp_jacobian.values():
-                jacobian_terms.append(sensor_jacobian)
-
-        noise_group_jacobian = np.vstack(jacobian_terms)
-        return noise_group_jacobian
+        for me_key, me in model_error_dict.items():
+            for sensor in me:
+                self.add(sensor, me_key)
 
 
-class UncorrelatedNoiseTerm(NoiseModelInterface):
-    """
-    Uncorrelated noise term that allows to specify exactly which output 
-    (defined by key and sensor) from the model error is taken for the term.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.parameter_list.define("precision")
-        self.terms = []
-
-    def add(self, sensor, key=None):
-        self.terms.append((sensor, key))
-
-    def vector_contribution(self, model_error_dict):
-        vector_terms = []
-        for (sensor, key) in self.terms:
-            vector_terms.append(model_error_dict[key][sensor])
-        return np.concatenate(vector_terms)
-
-    def loglike_contribution(self, model_error_dict):
-        error = self.vector_contribution(model_error_dict)
-        sigma = 1.0 / self.parameter_list["precision"] ** 0.5
-        return self._loglike_term(error, sigma)
-
-    def jacobian_contribution(self, jacobian_dict):
-        jacobian_terms = []
-        for (sensor, key) in self.terms:
-            jacobian_terms.append(jacobian_dict[key][sensor])
-        noise_group_jacobian = np.vstack(jacobian_terms)
-        return noise_group_jacobian
-
-class UncorrelatedSensorNoise(NoiseModelInterface):
+class UncorrelatedSensorNoise(UncorrelatedNoiseModel):
     """
     Uncorrelated noise term that allows to specify exactly which sensors
     from the model error are taken for the term.
@@ -93,25 +167,16 @@ class UncorrelatedSensorNoise(NoiseModelInterface):
 
     def __init__(self, sensors):
         super().__init__()
-        self.parameter_list.define("precision")
-        self.sensors = sensors
+        if type(sensors) is list or type(sensors) is tuple:
+            self.sensors = sensors
+        else:
+            self.sensors = [sensors]
 
-    def vector_contribution(self, model_error_dict):
-        vector_terms = []
-        for exp_me in model_error_dict.values():
-            for sensor, values in exp_me.items():
+    def _define_terms(self, model_error_dict):
+        if self._terms:
+            return
+
+        for me_key, me in model_error_dict.items():
+            for sensor in me:
                 if sensor in self.sensors:
-                    vector_terms.append(values)
-
-        if not vector_terms:
-            raise RuntimeError(
-                "The model error response did not contain any "
-                f"contributions from sensors {[s.name for s in self.sensors]}."
-            )
-
-        return np.concatenate(vector_terms)
-
-    def loglike_contribution(self, model_error_dict):
-        error = self.vector_contribution(model_error_dict)
-        sigma = 1.0 / self.parameter_list["precision"] ** 0.5
-        return self._loglike_term(error, sigma)
+                    self.add(sensor, me_key)

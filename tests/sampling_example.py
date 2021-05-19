@@ -3,7 +3,7 @@ import numpy as np
 
 from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
-from bayes.noise import UncorrelatedNoiseTerm
+from bayes.noise import UncorrelatedNoiseModel
 
 """
 Not really a test yet.
@@ -118,12 +118,12 @@ if __name__ == "__main__":
     problem.set_normal_prior("A", 40.0, 5.0)
     problem.set_normal_prior("B", 6000.0, 300.0)
 
-    noise1 = UncorrelatedNoiseTerm()
+    noise1 = UncorrelatedNoiseModel()
     noise1.add(s1, key1)
     noise1.add(s2, key1)
     noise1.add(s3, key1)
 
-    noise2 = UncorrelatedNoiseTerm()
+    noise2 = UncorrelatedNoiseModel()
     noise2.add(s1, key2)
     noise2.add(s2, key2)
     noise2.add(s3, key2)

@@ -2,7 +2,6 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.noise import SingleSensorNoise
 
 
 class ForwardModel:

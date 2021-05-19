@@ -1,7 +1,6 @@
 import numpy as np
 from .parameters import ParameterList
 from .latent import LatentParameters
-from .noise import SingleSensorNoise
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import d_model_error_d_named_parameter
