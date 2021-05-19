@@ -1,16 +1,17 @@
-#---------
+# ---------
 # AUTHOR: Atul Agrawal (atul.agrawal@tum.de)
-#---------
+# ---------
 import numpy as np
 import torch as th
 
 import pyro
 import pyro.distributions as dist
 from numpy.core._multiarray_umath import ndarray
-from pyro.infer import EmpiricalMarginal, Importance ,NUTS ,MCMC
+from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 
 class Inference:
     def __init__(self, prior_dist, prior_hyperparameters, forward_solve, fw_input, observed_data, obs_noise_dist,
@@ -44,8 +45,8 @@ class Inference:
         #TODO: Infer likelihood noise/hyperprior (atleast the MAP)
         """
         # --prior
-        #--- https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
-        #TODO: Incorporate prior_dist user choice here
+        # --- https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
+        # TODO: Incorporate prior_dist user choice here
         if self.prior_dist == "Normal":
             self.para_prior = dist.Normal(self.prior_hyperparameters[0], self.prior_hyperparameters[1])
         if self.prior_dist == "Uniform":
@@ -57,10 +58,10 @@ class Inference:
         para = pyro.sample("theta", self.para_prior)
         # --likelihood
         mean = self.forward_solve(self.fw_input, para)
-        #TODO: Incorporate noise model dist choice here, default is normal
-        #TODO: More involved noise model, with correlation structure
+        # TODO: Incorporate noise model dist choice here, default is normal
+        # TODO: More involved noise model, with correlation structure
         if self.obs_noise_dist == "Normal":
-            self.likelihood = dist.Normal(mean, self.obs_noise_parameters **2)
+            self.likelihood = dist.Normal(mean, self.obs_noise_parameters ** 2)
         else:
             raise NotImplementedError
         pyro.sample("lkl", self.likelihood, obs=observed_data)
@@ -74,7 +75,7 @@ class Inference:
         :param kernel:
         :return: posterior: [N,]
         """
-        #TODO: Incorporate VI
+        # TODO: Incorporate VI
         if kernel == "NUTS":
             kernel = NUTS(self.model)
         if kernel == "HMC":
@@ -112,34 +113,31 @@ class Inference:
         """
 
         plt.figure(figsize=(3, 3))
-        #sns.histplot(posterior, kde=True, label="para_posterior", bins=20)
-        sns.kdeplot(data=posterior,label="para_posterior")
-        #plt.legend()
-        #plt.xlabel("parameter")
-        #plt.ylabel("Samples")
-        #plt.show()
-
+        # sns.histplot(posterior, kde=True, label="para_posterior", bins=20)
+        sns.kdeplot(data=posterior, label="para_posterior")
         # plotting priors
         smpl = np.ndarray((100000))
         for i in range(1, 100000):
             smpl[i] = (pyro.sample("AA", self.para_prior))
-        #plt.figure(figsize=(3, 3))
-        sns.kdeplot(data=smpl, label="para_prior", clip=(np.mean(posterior)-3*np.std(posterior),np.mean(posterior)+3*np.std(posterior)))
+        # plt.figure(figsize=(3, 3))
+        sns.kdeplot(data=smpl, label="para_prior",
+                    clip=(np.mean(posterior) - 3 * np.std(posterior), np.mean(posterior) + 3 * np.std(posterior)))
         plt.legend()
-        #plt.xlabel("parameter")
-        #plt.ylabel("Density")
+        # plt.xlabel("parameter")
+        # plt.ylabel("Density")
         plt.show()
 
-        #raise NotImplementedError
-    def visualize_predictive_posterior(self,pred_posterior):
+        # raise NotImplementedError
+
+    def visualize_predictive_posterior(self, pred_posterior):
         """
 
         :param pred_posterior: [NxM] Samples of the predictive posterior, with N being the total number of samples
         and M being the number of experiments. :return:
         """
-        for i in range(0,np.shape(pred_posterior)[1]):
+        for i in range(0, np.shape(pred_posterior)[1]):
             plt.figure(figsize=(3, 3))
-            sns.kdeplot(data=pred_posterior[:,i],label="predictive_posterior")
+            sns.kdeplot(data=pred_posterior[:, i], label="predictive_posterior")
             plt.legend()
             plt.xlabel("Y")
             plt.show()
