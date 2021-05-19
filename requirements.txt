@@ -1,5 +1,7 @@
 numpy
 scipy
 coverage
-Pyro
-PyTorch
+torch
+torchvision
+pyro-ppl
+pyro-api
