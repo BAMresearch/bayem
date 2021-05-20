@@ -186,7 +186,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         jacs_by_noise = {}
         for key, noise in self.noise_models.items():
-            jacs_by_noise[key] = noise.jacobian_contribution(jac)
+            jacs_by_noise[key] = np.concatenate(noise.jacobian_terms(jac))
 
         return jacs_by_noise
 
@@ -198,7 +198,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
-            errors_by_noise[key] = noise.vector_contribution(me)
+            errors_by_noise[key] = np.concatenate(noise.model_error_terms(me))
 
         return errors_by_noise
 

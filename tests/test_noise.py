@@ -1,94 +1,147 @@
 import numpy as np
 import unittest
-from bayes.noise import *
+import bayes.noise
 from copy import deepcopy
 
 CHECK = np.testing.assert_almost_equal  # just to make it shorter
 
-truss_model_error = {"ForceSensor": np.r_[1, 2, 3], "TemperatureSensor": np.r_[20]}
-beam_model_error = {"ForceSensor": np.r_[10, 20, 30], "InclinationSensor": np.r_[0.42]}
+"""
+Example:
+========
+    See test/test_noise.py for an exact implementation of the following example.
 
-model_error_dict = {"truss_key": truss_model_error, "beam_key": beam_model_error}
+    Assume that we have measured forces on a structure and the room temperature
+    and want to use it to infer the parameters of a numerical model.
+
+    The two independent data sets are added to two model_errors (with 
+    model_error_keys 'exp1' and 'exp2'). 
+"""
+
+exp1_me = {"ForceSensor": np.r_[0.9, 2.0, 3.1], "TemperatureSensor": np.r_[22.1]}
+exp2_me = {"ForceSensor": np.r_[1.1, 1.9, 3.0], "TemperatureSensor": np.r_[22.7]}
+
+"""
+    Thus, the example inference problem
+    would return the 
+"""
+
+model_error_dict = {"exp1": exp1_me, "exp2": exp2_me}
+print(f"{model_error_dict = }")
+
+"""
+    The ForceSensor measurements of both measurements should now be in the same
+    noise group and we expect it to be
+"""
+expected_force_terms = [exp1_me["ForceSensor"], exp2_me["ForceSensor"]]
+print(f"{expected_force_terms = }")
+
+"""
+    The TemperatureSensor (maybe we changed the placement between
+    experiments) are assumed to have individual noise models.
+
+    Lets test:
+"""
 
 
-class TestNoise(unittest.TestCase):
+class TestNoiseTerms(unittest.TestCase):
     def test_uncorrelated_noise(self):
-        n = UncorrelatedNoiseModel()
-        n.add("ForceSensor", "truss_key")
-        v = n.vector_contribution(model_error_dict)
-        CHECK(v, [1, 2, 3])
+        n_force = bayes.noise.UncorrelatedNoiseModel()
+        n_force.add("exp1", "ForceSensor")
+        n_force.add("exp2", "ForceSensor")
 
-        n.add("ForceSensor", "beam_key")
-        v = n.vector_contribution(model_error_dict)
-        CHECK(v, [1, 2, 3, 10, 20, 30])
+        n_temp1 = bayes.noise.UncorrelatedNoiseModel()
+        n_temp1.add("exp1", "TemperatureSensor")
 
-    def test_single_noise(self):
-        n = UncorrelatedSingleNoise()
-        v = n.vector_contribution(model_error_dict)
-        # the actual ordering should not matter, as long as it is consistent.
-        somehow_expected = [1, 2, 3, 20, 10, 20, 30, 0.42]
-        CHECK(np.sort(v), np.sort(somehow_expected))
+        n_temp2 = bayes.noise.UncorrelatedNoiseModel()
+        n_temp2.add("exp2", "TemperatureSensor")
 
-    def test_split(self):
-        n = UncorrelatedSingleNoise()
+        force_terms = n_force.model_error_terms(model_error_dict)
+        CHECK(force_terms, expected_force_terms)
 
+        temp1_terms = n_temp1.model_error_terms(model_error_dict)
+        CHECK(temp1_terms[0], exp1_me["TemperatureSensor"])
+
+        temp2_terms = n_temp2.model_error_terms(model_error_dict)
+        CHECK(temp2_terms[0], exp2_me["TemperatureSensor"])
+
+        """
+        We can also rearrange the individual terms back to the
+        nested `model_error_key`-`sensor`-dict:
+        """
+
+        by_keys = n_force.by_keys(force_terms)
+        self.assertListEqual(list(by_keys), ["exp1", "exp2"])
+        self.assertEqual(len(by_keys["exp1"]), 1)
+        self.assertEqual(len(by_keys["exp2"]), 1)
+
+        CHECK(by_keys["exp1"]["ForceSensor"], model_error_dict["exp1"]["ForceSensor"])
+        CHECK(by_keys["exp2"]["ForceSensor"], model_error_dict["exp2"]["ForceSensor"])
+
+        """
+        Note that the "by_keys" should fail, if we provide the wrong number
+        of terms
+        """
         with self.assertRaises(Exception) as e:
-            n.split([1, 2, 3])  # not evaluated
-        print("Expected exception:\n", e.exception)
+            n_force.by_keys([[1, 2, 3]])
+        print(f"Expected exception:\n {e.exception = }")
 
-        v = n.vector_contribution(model_error_dict)
 
-        with self.assertRaises(Exception) as e:
-            n.split([1, 2, 3])  # wrong length of vector
-        print("Expected exception:\n", e.exception)
+"""
+A more convenient way to define noise models for the same sensors is to use
+the UncorrelatedSensorNoise that slightly shortens the force noise definition
+above.
+"""
 
-        splitted = n.split(v)
-        self.check_nested_dict(splitted, model_error_dict)
+class TestNoiseSensor(unittest.TestCase):
+    def test_uncorrelated_noise(self):
+        n_force = bayes.noise.UncorrelatedSensorNoise("ForceSensor")
+        force_terms = n_force.model_error_terms(model_error_dict)
+        CHECK(force_terms, expected_force_terms)
 
-    def check_nested_dict(self, first, second):
-        self.assertListEqual(list(first.keys()), list(second.keys()))
-        for me_key in first:
-            self.assertListEqual(
-                list(first[me_key].keys()), list(second[me_key].keys())
-            )
-            for sensor_key in first[me_key]:
-                CHECK(first[me_key][sensor_key], second[me_key][sensor_key])
+        """
+        Note that you can also provide a list of sensors, if you want to
+        add multiple sensors in one noise term.
+        """
+        bayes.noise.UncorrelatedSensorNoise(["ForceSensor", "TemperatureSensor"])
 
-    def test_sensor_noise(self):
-        n = UncorrelatedSensorNoise("ForceSensor")
-        v = n.vector_contribution(model_error_dict)
-        # the actual ordering should not matter, as long as it is consistent.
-        somehow_expected = [1, 2, 3, 10, 20, 30]
-        CHECK(np.sort(v), np.sort(somehow_expected))
+"""
+The simplest case of having only a single noise model is covered by the
+UncorrelatedSingleNoise that combines all terms.
+"""
 
-    def test_sensor_noise_multiple(self):
-        n = UncorrelatedSensorNoise(["ForceSensor", "InclinationSensor"])
-        v = n.vector_contribution(model_error_dict)
-        # the actual ordering should not matter, as long as it is consistent.
-        somehow_expected = [1, 2, 3, 10, 20, 30, 0.42]
-        CHECK(np.sort(v), np.sort(somehow_expected))
+class TestNoiseSingle(unittest.TestCase):
+    def test_uncorrelated_noise(self):
+        n_single = bayes.noise.UncorrelatedSingleNoise()
+        terms = n_single.model_error_terms(model_error_dict)
+        self.assertEqual(len(terms), 4)
 
-        splitted = n.split(v)
+"""
+Note that the behavoir of "Jacobian" is identical to the model errors
+"""
 
-        expected = deepcopy(model_error_dict)
-        # remove "TemperatureSensor"
-        expected["truss_key"].pop("TemperatureSensor")
-        self.check_nested_dict(splitted, expected)
-
+class TestNoiseJacobian(unittest.TestCase):
     def test_jacobian(self):
         J1 = np.array([[1, 2], [3, 4], [5, 6]])
         J2 = np.array([[10, 20], [30, 40], [50, 60]])
         jacobian_dict = {
-            "truss_key": {"ForceSensor": J1},
-            "beam_key": {"ForceSensor": J2}
+            "exp1": {"ForceSensor": J1},
+            "exp2": {"ForceSensor": J2},
         }
-        n = UncorrelatedSingleNoise()
-        j = n.jacobian_contribution(jacobian_dict)
+        n = bayes.noise.UncorrelatedSingleNoise()
+        j = n.jacobian_terms(jacobian_dict)
 
-        CHECK(j, np.vstack([J1, J2]))
-        splitted = n.split(j)
-        self.check_nested_dict(splitted, jacobian_dict)
+        CHECK(j, [J1, J2])
 
+"""
+The loglikelihood function is not properly tested, but can be evaluated
+at your own risk
+"""
+
+class TestNoiseLoglike(unittest.TestCase):
+    def test_loglike(self):
+        n = bayes.noise.UncorrelatedSingleNoise()
+        n.parameter_list["precision"] = 42.
+        print(n.loglike_contribution(model_error_dict))
 
 if __name__ == "__main__":
     unittest.main()
