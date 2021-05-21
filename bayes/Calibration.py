@@ -7,7 +7,7 @@ import torch as th
 import pyro
 import pyro.distributions as dist
 from numpy.core._multiarray_umath import ndarray
-from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC
+from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC, HMC
 
 import seaborn as sns
 import matplotlib.pyplot as plt
