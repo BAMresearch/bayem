@@ -5,3 +5,4 @@ torch
 torchvision
 pyro-ppl
 pyro-api
+seaborn
