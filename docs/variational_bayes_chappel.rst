@@ -151,7 +151,7 @@ Substituting :math:`L` into the update equations results in the update equations
     \Lambda^{-1})\,d\boldsymbol{\theta}
 
 Update equations for parameters :math:`\boldsymbol{\theta}`
-_______________________________
+___________________________________________________________
 Left hand side of the equation:
 
 .. math::
@@ -220,7 +220,7 @@ resulting in the update equations
 similar to Chappell eq. 19/20 with :math:`\boldsymbol{J}=-\boldsymbol{J}_k` (no iteration required)
 
 Update equations noise :math:`\Phi`
-__________________________________
+___________________________________
 Left hand side
 
 .. math::
@@ -304,14 +304,14 @@ Monitoring free-energy for that case (**notation to be improved**)
 .. math::
     1 = &  \int \mathcal{N}(\boldsymbol{\theta}) \Gamma(\Phi) L d\Phi d\boldsymbol{\theta}   \\
     = & (\frac{N}{2}+(c_0-1)) \int\log[\Phi] \, \Gamma\, d\Phi \int \mathcal{N} \,   d\boldsymbol{\theta}
-    {\color{red}  =???  (\frac{N}{2}+c_0-1)(log[s]-\psi(c))}\\
-    & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma\,\mathcal{N} \, d\Phi \,   d\boldsymbol{\theta} {\color{red}  =  - \frac{1}{2} \int \Phi \, \Gamma\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta}}  \\
+    \color{red}{ =???  (\frac{N}{2}+c_0-1)(log[s]-\psi(c))}\\
+    & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma\,\mathcal{N} \, d\Phi \,   d\boldsymbol{\theta} \color{red}{  =  - \frac{1}{2} \int \Phi \, \Gamma\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta}}  \\
     & -\frac{1}{2} \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
-    \mathcal{N} \,   d\boldsymbol{\theta} \, \int \Gamma\, d\Phi {\color{red} \overbrace{=}^{eq B12, mean terms
+    \mathcal{N} \,   d\boldsymbol{\theta} \, \int \Gamma\, d\Phi \color{red}{\overbrace{=}^{eq B12, mean terms
     vanish}
     -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0))  }  \\
-    & -\frac{1}{s_0} \int \Phi \, \Gamma\ d\Phi \int \mathcal{N} \, d\boldsymbol{\theta} {\color{red} =  - \frac{sc}{s_0}  } \\
-    & + \int const \, \Gamma\, \mathcal{N} \, d\boldsymbol{\theta}\, d\Phi {\color{red}  =  const  } \\
+    & -\frac{1}{s_0} \int \Phi \, \Gamma\ d\Phi \int \mathcal{N} \, d\boldsymbol{\theta} \color{red}{ =  - \frac{sc}{s_0}  } \\
+    & + \int const \, \Gamma\, \mathcal{N} \, d\boldsymbol{\theta}\, d\Phi \color{red}{  =  const  } \\
     = &  (\frac{N}{2}+c_0-1)(log[s]-\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
     & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + const
 
@@ -337,11 +337,11 @@ Monitoring free-energy for that case (**notation to be improved**)
     = & +\log[\Gamma_c] + c\log[s]) + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c))
 
 .. math::
-    F =& (\frac{N}{2}+c_0-1)(\log[s]-\psi(c)) - \frac{1}{2} {\color{green} sc} (\boldsymbol{k}_m^T\boldsymbol{k}_m +
+    F =& (\frac{N}{2}+c_0-1)(\log[s]-\psi(c)) - \frac{1}{2} \color{green}{sc} (\boldsymbol{k}_m^T\boldsymbol{k}_m +
     \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) \\
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0) +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
     & + \frac{1}{2}\log[det \Lambda] \\
-    &  {\color{green} +\log[\Gamma_c] + c\log[s] + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c)) }\\
+    &  \color{green}{ +\log[\Gamma_c] + c\log[s] + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c)) }\\
     & + const
 
 not the same as in Chappell eq 23

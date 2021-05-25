@@ -1,5 +1,6 @@
 import glob
 
+
 def task_website():
     pages = glob.glob("docs/*.rst")
     return {
