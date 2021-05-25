@@ -347,22 +347,3 @@ Monitoring free-energy for that case (**notation to be improved**)
 not the same as in Chappell eq 23
 
 PLEASE CHECK it !!!
-
-
-
-
-
-
-
-
-
-Using the free energy definition in equation.
-
-.. math::
-    :label: abc
-
-    a &= b\\
-
-
-Euler's identity, equation :eq:`abc`, was elected one of the most
-beautiful mathematical formulas.
