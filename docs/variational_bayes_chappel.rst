@@ -361,7 +361,46 @@ Monitoring free-energy for that case (**notation to be improved**)
 
 not the same as in Chappell eq 23
 
-PLEASE CHECK it !!!
+CHECK free energy equation by comparing derivation to :math:`F` with respect of :math:`s, c, \boldsymbol{m}, \Lambda` with update equations:
+
+.. math::
+    0 = & \frac{\partial F}{\partial s} \\
+    0 = & (\frac{N}{2}-c_0-1)\frac{1}{s} - \frac{1}{2}c(\boldsymbol{k}_m^T\boldsymbol{k}_m +
+    \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) - \frac{c}{s_0} + \frac{c}{s} - (c-1)\frac{1}{s}\\
+    (\frac{N}{2}-c_0-1)\frac{1}{s} + \frac{c}{s} - (c-1)\frac{1}{s} = & \frac{c}{s_0} + \frac{1}{2}c(\boldsymbol{k}_m^T\boldsymbol{k}_m +
+    \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))\\
+    (\frac{N}{2}-c_0-1+c-c+1)\frac{1}{s} = & c\left( \frac{1}{s_0} + \frac{1}{2}(\boldsymbol{k}_m^T\boldsymbol{k}_m +
+    \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))\right)\\
+    (\frac{N}{2}-c_0)\frac{1}{s} = & c\left( \frac{1}{s_0} + \frac{1}{2}(\boldsymbol{k}_m^T\boldsymbol{k}_m +
+    \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))\right)
+
+which is identical to the two update equations:
+
+.. math::
+    c &=& \frac{N}{2} + c_0  \\
+    \frac{1}{s} &=& \frac{1}{s_0} + \frac{1}{2}(\boldsymbol{k}_m^T \boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^T \boldsymbol{J}_k))
+
+.. math::
+    0 = & \frac{\partial F}{\partial \Lambda} \\
+    0 = & -\frac{1}{2}sc\frac{\partial \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))}{\partial \Lambda} - \frac{1}{2}\frac{\mathrm{tr}(\Lambda^{-1}\Lambda_0)}{\partial \Lambda} + \frac{\log[\det\Lambda]}{\partial \Lambda}\\
+    0 = & -sc (-\Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}) + \Lambda^{-T}\Lambda_0^T \Lambda^{-T} + \frac{1}{\det\Lambda}det\Lambda \Lambda^{-T}\\
+    0 = & sc \, \Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}\Lambda_0^T \Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}{\color{blue}\Lambda^T} \\
+    -\boldsymbol{1} = & \Lambda^{-T}(sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T)
+
+using (https://web.stanford.edu/~jduchi/projects/matrix_prop.pdf):
+
+.. math::
+    \frac{\partial}{\partial \boldsymbol{X}}\mathrm{tr}(\boldsymbol{A}\boldsymbol{X}^{-1}\boldsymbol{B}) =& -\boldsymbol{X}^{-T} \boldsymbol{A}^{T} \boldsymbol{B}^{T} \boldsymbol{X}^{-T}  \\
+    \frac{\partial}{\partial \boldsymbol{X}}\det\boldsymbol{X} = & det\boldsymbol{X} (\boldsymbol{X}^{-T})
+
+which means:
+
+.. math::
+    -\Lambda^T =& sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T \\
+    -\Lambda =& sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k) + \Lambda_0
+
+should be update equation 1 ???
+
 
 Appendix
 ---------
