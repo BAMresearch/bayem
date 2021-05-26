@@ -27,7 +27,7 @@ class Inference:
         :param fw_input: [Dict type] ('known_parameters': , 'sensors': ,'time_steps': )
         :param observed_data [N,] [tensor]: The observed noisy data
         :param obs_noise_dist: [string] - Specify the noise distribution
-        :param obs_noise_parameters: Hyperaparameters of the noise model
+        :param obs_noise_parameters: Hyperaparameters of the noise model (Can be None when it is to be inferred)
         """
         self.prior_dist = prior_dist
         self.prior_hyperparameters = prior_hyperparameters
@@ -37,7 +37,7 @@ class Inference:
         self.obs_noise_dist = obs_noise_dist
         self.obs_noise_parameters = obs_noise_parameters
 
-    def model(self, observed_data):
+    def posterior_model(self, observed_data):
         """
         Model to construct prior, likelihood and the posterior with the supplied Observed data
         :param observed_data:
@@ -56,12 +56,21 @@ class Inference:
         if self.prior_dist == "Beta":
             self.para_prior = dist.Beta(self.prior_hyperparameters[0], self.prior_hyperparameters[1])
         para = pyro.sample("theta", self.para_prior)
+
+        # --hyperprior
+        if self.obs_noise_parameters is None:
+            sigma_prior = dist.Normal(8, 10) # AA: Hardcoded mean close to the known noise
+            sigma_noise = pyro.sample("sigma", sigma_prior)
+            #self.obs_noise_parameters = sigma_noise
+        if self.obs_noise_parameters is not None:
+            sigma_noise = self.obs_noise_parameters
+
         # --likelihood
         mean = self.forward_solve(self.fw_input, para)
         # TODO: Incorporate noise model dist choice here, default is normal
         # TODO: More involved noise model, with correlation structure
         if self.obs_noise_dist == "Normal":
-            self.likelihood = dist.Normal(mean, self.obs_noise_parameters ** 2)
+            self.likelihood = dist.Normal(mean, sigma_noise)
         else:
             raise NotImplementedError
         pyro.sample("lkl", self.likelihood, obs=observed_data)
@@ -77,35 +86,38 @@ class Inference:
         """
         # TODO: Incorporate VI
         if kernel == "NUTS":
-            kernel = NUTS(self.model)
+            kernel = NUTS(self.posterior_model)
         if kernel == "HMC":
             print('Using HMC kernel')
-            kernel = HMC(model=self.model, step_size=1, num_steps=4)
+            kernel = HMC(model=self.posterior_model, step_size=1, num_steps=4)
 
         mcmc = MCMC(kernel, num_samples=n)
         mcmc.run(self.observed_data)
-        posterior = mcmc.get_samples()['theta'].numpy()
-        # print(posterior)
+        posterior_para = mcmc.get_samples()['theta'].numpy()
+        posterior_noise = mcmc.get_samples()['sigma'].numpy()
         mcmc.summary()
-        return posterior
+        return posterior_para, posterior_noise
 
-    def predict(self, posterior, new_input):
+    def predict(self, posterior_para, posterior_noise, new_input):
         """
-        Method to get posterior predictive distribution.
-        :param posterior: p(theta|D) samples
+        Method to get posterior predictive distribution. Integration approximated using Monte Carlo
+        :param posterior_para: p(theta|D) samples
+        :param posterior_noise: p(sigma|D) posterior of the observational noise
         :param new_input: New input to the solver. [Dict type] ('known_parameters': , 'sensors': ,'time_steps': )
         :return: tilda_X: New unobserved data samples
         """
         size = np.size(new_input['sensors']) * new_input['time_steps']
-        tilda_X: ndarray = np.ndarray((np.size(posterior), size))
-        for i in range(0, np.size(posterior)):
-            theta = posterior[i]
+        tilda_X: ndarray = np.ndarray((np.size(posterior_para), size))
+        sigma_mean = np.mean(posterior_noise) # AA : Just using MAP point for the sigma posterior, more involved
+        # would be an inner loop for sigma also.
+        for i in range(0, np.size(posterior_para)):
+            theta = posterior_para[i]
             mean = self.forward_solve(new_input, theta)
-            _dist = dist.Normal(mean, self.obs_noise_parameters)
+            _dist = dist.Normal(mean, sigma_mean)
             tilda_X[i, :] = pyro.sample("pos", _dist)
         return tilda_X
 
-    def visualize_prior_posterior(self, posterior):
+    def visualize_prior_posterior(self, posterior_para, posterior_noise):
         """
 
         :param posterior: Pass the posterior after MCMC
@@ -114,17 +126,20 @@ class Inference:
 
         plt.figure(figsize=(3, 3))
         # sns.histplot(posterior, kde=True, label="para_posterior", bins=20)
-        sns.kdeplot(data=posterior, label="para_posterior")
+        sns.kdeplot(data=posterior_para, label="para_posterior")
         # plotting priors
         smpl = np.ndarray((100000))
         for i in range(1, 100000):
             smpl[i] = (pyro.sample("AA", self.para_prior))
         # plt.figure(figsize=(3, 3))
         sns.kdeplot(data=smpl, label="para_prior",
-                    clip=(np.mean(posterior) - 3 * np.std(posterior), np.mean(posterior) + 3 * np.std(posterior)))
+                    clip=(np.mean(posterior_para) - 3 * np.std(posterior_para), np.mean(posterior_para) + 3 * np.std(posterior_para)))
         plt.legend()
-        # plt.xlabel("parameter")
-        # plt.ylabel("Density")
+        plt.show()
+
+        plt.figure(figsize=(3, 3))
+        sns.kdeplot(data=posterior_noise, label="noise_posterior")
+        plt.legend()
         plt.show()
 
         # raise NotImplementedError

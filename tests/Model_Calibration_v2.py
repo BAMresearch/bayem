@@ -121,7 +121,7 @@ if __name__ == "__main__":
     prior_dist = "Normal"
     Observed_data = data_obs_array
     Noise_distribution = "Normal"
-    Noise_hyperparameter = noise_sd1 #TODO: test with correlated noise model
+    Noise_hyperparameter = None #TODO: test with correlated noise model
 
     # ---- Metadata for forward solve
     forward_solve_wrapper = wrapper_forward
@@ -136,14 +136,14 @@ if __name__ == "__main__":
 
     # -- Solve the Inference problem
     # ---------- learns the posterior of latent parameter just from the noisy observed data
-    posterior = infer.run(1000, kernel="NUTS")
+    posterior_para, posterior_noise = infer.run(1000, kernel="NUTS")
 
     # -- Visualise
-    infer.visualize_prior_posterior(posterior)
+    infer.visualize_prior_posterior(posterior_para, posterior_noise)
 
     # -- Predict
     new_input_forward = {'known_parameters': B_correct, 'sensors': [s1,s2], 'time_steps': 2}
-    pred_pos = infer.predict(posterior,new_input_forward)
+    pred_pos = infer.predict(posterior_para,posterior_noise,new_input_forward)
     print("The predicted value of the forward solve is:")
 
     infer.visualize_predictive_posterior(pred_pos) # visualise the posterior predictive
