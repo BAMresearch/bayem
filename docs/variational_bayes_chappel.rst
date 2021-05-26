@@ -312,9 +312,11 @@ Monitoring free-energy for that case (**notation to be improved**)
     & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, \Gamma(\Phi;s,c)\log[\Gamma(\Phi;s,c)] d\Phi d\boldsymbol{\theta}
 
 .. math::
-    1 = &  \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\, \Gamma(\Phi;s,c) L d\Phi d\boldsymbol{\theta}   \\
+    1 = &  \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\, \Gamma(\Phi;s,c) L \;d\Phi
+    \;d\boldsymbol{\theta}   \\
+    & \color{blue}{\text{with substituting the definition of the log posterior $L$}}\\
     = & (\frac{N}{2}+(c_0-1)) \int\log[\Phi] \, \Gamma(\Phi;s,c)\, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta}
-    \color{red}{ =???  (\frac{N}{2}+c_0-1)(\log[s]-\psi(c))}\\
+    \color{red}{ =???  (\frac{N}{2}+c_0-1)(\log[s]+\psi(c))}\\
     & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma(\Phi;s,c)\,\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\Phi \,   d\boldsymbol{\theta} \color{red}{  =  - \frac{1}{2} \int \Phi \, \Gamma(\Phi;s,c)\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta}}  \\
     & -\frac{1}{2} \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
     \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c)
@@ -323,25 +325,25 @@ Monitoring free-energy for that case (**notation to be improved**)
     & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta} \color{red}{ =  - \frac{sc}{s_0}  } \\
     & + \int const \, \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \color{red}{  =  const  } \\
     = &  (\frac{N}{2}+c_0-1)(log[s]-\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
-    & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + const
+    & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + \mathrm{const}
 
 .. math::
-    2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta}) \Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
+    2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     = & - \int \Gamma(\Phi;s,c) \, d\Phi \, \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] d\boldsymbol{\theta} \\
     & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] = const + \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m})}\\
-    = &??? - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const + \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const + \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m}))  d\boldsymbol{\theta} \\
-    = & const - \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
-    = & const - \frac{1}{2}\log[det (\Lambda^{-1})] \\
-    = & const - \frac{1}{2}\log[\frac{1}{det \Lambda}]\\
-    = & const \cancel{- \frac{1}{2}\log[1]} + \frac{1}{2}\log[det \Lambda]
+    = & \mathrm{const} - \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
+    = & \mathrm{const} - \frac{1}{2}\log[det (\Lambda^{-1})] \\
+    = & \mathrm{const} - \frac{1}{2}\log[\frac{1}{det \Lambda}]\\
+    = & \mathrm{const} \cancel{- \frac{1}{2}\log[1]} + \frac{1}{2}\log[det \Lambda]
 
 .. math::
     3 = &  - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta}) \Gamma(\Phi;s,c)\,\log[\Gamma(\Phi;s,c)] d\Phi d\boldsymbol{\theta}\\
     = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c) \,\log[\Gamma(\Phi;s,c)] d\Phi \\
     & \color{blue}{\text{with }\log[\Gamma(\Phi;s,c)] = \log[1/\Gamma_c] - c\log[s] + (c-1)\log[\Phi] - \frac{\Phi}{s} }\\
-    = &??? - \int \Gamma(\Phi;s,c) \, (\log[1/\Gamma_c] - c\log[s] + (c-1)\log[\Phi] - \frac{\Phi}{s})  d\Phi \\
+    = & - \int \Gamma(\Phi;s,c) \, (\log[1/\Gamma_c] - c\log[s] + (c-1)\log[\Phi] - \frac{\Phi}{s})  d\Phi \\
     = &  - \int \Gamma(\Phi;s,c) \, (\log[1/\Gamma_c] - c\log[s]) d\Phi - \int \Gamma(\Phi;s,c) \,((c-1)\log[\Phi] - \frac{\Phi}{s})
     d\Phi \\
     = & - (\log[1/\Gamma_c] - c\log[s]) + \frac{1}{s}\int \Phi \, \Gamma \, d\Phi - (c-1) \int \log[\Phi] \, \Gamma
@@ -350,7 +352,7 @@ Monitoring free-energy for that case (**notation to be improved**)
     = & +\log[\Gamma_c] + c\log[s]) + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c))
 
 .. math::
-    F =& (\frac{N}{2}+c_0-1)(\log[s]-\psi(c)) - \frac{1}{2} \color{green}{sc} (\boldsymbol{k}_m^T\boldsymbol{k}_m +
+    F =& (\frac{N}{2}+c_0-1)(\log[s]+\psi(c)) - \frac{1}{2} \color{green}{sc} (\boldsymbol{k}_m^T\boldsymbol{k}_m +
     \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) \\
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0) +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
     & + \frac{1}{2}\log[det \Lambda] \\
