@@ -324,7 +324,7 @@ Monitoring free-energy for that case (**notation to be improved**)
     -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0))  }  \\
     & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta} \color{red}{ =  - \frac{sc}{s_0}  } \\
     & + \int const \, \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \color{red}{  =  const  } \\
-    = &  (\frac{N}{2}+c_0-1)(log[s]-\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
+    = &  (\frac{N}{2}+c_0-1)(log[s]+\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
     & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + \mathrm{const}
 
 .. math::
@@ -335,8 +335,8 @@ Monitoring free-energy for that case (**notation to be improved**)
     = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const + \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m}))  d\boldsymbol{\theta} \\
     = & \mathrm{const} - \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
-    = & \mathrm{const} - \frac{1}{2}\log[det (\Lambda^{-1})] \\
-    = & \mathrm{const} - \frac{1}{2}\log[\frac{1}{det \Lambda}]\\
+    = & \mathrm{const} - \frac{1}{2}\log[det (\Lambda^{-1})] +  \frac{1}{2} n_{param}\\
+    = & \mathrm{const} - \frac{1}{2}\log[\frac{1}{det \Lambda}] + \mathrm{const}\\
     = & \mathrm{const} \cancel{- \frac{1}{2}\log[1]} + \frac{1}{2}\log[det \Lambda]
 
 .. math::
@@ -370,19 +370,19 @@ ____________
 
 .. math::
     \left(\boldsymbol{\theta}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0
-    \left(\boldsymbol{\theta}-\boldsymbol{m}_0\right)^T
+    \left(\boldsymbol{\theta}-\boldsymbol{m}_0\right)
     &=
     \left(\boldsymbol{\theta}-\boldsymbol{m}+(\boldsymbol{m}-\boldsymbol{m}_0)\right)^T\boldsymbol{\Lambda}_0
-    \left(\boldsymbol{\theta}-\boldsymbol{m}+(\boldsymbol{m}-\boldsymbol{m}_0)\right)^T\\
+    \left(\boldsymbol{\theta}-\boldsymbol{m}+(\boldsymbol{m}-\boldsymbol{m}_0)\right)\\
     &=
     \left(\boldsymbol{\theta}-\boldsymbol{m}\right)^T\boldsymbol{\Lambda}_0
-    \left(\boldsymbol{\theta}-\boldsymbol{m})\right)^T
+    \left(\boldsymbol{\theta}-\boldsymbol{m}\right)
     +
     \left(\boldsymbol{m}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0
     \left(\boldsymbol{m}-\boldsymbol{m}_0\right)\\
-    &-
-    \left(\boldsymbol{m}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0\left(\boldsymbol{\theta}-\boldsymbol{m}\right)-
-    \left(\boldsymbol{\theta}-\boldsymbol{m}\right)^T\boldsymbol{\Lambda}_0
+    &+
+    \left(\boldsymbol{m}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0\left(\boldsymbol{\theta}-\boldsymbol{m}\right)
+    + \left(\boldsymbol{\theta}-\boldsymbol{m}\right)^T\boldsymbol{\Lambda}_0
     \left(\boldsymbol{m}-\boldsymbol{m}_0\right)\\
 
 As a consequence, the following equation holds:
@@ -391,8 +391,19 @@ As a consequence, the following equation holds:
     \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
     \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta}
     =
-    (\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0)).
+    (\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0).
 
 Note that the terms  :math:`\left(\boldsymbol{\theta}-\boldsymbol{m}\right) \mathcal{N}(\boldsymbol{\theta};
 \boldsymbol{m}, \Lambda^{-1})` vanish due to the definition of the mean, and equation B12 in Chappel is used to
 resolve the remaining integral.
+
+Derivation 2 of B12
+____________
+.. math::
+    \int (\boldsymbol{\theta}-\boldsymbol{m})^T\boldsymbol{U}(\boldsymbol{\theta}-\boldsymbol{m}) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\,d\boldsymbol{\theta} =??? \mathrm{tr}(\Lambda^{-1}\boldsymbol{U}) \\
+
+
+Derivation 3
+____________
+.. math::
+    \int \log[\Phi] \, \Gamma(\Phi;s,c)\,d\Phi =??? log[s] + \psi(c) \\
