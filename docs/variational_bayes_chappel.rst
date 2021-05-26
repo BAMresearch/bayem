@@ -235,7 +235,7 @@ Left hand side
 
 .. math::
     \log[q_{\Phi}] & = &\log[\Gamma(\Phi;s,c)] \\
-    & = & (c-1)\log[\Phi] + \frac{\Phi}{s} + \mathrm{const} \lbrace \Phi \rbrace\\
+    & = & (c-1)\log[\Phi] - \frac{\Phi}{s} + \mathrm{const} \lbrace \Phi \rbrace\\
 
 see Chappell eq.(B9).
 
@@ -270,7 +270,7 @@ Compare to the left hand side while omitting the terms constant in :math:`\Phi` 
 density function is one results in:
 
 .. math::
-    (c-1)\log[\Phi] + \frac{\Phi}{s}  \propto & \frac{N}{2}\log[\Phi] + (c_0-1)
+    (c-1)\log[\Phi] - \frac{\Phi}{s}  \propto & \frac{N}{2}\log[\Phi] + (c_0-1)
     \log[\Phi]-\frac{\Phi}{s_0} -\frac{1}{2}\Phi(\boldsymbol{k}_m^T \boldsymbol{k}_m +
     \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^T \boldsymbol{J}_k)) \\
     \propto &  (\frac{N}{2}+ c_0-1 )\log[\Phi] - \Phi (\frac{1}{s_0} + \frac{1}{2}(\boldsymbol{k}_m^T 
