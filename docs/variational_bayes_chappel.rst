@@ -317,8 +317,8 @@ Monitoring free-energy for that case (**notation to be improved**)
     \color{red}{ =???  (\frac{N}{2}+c_0-1)(\log[s]-\psi(c))}\\
     & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma(\Phi;s,c)\,\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\Phi \,   d\boldsymbol{\theta} \color{red}{  =  - \frac{1}{2} \int \Phi \, \Gamma(\Phi;s,c)\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta}}  \\
     & -\frac{1}{2} \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
-    \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c)\, d\Phi \color{red}{\overbrace{=}^{eq B12, mean terms
-    vanish}
+    \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c)
+    \, d\Phi \color{red}{\overbrace{=}^{\text{see derivation 1 in appendix}}
     -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0))  }  \\
     & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta} \color{red}{ =  - \frac{sc}{s_0}  } \\
     & + \int const \, \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \color{red}{  =  const  } \\
@@ -360,3 +360,37 @@ Monitoring free-energy for that case (**notation to be improved**)
 not the same as in Chappell eq 23
 
 PLEASE CHECK it !!!
+
+Appendix
+---------
+Derivation 1
+____________
+
+.. math::
+    \left(\boldsymbol{\theta}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0
+    \left(\boldsymbol{\theta}-\boldsymbol{m}_0\right)^T
+    &=
+    \left(\boldsymbol{\theta}-\boldsymbol{m}+(\boldsymbol{m}-\boldsymbol{m}_0)\right)^T\boldsymbol{\Lambda}_0
+    \left(\boldsymbol{\theta}-\boldsymbol{m}+(\boldsymbol{m}-\boldsymbol{m}_0)\right)^T\\
+    &=
+    \left(\boldsymbol{\theta}-\boldsymbol{m}\right)^T\boldsymbol{\Lambda}_0
+    \left(\boldsymbol{\theta}-\boldsymbol{m})\right)^T
+    +
+    \left(\boldsymbol{m}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0
+    \left(\boldsymbol{m}-\boldsymbol{m}_0\right)\\
+    &-
+    \left(\boldsymbol{m}-\boldsymbol{m}_0\right)^T\boldsymbol{\Lambda}_0\left(\boldsymbol{\theta}-\boldsymbol{m}\right)-
+    \left(\boldsymbol{\theta}-\boldsymbol{m}\right)^T\boldsymbol{\Lambda}_0
+    \left(\boldsymbol{m}-\boldsymbol{m}_0\right)\\
+
+As a consequence, the following equation holds:
+
+.. math::
+    \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
+    \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta}
+    =
+    (\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0)).
+
+Note that the terms  :math:`\left(\boldsymbol{\theta}-\boldsymbol{m}\right) \mathcal{N}(\boldsymbol{\theta};
+\boldsymbol{m}, \Lambda^{-1})` vanish due to the definition of the mean, and equation B12 in Chappel is used to
+resolve the remaining integral.
