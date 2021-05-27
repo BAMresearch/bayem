@@ -387,7 +387,7 @@ which is identical to the two update equations:
     0 = & sc \, \Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}\Lambda_0^T \Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}{\color{blue}\Lambda^T} \\
     -\boldsymbol{1} = & \Lambda^{-T}(sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T)
 
-using (https://web.stanford.edu/~jduchi/projects/matrix_prop.pdf):
+using (https://www.ics.uci.edu/~welling/teaching/KernelsICS273B/MatrixCookBook.pdf):
 
 .. math::
     \frac{\partial}{\partial \boldsymbol{X}}\mathrm{tr}(\boldsymbol{A}\boldsymbol{X}^{-1}\boldsymbol{B}) =& -\boldsymbol{X}^{-T} \boldsymbol{A}^{T} \boldsymbol{B}^{T} \boldsymbol{X}^{-T}  \\
