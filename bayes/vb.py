@@ -185,7 +185,7 @@ class VBModelErrorWrapper(VariationalBayesInterface):
             return k
 
 
-def variational_bayes(model_error, param0, noise0=None, noise_first=False, **kwargs):
+def variational_bayes(model_error, param0, noise0=None, noise_first=False, _LM=True, **kwargs):
     """
     Nonlinear variational bayes algorithm according to
     @article{chappell2008variational,
@@ -242,6 +242,7 @@ def variational_bayes(model_error, param0, noise0=None, noise_first=False, **kwa
     """
     vb = VB()
     vb.noise_first = noise_first
+    vb._LM = _LM
     return vb.run(model_error, param0, noise0, **kwargs)
 
 
@@ -268,6 +269,7 @@ class VBResult:
         self.message = ""
         self.free_energies = []
         self.f_max = -np.inf
+        self.f_last = -np.inf
         self.nit = 0
         self.noise_first = False # by default
 
@@ -282,6 +284,7 @@ class VBResult:
 
     def try_update(self, f_new, mean, precision, shapes, scales):
         self.free_energies.append(f_new)
+        self.f_last = f_new
         if f_new > self.f_max:
             # update
             self.f_max = f_new
@@ -292,7 +295,7 @@ class VBResult:
 
 
 class VB:
-    def __init__(self, n_trials_max=10, iter_max=50, tolerance=0.1):
+    def __init__(self, n_trials_max=30, iter_max=100, tolerance=0.1):
         self.f_old = -np.inf
         self.param_stored = None
         self.n_trials = 0
@@ -301,6 +304,7 @@ class VB:
         self.iter_max = iter_max
         self.result = VBResult()
         self.noise_first = False # by default
+        self._LM = True
 
     def run(self, model_error, param0, noise0=None, **kwargs):
 
@@ -358,8 +362,10 @@ class VB:
         
         if self.noise_first:
             L_inv = np.linalg.inv(L0)
-
+        
         i_iter = 0
+        alpha_0 = 1e-4
+        alpha_max = alpha_0 * 1e18
         while True:
             i_iter += 1
             
@@ -380,11 +386,42 @@ class VB:
             # fw model parameter update
             L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
-
-            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
-            Lm += L0 @ m0
-            m = Lm @ L_inv
-
+            
+            if not self._LM:
+                # NORMAL WAY
+                Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
+                Lm += L0 @ m0
+                m = Lm @ L_inv
+            else:
+                ## L-M WAY
+                m_old = copy.deepcopy(m)
+                alpha = 0 # means NO L-M (just like normal way)
+                it_LM = 0
+                fs = []
+                alphas = []
+                while True:
+                    L_inv_alpha = np.linalg.inv(L+alpha*np.diag(np.diag(L)))
+                    delta = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m_old) for i in noise0])
+                    delta += L0 @ m0 - L @ m_old
+                    m = m_old + L_inv_alpha @ delta
+                    if alpha==0:
+                        m_alpha_0 = copy.deepcopy(m)
+                    f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+                    fs.append(f_m)
+                    alphas.append(alpha)
+                    if f_m>=self.result.f_last:
+                        print(f"L-M method with alpha={alpha} increased free energy. (f_LM, f_last) = ({f_m}, {self.result.f_last})")
+                        break
+                    else:
+                        # print(f"L-M method with alpha={alpha} did not increase free energy.")
+                        alpha = alpha_0 * 10**it_LM
+                        it_LM+=1
+                        if alpha>alpha_max:
+                            print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' corresponding to alpha=0 was selected.")
+                            m = m_alpha_0
+                            # print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' corresponding to last alpha was selected.")
+                            break
+            
             k, J = model_error(m), model_error.jacobian(m)
             
             
@@ -416,26 +453,29 @@ class VB:
 
             # free energy caluclation, formula (23) slightly rearranged
             # to account for the loop over all noise groups
-            f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
-            (sign, logdet) = np.linalg.slogdet(L)
-            f_new += 0.5 * sign * logdet
+            # f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
+            # (sign, logdet) = np.linalg.slogdet(L)
+            # f_new += 0.5 * sign * logdet
 
-            for i in noise0:
-                f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
-                )
-                f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
-                f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
-                )
-                if "index_ARD" in kwargs:
-                    for j in range(n_ARD_param):
-                        f_new += (
-                            (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
-                            - d[j] * (1 + np.log(r[j]))
-                            - special.gammaln(d[j])
-                        )
+            # for i in noise0:
+            #     f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+            #         np.log(s[i]) + special.digamma(c[i])
+            #     )
+            #     f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+            #     f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
+            #     f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
+            #         np.log(s[i]) + special.digamma(c[i])
+            #     )
+            #     if "index_ARD" in kwargs:
+            #         for j in range(n_ARD_param):
+            #             f_new += (
+            #                 (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
+            #                 - d[j] * (1 + np.log(r[j]))
+            #                 - special.gammaln(d[j])
+            #             )
+            
+            f_new = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+            
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
             self.result.try_update(f_new, m, L, c, s)
@@ -487,3 +527,35 @@ class VB:
         # go on.
         self.f_old = f_new
         return False
+    
+    def free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0):
+        ### PAPER's original
+        f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
+        (sign, logdet) = np.linalg.slogdet(L)
+        f_new += 0.5 * sign * logdet
+
+        for i in s.keys():
+            f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+                np.log(s[i]) + special.digamma(c[i])
+            )
+            f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+            f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
+            f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
+                np.log(s[i]) + special.digamma(c[i])
+            )
+            
+        ### ANNIKA's derivation
+        # f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
+        # (sign, logdet) = np.linalg.slogdet(L)
+        # f_new += 0.5 * sign * logdet
+        # for i in s.keys():
+        #     f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+        #         np.log(s[i]) + special.digamma(c[i])
+        #     )
+        #     f_new += -0.5 * s[i] * c[i] * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+        #     f_new += +c[i] * np.log(s[i]) + special.gammaln(c[i])
+        #     f_new += +c[i] - (c[i] - 1) * (
+        #         np.log(s[i]) + special.digamma(c[i])
+        #     )
+        
+        return f_new
