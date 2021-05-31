@@ -295,7 +295,7 @@ class VBResult:
 
 
 class VB:
-    def __init__(self, n_trials_max=30, iter_max=100, tolerance=0.1):
+    def __init__(self, n_trials_max=60, iter_max=200, tolerance=0.1):
         self.f_old = -np.inf
         self.param_stored = None
         self.n_trials = 0
@@ -360,12 +360,14 @@ class VB:
 
         self.param_stored = [np.copy(s), np.copy(c), copy.copy(m), copy.copy(L)]
         
+        L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
+        L_inv = np.linalg.inv(L)
         if self.noise_first:
-            L_inv = np.linalg.inv(L0)
+            L_inv_0 = np.linalg.inv(L0)
         
         i_iter = 0
-        alpha_0 = 1e-4
-        alpha_max = alpha_0 * 1e18
+        alpha_0 = 1e-6
+        alpha_max = alpha_0 * 1e20
         while True:
             i_iter += 1
             
@@ -378,15 +380,12 @@ class VB:
                     s_inv = (
                         1 / s0[i]
                         + 0.5 * k[i].T @ k[i]
-                        + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                        + 0.5 * np.trace(L_inv_0 @ J[i].T @ J[i])
                     )
                     s[i] = 1 / s_inv
                     logger.debug(f'\n Noise update first: current s (scale) and c (shape): {s[i]}, {c[i]}')
             
             # fw model parameter update
-            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
-            L_inv = np.linalg.inv(L)
-            
             if not self._LM:
                 # NORMAL WAY
                 Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
@@ -403,30 +402,45 @@ class VB:
                     L_inv_alpha = np.linalg.inv(L+alpha*np.diag(np.diag(L)))
                     delta = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m_old) for i in noise0])
                     delta += L0 @ m0 - L @ m_old
-                    m = m_old + L_inv_alpha @ delta
+                    _dm = L_inv_alpha @ delta
+                    # print(f"-------------- NORM OF dm: {np.linalg.norm(_dm)}")
+                    m = m_old + _dm
                     if alpha==0:
                         m_alpha_0 = copy.deepcopy(m)
                     f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
                     fs.append(f_m)
                     alphas.append(alpha)
-                    if f_m>=self.result.f_last:
+                    if f_m>self.result.f_last:
                         print(f"L-M method with alpha={alpha} increased free energy. (f_LM, f_last) = ({f_m}, {self.result.f_last})")
                         break
                     else:
-                        # print(f"L-M method with alpha={alpha} did not increase free energy.")
                         alpha = alpha_0 * 10**it_LM
                         it_LM+=1
                         if alpha>alpha_max:
+                            ### In case of no effecive L-M, we have 2 choices for updated "m":
+                            
+                            ## 1) Set "m" based on alpha=0
                             print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' corresponding to alpha=0 was selected.")
                             m = m_alpha_0
+                            
+                            ## 2-1) Set "m" to "m_old" (no change)
+                            # print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' was not modified at this VB iteration.")
+                            # m = m_old
+                            ## 2-2) Set "m" based on last alpha (alpha_max). This must be like (2-1) because alpha_max should mean no change in "m".
                             # print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' corresponding to last alpha was selected.")
+                            
+                            ## (to check) plot of free energies over the change of alpha
+                            # import matplotlib.pyplot as plt; plt.plot(fs); plt.plot(20*[self.result.f_last]); plt.show()
                             break
             
             k, J = model_error(m), model_error.jacobian(m)
             
-            
             if not self.noise_first:
                 # noise parameter update
+                
+                L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
+                L_inv = np.linalg.inv(L)
+                
                 for i in noise0:
                     # formula (30)
                     c[i] = len(k[i]) / 2 + c0[i]
@@ -450,31 +464,16 @@ class VB:
 
             logger.debug(f"current mean: {m}")
             logger.debug(f"current precision: {L}")
-
-            # free energy caluclation, formula (23) slightly rearranged
-            # to account for the loop over all noise groups
-            # f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
-            # (sign, logdet) = np.linalg.slogdet(L)
-            # f_new += 0.5 * sign * logdet
-
-            # for i in noise0:
-            #     f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
-            #         np.log(s[i]) + special.digamma(c[i])
-            #     )
-            #     f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-            #     f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
-            #     f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
-            #         np.log(s[i]) + special.digamma(c[i])
-            #     )
-            #     if "index_ARD" in kwargs:
-            #         for j in range(n_ARD_param):
-            #             f_new += (
-            #                 (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
-            #                 - d[j] * (1 + np.log(r[j]))
-            #                 - special.gammaln(d[j])
-            #             )
+                        
+            if self.noise_first:
+                L_inv_0 = L_inv # set before re-recomputing L_inv
+            
+            # For computing free energy as well as being used in next iteration.
+            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
+            L_inv = np.linalg.inv(L)
             
             f_new = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+            print(f"Free energy of iteration {i_iter} is {f_new}")
             
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
