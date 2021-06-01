@@ -1,7 +1,6 @@
 import numpy as np
 from .parameters import ParameterList
 from .latent import LatentParameters
-from .noise import SingleSensorNoise
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import d_model_error_d_named_parameter
@@ -128,7 +127,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         info = variational_bayes(self, MVN, self.noise_prior)
         return info
 
-    def jacobian(self, number_vector):
+    def jacobian(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.jacobian
         """
@@ -187,11 +186,14 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         jacs_by_noise = {}
         for key, noise in self.noise_models.items():
-            jacs_by_noise[key] = noise.jacobian_contribution(jac)
+            terms = noise.jacobian_terms(jac)
+            if concatenate:
+                terms = np.concatenate(terms)
+            jacs_by_noise[key] = terms
 
         return jacs_by_noise
 
-    def __call__(self, number_vector):
+    def __call__(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.__call__
         """
@@ -199,7 +201,10 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
-            errors_by_noise[key] = noise.vector_contribution(me)
+            terms = noise.model_error_terms(me)
+            if concatenate:
+                terms = np.concatenate(terms)
+            errors_by_noise[key] = terms
 
         return errors_by_noise
 

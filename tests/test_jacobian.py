@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from bayes.inference_problem import ModelErrorInterface, VariationalBayesProblem
-from bayes.noise import SingleSensorNoise
+from bayes.noise import UncorrelatedSingleNoise
 
 CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
 
@@ -88,6 +88,7 @@ class TestJacobian(unittest.TestCase):
         me = DummyMEPartial()
         A, B = me.parameter_list["A"], me.parameter_list["B"]
         jac = me.jacobian()
+
         CHECK(jac["out1"]["A"], me.xs)
         CHECK(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
         CHECK(jac["out2"]["A"], me.xs * 2 * A)
@@ -131,7 +132,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
         with self.assertRaises(Exception):
             p.jacobian([42.0])  # we have not defined a noise model yet!
 
-        noise_key = p.add_noise_model(SingleSensorNoise())
+        noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
         J = p.jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
@@ -147,7 +148,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
         p.add_model_error(me)
         p.latent["E"].add(me.parameter_list, "E_odd")
         p.latent["E"].add(me.parameter_list, "E_even")
-        noise_key = p.add_noise_model(SingleSensorNoise())
+        noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
         J = p.jacobian([42.0])[noise_key]
         CHECK(J[:, 0], -me.x_odd - me.x_even)

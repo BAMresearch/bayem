@@ -3,7 +3,7 @@ import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
-from bayes.noise import SingleSensorNoise
+from bayes.noise import UncorrelatedSingleNoise
 
 np.random.seed(6174)
 
@@ -101,7 +101,7 @@ class Test_VB(unittest.TestCase):
         problem.latent["B1"].add(me1.parameter_list, "B")
         problem.latent["B2"].add(me2.parameter_list, "B")
         problem.define_shared_latent_parameter_by_name("A")
-        noise_key = problem.add_noise_model(SingleSensorNoise())
+        noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
 
         parameter_vec = np.array([1, 2, 4])
         error_list = problem(parameter_vec)
@@ -131,7 +131,7 @@ class Test_VB(unittest.TestCase):
         problem.set_normal_prior("A2", A2 + 0.5, 2)
         problem.set_normal_prior("B2", B2 + 0.5, 2)
 
-        noise_key = problem.add_noise_model(SingleSensorNoise())
+        noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
         problem.set_noise_prior(noise_key, Gamma.Noninformative())
 
         print(problem.prm_prior)
