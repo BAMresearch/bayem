@@ -5,6 +5,10 @@ from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
 from bayes.noise import UncorrelatedNoiseTerm
 
+from bayes.noise import UncorrelatedNoiseTerm
+
+from pyro.params.param_store import ParamStoreDict
+
 """
 Not really a test yet.
 
@@ -64,6 +68,45 @@ class MyModelError(ModelErrorInterface):
             error[sensor] = model_response[sensor] - self._sensor_data[sensor]
         return error
 
+# this is not the final version (we should move the definitions of prior etc to InferenceProblem)
+class PytorchProblem(VariationalBayesProblem):
+    def __init__(self):
+        super().__init__()
+
+    def posterior_pytorch_model(self):
+        sampled_parameters = ParamStoreDict()
+        for name, (mean, sd) in self.prm_prior.items():
+            # idx = problem.latent[name].start_idx
+            assert self.latent[name].N == 1  # vector parameters not yet supported!
+            sampled_parameters = pyro.sample(name, dist.Normal(mean, sd))
+
+        for name, gamma in self.noise_prior.items():
+            # idx = problem.latent[name].start_idx
+            shape, scale = gamma.shape, gamma.scale
+            alpha, beta = shape, 1.0 / scale
+            # check for Gamma and Inverse Gamma
+            sampled_noise_precision = pyro.sample(name, dist.Gamma(alpha, beta))
+            self.noise_models[name].parameter_list['precision'] = sampled_noise_precision
+
+        for noise_key, noise_term in self.noise_models.items():
+            pyro.sample(noise_key + "_latent",
+                        dist.Normal(self.wrapper_function(sampled_parameters, noise_key),
+                        noise_term.parameter_list['precision']),
+                        obs=torch.zeros(len(vector)))
+        return
+
+    def wrapper_function(self, sampled_parameters, noise_key):
+        for name, value in sampled_parameters.items():
+            self.latent[name].set_value(value)
+
+        # compute raw model error using the samples parameters, this is now done for each noise term separately
+        raw_me = {}
+        for key, me in self.model_errors.items():
+            raw_me[key] = me()
+
+        vector = self.noise_models[noise_key].vector_contribution(raw_me)
+        return torch.from_numpy(vector)
+
 
 """
 ###############################################################################
@@ -106,7 +149,7 @@ if __name__ == "__main__":
     me1 = MyModelError(fw, data1)
     me2 = MyModelError(fw, data2)
 
-    problem = VariationalBayesProblem()
+    problem = PytorchProblem()
     key1 = problem.add_model_error(me1)
     key2 = problem.add_model_error(me2)
 
@@ -134,79 +177,120 @@ if __name__ == "__main__":
     problem.set_noise_prior(noise_key1, 3 * noise_sd1, sd_shape=0.5)
     problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
 
-    info = problem.run()
-    print(info)
+    compute_linearized_VB = False
+    compute_pyro = True
+    compute_pymc3 = False
 
-    """
-    We now transform the vb problem into a sampling problem. 
+    if compute_linearized_VB:
+        info = problem.run()
+        print(info)
 
+    if compute_pyro:
+        import arviz as az
+        import torch
+        import pyro
+        import pyro.distributions as dist
+        import pyro.poutine as poutine
+        from pyro.infer import MCMC, NUTS, Predictive
 
-    1)  Set the parameters of the noise models latent. For convenience (since
-        there is only one parameter per noise model), we define the global 
-        name of the latent parameter to be the noise_key.
-    """
-    for noise_key in problem.noise_prior:
-        noise_parameters = problem.noise_models[noise_key].parameter_list
-        problem.latent[noise_key].add(noise_parameters, "precision")
+        nuts_kernel = NUTS(problem.posterior_pytorch_model, jit_compile=True)
+        mcmc = MCMC(nuts_kernel,
+                    num_samples=300,
+                    warmup_steps=50,
+                    num_chains=4
+                    )
+        mcmc.run()
+        mcmc.summary(prob=0.5)
 
-    """
-    2)  Wrap problem.loglike for a tool of your choice
-    """
-    import theano.tensor as tt
+        posterior_samples = mcmc.get_samples()
+        posterior_predictive = Predictive(problem.posterior_pytorch_model, posterior_samples)()
+        prior = Predictive(problem.posterior_pytorch_model, num_samples=500)()
 
-    class LogLike(tt.Op):
-        itypes = [tt.dvector]  # expects a vector of parameter values when called
-        otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
-
-        def __init__(self, loglike):
-            self.likelihood = loglike
-
-        def perform(self, node, inputs, outputs):
-            (theta,) = inputs  # this will contain my variables
-            result = self.likelihood(theta)
-            outputs[0][0] = np.array(result)  # output the log-likelihood
-
-    pymc3_log_like = LogLike(problem.loglike)
-
-    """
-    3)  Define prior distributions in a tool of your choice!
-    """
-    import pymc3 as pm
-
-    pymc3_prior = [None] * len(problem.latent)
-
-    model = pm.Model()
-    with model:
-        for name, (mean, sd) in problem.prm_prior.items():
-            idx = problem.latent[name].start_idx
-            assert problem.latent[name].N == 1  # vector parameters not yet supported!
-            pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
-
-        for name, gamma in problem.noise_prior.items():
-            idx = problem.latent[name].start_idx
-            shape, scale = gamma.shape, gamma.scale
-            alpha, beta = shape, 1.0 / scale
-            pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
-
-    """
-    4)  Go!
-    """
-    with model:
-        theta = tt.as_tensor_variable(pymc3_prior)
-        pm.Potential("likelihood", pymc3_log_like(theta))
-
-        trace = pm.sample(
-            draws=1000,
-            step=pm.Metropolis(),
-            chains=4,
-            tune=100,
-            discard_tuned_samples=True,
+        pm_data = az.from_pyro(
+            mcmc,
+            prior=prior,
         )
 
-    summary = pm.summary(trace)
-    print(summary)
+        fig, axes = plt.subplots(1, 3, figsize=(11, 5), squeeze=False)
+        az.plot_dist_comparison(pm_data, var_names=["E", "noise0"], figsize=(8, 9))
+        az.plot_trace(pm_data, figsize=(11, 4))
+        az.plot_pair(pm_data, kind="scatter", ax=axes[0, 0])
+        # az.plot_posterior(pm_data, kind="hist")
+        az.plot_posterior(pm_data, var_names="E", kind="hist", ax=axes[0, 1])
+        az.plot_posterior(pm_data, var_names="noise0", kind="hist", ax=axes[0, 2])
+        plt.show()
 
-    print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
+    if compute_pymc3:
+        """
+        We now transform the vb problem into a sampling problem. 
+    
+    
+        1)  Set the parameters of the noise models latent. For convenience (since
+            there is only one parameter per noise model), we define the global 
+            name of the latent parameter to be the noise_key.
+        """
+        for noise_key in problem.noise_prior:
+            noise_parameters = problem.noise_models[noise_key].parameter_list
+            problem.latent[noise_key].add(noise_parameters, "precision")
 
-    means = summary["mean"]
-    print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
+        """
+        2)  Wrap problem.loglike for a tool of your choice
+        """
+        import theano.tensor as tt
+
+        class LogLike(tt.Op):
+            itypes = [tt.dvector]  # expects a vector of parameter values when called
+            otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
+
+            def __init__(self, loglike):
+                self.likelihood = loglike
+
+            def perform(self, node, inputs, outputs):
+                (theta,) = inputs  # this will contain my variables
+                result = self.likelihood(theta)
+                outputs[0][0] = np.array(result)  # output the log-likelihood
+
+        pymc3_log_like = LogLike(problem.loglike)
+
+        """
+        3)  Define prior distributions in a tool of your choice!
+        """
+        import pymc3 as pm
+
+        pymc3_prior = [None] * len(problem.latent)
+
+        model = pm.Model()
+        with model:
+            for name, (mean, sd) in problem.prm_prior.items():
+                idx = problem.latent[name].start_idx
+                assert problem.latent[name].N == 1  # vector parameters not yet supported!
+                pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
+
+            for name, gamma in problem.noise_prior.items():
+                idx = problem.latent[name].start_idx
+                shape, scale = gamma.shape, gamma.scale
+                alpha, beta = shape, 1.0 / scale
+                pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
+
+        """
+        4)  Go!
+        """
+        with model:
+            theta = tt.as_tensor_variable(pymc3_prior)
+            pm.Potential("likelihood", pymc3_log_like(theta))
+
+            trace = pm.sample(
+                draws=1000,
+                step=pm.Metropolis(),
+                chains=4,
+                tune=100,
+                discard_tuned_samples=True,
+            )
+
+        summary = pm.summary(trace)
+        print(summary)
+
+        print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
+
+        means = summary["mean"]
+        print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
