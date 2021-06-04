@@ -393,17 +393,20 @@ class VB:
             # to account for the loop over all noise groups
             f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
             (sign, logdet) = np.linalg.slogdet(L)
-            f_new += 0.5 * sign * logdet
+            f_new -= 0.5 * sign * logdet
 
             for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
-                f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
-                f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
+                f_new += (
+                    -0.5
+                    * s[i]
+                    * c[i]
+                    * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
                 )
+                f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
+                f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
                 if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
                         f_new += (
