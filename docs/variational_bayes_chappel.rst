@@ -118,7 +118,7 @@ uncorrelated by:
     \rbrace\\[2mm]
     = &  \left(-\frac{N}{2}\log[2\pi]\right) + \frac{N}{2}\log[\Phi] - \frac{1}{2} \Phi
     \boldsymbol{k}^T\boldsymbol{k} \\
-    & + (-\frac{1}{2}\log[2\pi^p \, \mathrm{det}(\Lambda_0)]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
+    & + (-\frac{1}{2}\log[2\pi^p \, \mathrm{det}(\Lambda_0^{-1})]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
     \, \Lambda_0 \,(\boldsymbol{\theta}-\boldsymbol{m}_0) \\
     & + (\log[1/\Gamma(c_0)]-c_0\log[s_0]) + (c_0-1)\log[\Phi] -\frac{1}{s_0} \Phi \\[2mm]
     & + \mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace.\\
