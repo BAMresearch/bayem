@@ -311,6 +311,8 @@ Monitoring free-energy for that case (**notation to be improved**)
     = & \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, \Gamma(\Phi;s,c) L d\Phi d\boldsymbol{\theta} -\int \mathcal{N}(\boldsymbol{\theta}) \Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, \Gamma(\Phi;s,c)\log[\Gamma(\Phi;s,c)] d\Phi d\boldsymbol{\theta}
 
+term 1:
+
 .. math::
     1 = &  \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\, \Gamma(\Phi;s,c) L \;d\Phi
     \;d\boldsymbol{\theta}   \\
@@ -327,6 +329,8 @@ Monitoring free-energy for that case (**notation to be improved**)
     = &  (\frac{N}{2}+c_0-1)(log[s]+\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
     & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + \mathrm{const}
 
+term 2:
+
 .. math::
     2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     = & - \int \Gamma(\Phi;s,c) \, d\Phi \, \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] d\boldsymbol{\theta} \\
@@ -338,6 +342,8 @@ Monitoring free-energy for that case (**notation to be improved**)
     = & \mathrm{const} - \frac{1}{2}\log[det (\Lambda^{-1})] +  \frac{1}{2} n_{param}\\
     = & \mathrm{const} - \frac{1}{2}\log[\frac{1}{det \Lambda}] + \mathrm{const}\\
     = & \mathrm{const} \cancel{- \frac{1}{2}\log[1]} + \frac{1}{2}\log[det \Lambda]
+
+term 3:
 
 .. math::
     3 = &  - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta}) \Gamma(\Phi;s,c)\,\log[\Gamma(\Phi;s,c)] d\Phi d\boldsymbol{\theta}\\
@@ -361,7 +367,12 @@ Monitoring free-energy for that case (**notation to be improved**)
 
 not the same as in Chappell eq 23
 
-CHECK free energy equation by comparing derivation to :math:`F` with respect of :math:`s, c, \boldsymbol{m}, \Lambda` with update equations:
+Free energy equation check
+____________________________
+
+Proof free energy equation by comparing derivation to :math:`F` with respect of :math:`s, c, \boldsymbol{m}, \Lambda` with update equations:
+
+derivation with respect to :math:`s`:
 
 .. math::
     0 = & \frac{\partial F}{\partial s} \\
@@ -379,6 +390,8 @@ which is identical to the two update equations:
 .. math::
     c &=& \frac{N}{2} + c_0  \\
     \frac{1}{s} &=& \frac{1}{s_0} + \frac{1}{2}(\boldsymbol{k}_m^T \boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^T \boldsymbol{J}_k))
+
+derivation with respect to :math:`\Lambda`:
 
 .. math::
     0 = & \frac{\partial F}{\partial \Lambda} \\
@@ -401,6 +414,23 @@ which means:
 
 should be update equation 1 ???
 
+derivation with respect to :math:`\boldsymbol{m}`:
+
+.. math::
+    0 = & \frac{\partial F}{\partial \boldsymbol{m}} \\
+    0 = & -\frac{1}{2} \frac{\partial (\boldsymbol{m}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{m}-\boldsymbol{m}_0)}{\partial \boldsymbol{m}} - \frac{1}{2} sc \left[ \frac{\boldsymbol{k}_m^T \boldsymbol{k}}{\partial \boldsymbol{m}} + \frac{\partial \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^T\boldsymbol{J}_k)}{\partial \boldsymbol{m}} \right]\\
+    0 = & -\frac{1}{2} (\Lambda_0+\Lambda_0^T) (\boldsymbol{m}-\boldsymbol{m}_0) -\frac{1}{2} sc \left[(-\boldsymbol{J}_k^T \boldsymbol{k}_m - \boldsymbol{k}_m^T \boldsymbol{J}_k) + 0\right] \\
+    0 = & -\Lambda_0 \boldsymbol{m} + \Lambda_0 \boldsymbol{m}_0 + sc \boldsymbol{J}_k^T \boldsymbol{k}_m \\
+    \Lambda_0 \boldsymbol{m} = & \Lambda_0 \boldsymbol{m}_0 + sc \boldsymbol{J}_k^T \boldsymbol{k}_m
+
+with:
+
+.. math::
+    \frac{\partial \boldsymbol{k}_m}{\partial \boldsymbol{m}} = & \frac{\partial \boldsymbol{J}_k (\boldsymbol{\theta}-\boldsymbol{m})}{\partial \boldsymbol{m}} = -\boldsymbol{J}_k\\
+    \frac{\partial \boldsymbol{J}_j}{\partial \boldsymbol{m}} = & 0 \\
+    \frac{\partial}{\partial \boldsymbol{X}} ( \boldsymbol{X}\boldsymbol{b}+\boldsymbol{c})^T \boldsymbol{D} ( \boldsymbol{X}\boldsymbol{b}+\boldsymbol{c}) =  (\boldsymbol{D}+\boldsymbol{D}^T) (\boldsymbol{X}\boldsymbol{b}+\boldsymbol{c})\boldsymbol{b}^T
+
+inserting :math:`\Lambda_0 = \Lambda -sc \boldsymbol{J}_k^T\boldsymbol{J}_k` on the left side leads to the second update equation!
 
 Appendix
 ---------
@@ -437,12 +467,14 @@ Note that the terms  :math:`\left(\boldsymbol{\theta}-\boldsymbol{m}\right) \mat
 resolve the remaining integral.
 
 Derivation 2 of B12
-____________
+_____________________
+
 .. math::
     \int (\boldsymbol{\theta}-\boldsymbol{m})^T\boldsymbol{U}(\boldsymbol{\theta}-\boldsymbol{m}) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\,d\boldsymbol{\theta} =??? \mathrm{tr}(\Lambda^{-1}\boldsymbol{U}) \\
 
 
 Derivation 3
 ____________
+
 .. math::
     \int \log[\Phi] \, \Gamma(\Phi;s,c)\,d\Phi =??? log[s] + \psi(c) \\
