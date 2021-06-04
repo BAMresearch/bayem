@@ -337,12 +337,12 @@ term 2:
 .. math::
     2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     = & - \int \Gamma(\Phi;s,c) \, d\Phi \, \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] d\boldsymbol{\theta} \\
-    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] = const - \frac{1}{2}\log[det \Lambda] - \frac{1}{2}(\boldsymbol{\theta} -
+    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] = const - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m})}\\
-    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const - \frac{1}{2}\log[det \Lambda] - \frac{1}{2}(\boldsymbol{\theta} -
+    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m}))  d\boldsymbol{\theta} \\
-    = & \mathrm{const} - \frac{1}{2}\log[det \Lambda] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
-    = & \mathrm{const} - \frac{1}{2}\log[det \Lambda] +  \frac{1}{2} n_{param}\\
+    = & \mathrm{const} + \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
+    = & \mathrm{const} + \frac{1}{2}\log[det \Lambda^{-1}] +  \frac{1}{2} n_{param}\\
     = & - \frac{1}{2}\log[det \Lambda] + \mathrm{const}
 
 term 3:
