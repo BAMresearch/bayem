@@ -397,7 +397,7 @@ which is identical to the two update equations:
 
 .. math::
     0 = & \frac{\partial F}{\partial \Lambda} \\
-    0 = & -\frac{1}{2}sc\frac{\partial \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))}{\partial \Lambda} - \frac{1}{2}\frac{\mathrm{tr}(\Lambda^{-1}\Lambda_0)}{\partial \Lambda} - \frac{\log[\det\Lambda]}{\partial \Lambda}\\
+    0 = & -\frac{1}{2}sc\frac{\partial \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))}{\partial \Lambda} - \frac{1}{2}\frac{\partial\mathrm{tr}(\Lambda^{-1}\Lambda_0)}{\partial \Lambda} - \frac{\partial\log[\det\Lambda]}{\partial \Lambda}\\
     0 = & -sc (-\Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}) + \Lambda^{-T}\Lambda_0^T \Lambda^{-T} - \frac{1}{\det\Lambda}det\Lambda \Lambda^{-T}\\
     0 = & sc \, \Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}\Lambda_0^T \Lambda^{-T}{\color{blue}\Lambda^T} - \Lambda^{-T}{\color{blue}\Lambda^T} \\
     \boldsymbol{1} = & \Lambda^{-T}(sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T)
