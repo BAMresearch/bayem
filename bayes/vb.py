@@ -529,19 +529,19 @@ class VB:
     
     def free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0):
         ### PAPER's original
-        f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
-        (sign, logdet) = np.linalg.slogdet(L)
-        f_new += 0.5 * sign * logdet
+        # f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
+        # (sign, logdet) = np.linalg.slogdet(L)
+        # f_new += 0.5 * sign * logdet
 
-        for i in s.keys():
-            f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
-                np.log(s[i]) + special.digamma(c[i])
-            )
-            f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-            f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
-            f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
-                np.log(s[i]) + special.digamma(c[i])
-            )
+        # for i in s.keys():
+        #     f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+        #         np.log(s[i]) + special.digamma(c[i])
+        #     )
+        #     f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+        #     f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
+        #     f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
+        #         np.log(s[i]) + special.digamma(c[i])
+        #     )
             
         ### ANNIKA's derivation
         # f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
@@ -556,5 +556,24 @@ class VB:
         #     f_new += +c[i] - (c[i] - 1) * (
         #         np.log(s[i]) + special.digamma(c[i])
         #     )
+        
+        
+        ### UPDATE on 04.06.2021 (https://github.com/BAMresearch/BayesianInference/blob/469bc1d9b80573963c33d0318f253818110c23f4/bayes/vb.py)
+        f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
+        (sign, logdet) = np.linalg.slogdet(L)
+        f_new -= 0.5 * sign * logdet
+
+        for i in s.keys():
+            f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+                np.log(s[i]) + special.digamma(c[i])
+            )
+            f_new += (
+                -0.5
+                * s[i]
+                * c[i]
+                * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+            )
+            f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
+            f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
         
         return f_new
