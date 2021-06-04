@@ -317,15 +317,18 @@ term 1:
     1 = &  \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\, \Gamma(\Phi;s,c) L \;d\Phi
     \;d\boldsymbol{\theta}   \\
     & \color{blue}{\text{with substituting the definition of the log posterior $L$}}\\
-    = & (\frac{N}{2}+(c_0-1)) \int\log[\Phi] \, \Gamma(\Phi;s,c)\, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta}
-    \color{red}{ =???  (\frac{N}{2}+c_0-1)(\log[s]+\psi(c))}\\
-    & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma(\Phi;s,c)\,\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\Phi \,   d\boldsymbol{\theta} \color{red}{  =  - \frac{1}{2} \int \Phi \, \Gamma(\Phi;s,c)\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta}}  \\
+    = & (\frac{N}{2}+(c_0-1)) \int\log[\Phi] \, \Gamma(\Phi;s,c)\, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta}\\
+    & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma(\Phi;s,c)\,\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\Phi \,   d\boldsymbol{\theta}  \\
     & -\frac{1}{2} \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
     \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c)
-    \, d\Phi \color{red}{\overbrace{=}^{\text{see derivation 1 in appendix}}
-    -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0))  }  \\
-    & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta} \color{red}{ =  - \frac{sc}{s_0}  } \\
-    & + \int const \, \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \color{red}{  =  const  } \\
+    \, d\Phi   \\
+    & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}  \\
+    & + \int const \, \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \\
+    = &  (\frac{N}{2}+c_0-1)(\log[s]+\psi(c)) \text{    [see derivation in appendix ??]}\\
+    & - \frac{1}{2} \int \Phi \, \Gamma(\Phi;s,c)\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta} \text{    [see above]}\\
+    & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0)) \text{    [see derivation 1 in appendix]}\\
+    & - \frac{sc}{s_0}\\
+    & + const   \\
     = &  (\frac{N}{2}+c_0-1)(log[s]+\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
     & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + \mathrm{const}
 
@@ -372,7 +375,7 @@ ____________________________
 
 Proof free energy equation by comparing derivation to :math:`F` with respect of :math:`s, c, \boldsymbol{m}, \Lambda` with update equations:
 
-derivation with respect to :math:`s`:
+**derivation with respect to** :math:`s`:
 
 .. math::
     0 = & \frac{\partial F}{\partial s} \\
@@ -391,7 +394,7 @@ which is identical to the two update equations:
     c &=& \frac{N}{2} + c_0  \\
     \frac{1}{s} &=& \frac{1}{s_0} + \frac{1}{2}(\boldsymbol{k}_m^T \boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^T \boldsymbol{J}_k))
 
-derivation with respect to :math:`\Lambda`:
+**derivation with respect to** :math:`\Lambda`
 
 .. math::
     0 = & \frac{\partial F}{\partial \Lambda} \\
@@ -414,7 +417,7 @@ which means:
 
 should be update equation 1 ???
 
-derivation with respect to :math:`\boldsymbol{m}`:
+**derivation with respect to** :math:`\boldsymbol{m}`
 
 .. math::
     0 = & \frac{\partial F}{\partial \boldsymbol{m}} \\
@@ -427,8 +430,8 @@ with:
 
 .. math::
     \frac{\partial \boldsymbol{k}_m}{\partial \boldsymbol{m}} = & \frac{\partial \boldsymbol{J}_k (\boldsymbol{\theta}-\boldsymbol{m})}{\partial \boldsymbol{m}} = -\boldsymbol{J}_k\\
-    \frac{\partial \boldsymbol{J}_j}{\partial \boldsymbol{m}} = & 0 \\
-    \frac{\partial}{\partial \boldsymbol{X}} ( \boldsymbol{X}\boldsymbol{b}+\boldsymbol{c})^T \boldsymbol{D} ( \boldsymbol{X}\boldsymbol{b}+\boldsymbol{c}) =  (\boldsymbol{D}+\boldsymbol{D}^T) (\boldsymbol{X}\boldsymbol{b}+\boldsymbol{c})\boldsymbol{b}^T
+    \frac{\partial \boldsymbol{J}_k}{\partial \boldsymbol{m}} = & 0 \\
+    \frac{\partial}{\partial \boldsymbol{X}} ( \boldsymbol{X}\boldsymbol{b}+\boldsymbol{c})^T \boldsymbol{D} ( \boldsymbol{X}\boldsymbol{b}+\boldsymbol{c}) =  & (\boldsymbol{D}+\boldsymbol{D}^T) (\boldsymbol{X}\boldsymbol{b}+\boldsymbol{c})\boldsymbol{b}^T
 
 inserting :math:`\Lambda_0 = \Lambda -sc \boldsymbol{J}_k^T\boldsymbol{J}_k` on the left side leads to the second update equation!
 
