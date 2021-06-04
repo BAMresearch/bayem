@@ -118,7 +118,7 @@ uncorrelated by:
     \rbrace\\[2mm]
     = &  \left(-\frac{N}{2}\log[2\pi]\right) + \frac{N}{2}\log[\Phi] - \frac{1}{2} \Phi
     \boldsymbol{k}^T\boldsymbol{k} \\
-    & + (\frac{1}{2}\log[2\pi^p \, \mathrm{det}(\Lambda_0^{-1})]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
+    & + (-\frac{1}{2}\log[2\pi^p \, \mathrm{det}(\Lambda_0)]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
     \, \Lambda_0 \,(\boldsymbol{\theta}-\boldsymbol{m}_0) \\
     & + (\log[1/\Gamma(c_0)]-c_0\log[s_0]) + (c_0-1)\log[\Phi] -\frac{1}{s_0} \Phi \\[2mm]
     & + \mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace.\\
@@ -337,14 +337,13 @@ term 2:
 .. math::
     2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     = & - \int \Gamma(\Phi;s,c) \, d\Phi \, \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] d\boldsymbol{\theta} \\
-    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] = const + \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] = const - \frac{1}{2}\log[det \Lambda] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m})}\\
-    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const + \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const - \frac{1}{2}\log[det \Lambda] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m}))  d\boldsymbol{\theta} \\
-    = & \mathrm{const} - \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
-    = & \mathrm{const} - \frac{1}{2}\log[det (\Lambda^{-1})] +  \frac{1}{2} n_{param}\\
-    = & \mathrm{const} - \frac{1}{2}\log[\frac{1}{det \Lambda}] + \mathrm{const}\\
-    = & \mathrm{const} \cancel{- \frac{1}{2}\log[1]} + \frac{1}{2}\log[det \Lambda]
+    = & \mathrm{const} - \frac{1}{2}\log[det \Lambda] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
+    = & \mathrm{const} - \frac{1}{2}\log[det \Lambda] +  \frac{1}{2} n_{param}\\
+    = & - \frac{1}{2}\log[det \Lambda] + \mathrm{const}
 
 term 3:
 
@@ -364,7 +363,7 @@ term 3:
     F =& (\frac{N}{2}+c_0-1)(\log[s]+\psi(c)) - \frac{1}{2} \color{green}{sc} (\boldsymbol{k}_m^T\boldsymbol{k}_m +
     \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) \\
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0) +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
-    & + \frac{1}{2}\log[det \Lambda] \\
+    & \color{green}{- \frac{1}{2}\log[det \Lambda]} \\
     &  \color{green}{ +\log[\Gamma_c] + c\log[s] + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c)) }\\
     & + const
 
@@ -398,10 +397,10 @@ which is identical to the two update equations:
 
 .. math::
     0 = & \frac{\partial F}{\partial \Lambda} \\
-    0 = & -\frac{1}{2}sc\frac{\partial \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))}{\partial \Lambda} - \frac{1}{2}\frac{\mathrm{tr}(\Lambda^{-1}\Lambda_0)}{\partial \Lambda} + \frac{\log[\det\Lambda]}{\partial \Lambda}\\
-    0 = & -sc (-\Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}) + \Lambda^{-T}\Lambda_0^T \Lambda^{-T} + \frac{1}{\det\Lambda}det\Lambda \Lambda^{-T}\\
-    0 = & sc \, \Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}\Lambda_0^T \Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}{\color{blue}\Lambda^T} \\
-    -\boldsymbol{1} = & \Lambda^{-T}(sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T)
+    0 = & -\frac{1}{2}sc\frac{\partial \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k))}{\partial \Lambda} - \frac{1}{2}\frac{\mathrm{tr}(\Lambda^{-1}\Lambda_0)}{\partial \Lambda} - \frac{\log[\det\Lambda]}{\partial \Lambda}\\
+    0 = & -sc (-\Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}) + \Lambda^{-T}\Lambda_0^T \Lambda^{-T} - \frac{1}{\det\Lambda}det\Lambda \Lambda^{-T}\\
+    0 = & sc \, \Lambda^{-T}(\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T\Lambda^{-T}{\color{blue}\Lambda^T} + \Lambda^{-T}\Lambda_0^T \Lambda^{-T}{\color{blue}\Lambda^T} - \Lambda^{-T}{\color{blue}\Lambda^T} \\
+    \boldsymbol{1} = & \Lambda^{-T}(sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T)
 
 using (https://www.ics.uci.edu/~welling/teaching/KernelsICS273B/MatrixCookBook.pdf):
 
@@ -409,13 +408,12 @@ using (https://www.ics.uci.edu/~welling/teaching/KernelsICS273B/MatrixCookBook.p
     \frac{\partial}{\partial \boldsymbol{X}}\mathrm{tr}(\boldsymbol{A}\boldsymbol{X}^{-1}\boldsymbol{B}) =& -\boldsymbol{X}^{-T} \boldsymbol{A}^{T} \boldsymbol{B}^{T} \boldsymbol{X}^{-T}  \\
     \frac{\partial}{\partial \boldsymbol{X}}\det\boldsymbol{X} = & det\boldsymbol{X} (\boldsymbol{X}^{-T})
 
-which means:
+which leads to update equation 1:
 
 .. math::
-    -\Lambda^T =& sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T \\
-    -\Lambda =& sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k) + \Lambda_0
+    \Lambda^T =& sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k)^T + \Lambda_0^T \\
+    \Lambda =& sc (\boldsymbol{J}_k^{T}\boldsymbol{J}_k) + \Lambda_0
 
-should be update equation 1 ???
 
 **derivation with respect to** :math:`\boldsymbol{m}`
 
