@@ -367,7 +367,7 @@ class VB:
         
         i_iter = 0
         alpha_0 = 1e-6
-        alpha_max = alpha_0 * 1e20
+        alpha_max = 1e10
         while True:
             i_iter += 1
             
@@ -391,6 +391,9 @@ class VB:
                 Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
                 Lm += L0 @ m0
                 m = Lm @ L_inv
+                # k, J = model_error(m), model_error.jacobian(m)
+                # f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+                # print(f"Free energy after only updating the parameters (at iteration {i_iter}) is {f_m}")
             else:
                 ## L-M WAY
                 m_old = copy.deepcopy(m)
@@ -398,16 +401,24 @@ class VB:
                 it_LM = 0
                 fs = []
                 alphas = []
+                ## delta is not changing if alpha changes
+                delta = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m_old) for i in noise0])
+                delta += L0 @ m0 - L @ m_old
                 while True:
-                    L_inv_alpha = np.linalg.inv(L+alpha*np.diag(np.diag(L)))
-                    delta = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m_old) for i in noise0])
-                    delta += L0 @ m0 - L @ m_old
-                    _dm = L_inv_alpha @ delta
-                    # print(f"-------------- NORM OF dm: {np.linalg.norm(_dm)}")
+                    L_alpha = L+alpha*np.diag(np.diag(L))
+                    _dm = np.linalg.solve(L_alpha, delta)
                     m = m_old + _dm
-                    if alpha==0:
-                        m_alpha_0 = copy.deepcopy(m)
+                    
+                    ## 1) We compute F without updating k, J
                     f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+                    
+                    ## 2) We compute F after updating k, J --------- (MORE COMPUTATION NEEDED!)
+                    # k_m, J_m = model_error(m), model_error.jacobian(m)
+                    # f_m = VB.free_energy(m, L, L_inv, s, c, k_m, J_m, m0, L0, s0, c0)
+                    
+                    if alpha==0: # possibly needed as back-up
+                        m_alpha_0 = copy.deepcopy(m)
+                        f_alpha_0 = copy.deepcopy(f_m)
                     fs.append(f_m)
                     alphas.append(alpha)
                     if f_m>self.result.f_last:
@@ -422,10 +433,12 @@ class VB:
                             ## 1) Set "m" based on alpha=0
                             print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' corresponding to alpha=0 was selected.")
                             m = m_alpha_0
+                            f_m = f_alpha_0
                             
                             ## 2-1) Set "m" to "m_old" (no change)
                             # print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' was not modified at this VB iteration.")
                             # m = m_old
+                            # f_m = self.result.f_last
                             ## 2-2) Set "m" based on last alpha (alpha_max). This must be like (2-1) because alpha_max should mean no change in "m".
                             # print(f"L-M method did not lead to any increase in the free energy. The posterior mean 'm' corresponding to last alpha was selected.")
                             
@@ -474,6 +487,9 @@ class VB:
             
             f_new = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
             print(f"Free energy of iteration {i_iter} is {f_new}")
+            
+            if f_new<f_m:
+                print('---------------- Update of noises decreased Free Energy !!!!')
             
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
