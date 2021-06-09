@@ -391,6 +391,7 @@ class VB:
                 Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
                 Lm += L0 @ m0
                 m = Lm @ L_inv
+                f_m = None
                 # k, J = model_error(m), model_error.jacobian(m)
                 # f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
                 # print(f"Free energy after only updating the parameters (at iteration {i_iter}) is {f_m}")
@@ -488,7 +489,7 @@ class VB:
             f_new = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
             print(f"Free energy of iteration {i_iter} is {f_new}")
             
-            if f_new<f_m:
+            if f_m is not None and f_new<f_m:
                 print('---------------- Update of noises decreased Free Energy !!!!')
             
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
