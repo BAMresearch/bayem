@@ -8,7 +8,7 @@ from bayes.noise import UncorrelatedNoiseTerm
 from bayes.noise import UncorrelatedNoiseTerm
 
 from pyro.params.param_store import ParamStoreDict
-
+from scipy.stats import norm
 """
 Not really a test yet.
 
@@ -69,7 +69,7 @@ class MyModelError(ModelErrorInterface):
         return error
 
 # this is not the final version (we should move the definitions of prior etc to InferenceProblem)
-class PytorchProblem(VariationalBayesProblem):
+class PytorchTaralliProblem(VariationalBayesProblem):
     def __init__(self):
         super().__init__()
 
@@ -107,6 +107,13 @@ class PytorchProblem(VariationalBayesProblem):
         vector = self.noise_models[noise_key].vector_contribution(raw_me)
         return torch.from_numpy(vector)
 
+    def logprior(self, parameter_vector):
+        self.latent.update(parameter_vector)
+        sum_log = 0.
+        for name, (mean, sd) in self.prm_prior.items():
+            assert self.latent[name].N == 1  # vector parameters not yet supported!
+            sum_log +=  norm.logpdf(x=self.latent[name].value(parameter_vector), loc=mean, scale=sd)
+        return sum_log
 
 """
 ###############################################################################
@@ -149,7 +156,7 @@ if __name__ == "__main__":
     me1 = MyModelError(fw, data1)
     me2 = MyModelError(fw, data2)
 
-    problem = PytorchProblem()
+    problem = PytorchTaralliProblem()
     key1 = problem.add_model_error(me1)
     key2 = problem.add_model_error(me2)
 
@@ -178,8 +185,9 @@ if __name__ == "__main__":
     problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
 
     compute_linearized_VB = False
-    compute_pyro = True
+    compute_pyro = False
     compute_pymc3 = False
+    compute_taralli = True
 
     if compute_linearized_VB:
         info = problem.run()
@@ -294,3 +302,25 @@ if __name__ == "__main__":
 
         means = summary["mean"]
         print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
+
+    if compute_taralli:
+        from taralli.parameter_estimation.base import EmceeParameterEstimator
+
+        noise1.parameter_list['precision'] = 1./noise_sd1**2 
+        noise2.parameter_list['precision'] = 1./noise_sd2**2
+
+        emcee_model = EmceeParameterEstimator(
+            log_likelihood=problem.loglike,
+            log_prior=problem.logprior,
+            ndim=sum(latent_var.N for latent_var in problem.latent.values()),  #better create a function for that
+            nwalkers=20,
+            sampling_initial_positions=np.random.multivariate_normal([
+                problem.prm_prior['A'][0], problem.prm_prior['B'][0]],
+                [[problem.prm_prior['A'][1], 0], [0, problem.prm_prior['B'][1]]], 20), # improve accessing prior
+            # mean/std
+            nsteps=5000,
+        )
+        emcee_model.estimate_parameters()
+
+        emcee_model.plot_posterior()
+        emcee_model.summary()

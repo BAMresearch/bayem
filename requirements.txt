@@ -6,3 +6,5 @@ torchvision
 pyro-ppl
 pyro-api
 seaborn
+arviz
+pymc3
