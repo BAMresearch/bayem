@@ -188,7 +188,7 @@ class VariationalBayesInterface:
                     jac[key] = np.empty([len(f0), len(x)])
 
             for n in fs0:
-                jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
+                jac[n][:, iParam] = (fs1[n] - fs0[n]) / (2 * dx)
 
         return jac
 
@@ -239,6 +239,8 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
 
         jacobian(parameter_means) [optional]:
             * total jacobian of the forward model w.r.t. the parameters
+            * NOTE: This is differs from the definition in the Chapell paper
+                    where it is defined as MINUS d(forward_model)/d(parameters)
             * list of numpy matrices where each list corresponds to one noise group
             * alternatively: just a numpy matrix for the case of exactly one
                              noise group
@@ -387,7 +389,7 @@ class VB:
             L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
 
-            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
+            Lm = sum([s[i] * c[i] * J[i].T @ (-k[i] + J[i] @ m) for i in noise0])
             Lm += L0 @ m0
             m = Lm @ L_inv
 

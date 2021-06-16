@@ -178,7 +178,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                     if len(J.shape) == 1:
                         J = np.atleast_2d(J).T
 
-                    stacked_jac[:, self.latent[global_name].global_index_range()] -= J
+                    stacked_jac[:, self.latent[global_name].global_index_range()] += J
 
                 sensor_jac[sensor] = stacked_jac
 
