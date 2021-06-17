@@ -36,9 +36,8 @@ class TestMVN(unittest.TestCase):
         data["parameter_prior"] = self.mvn
         data["noise_prior"] = bayes.vb.Gamma()
 
-        string = json.dumps(data, cls=bayes.vb.BayesEncoder)
-
-        # print(string)
+        string = json.dumps(data, cls=bayes.vb.BayesEncoder, indent=2)
+        print(string)
 
         loaded = json.loads(string, object_hook=bayes.vb.bayes_hook)
 
