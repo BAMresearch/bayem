@@ -5,10 +5,9 @@ from bayes.parameters import ParameterList
 from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
 from bayes.noise import UncorrelatedNoiseModel
 
-from bayes.noise import UncorrelatedNoiseTerm
-
 from pyro.params.param_store import ParamStoreDict
-from scipy.stats import norm
+from scipy.stats import norm, gamma
+
 """
 Not really a test yet.
 
@@ -68,6 +67,7 @@ class MyModelError(ModelErrorInterface):
             error[sensor] = model_response[sensor] - self._sensor_data[sensor]
         return error
 
+
 # this is not the final version (we should move the definitions of prior etc to InferenceProblem)
 class PytorchTaralliProblem(VariationalBayesProblem):
     def __init__(self):
@@ -112,8 +112,48 @@ class PytorchTaralliProblem(VariationalBayesProblem):
         sum_log = 0.
         for name, (mean, sd) in self.prm_prior.items():
             assert self.latent[name].N == 1  # vector parameters not yet supported!
-            sum_log +=  norm.logpdf(x=self.latent[name].value(parameter_vector), loc=mean, scale=sd)
+            sum_log += norm.logpdf(x=self.latent[name].value(parameter_vector), loc=mean, scale=sd)
         return sum_log
+
+    def logprior_with_hyperparameters(self, parameter_vector):
+        #print("parameter_vector in logprior:", parameter_vector)
+        # hyperparameters are stored after the model parameters
+        sum_log = 0
+        for i, (name, gamma_prior) in enumerate(self.noise_prior.items()):
+            #print("   precision", parameter_vector[i+self.num_parameters()])
+            #print("   prior shape ", gamma_prior.shape, ", scale ", gamma_prior.scale)
+            sum_log += gamma.logpdf(x=parameter_vector[i+self.num_parameters()],
+                                    a=gamma_prior.shape, scale=gamma_prior.scale)
+            #print("   log_prior ", sum_log)
+
+        sum_log += self.logprior(parameter_vector[0:len(self.noise_prior)])
+        #print("logprior", sum_log)
+
+        if np.isnan(sum_log):
+            sum_log = -np.inf
+        return sum_log
+
+    def loglike_with_hyperparameters(self, parameter_vector):
+        # hyperparameters are stored after the model parameters, update first
+        # print("parameter_vector in loglike:", parameter_vector)
+        valid_precision = True
+        for i, (name, noise_model) in enumerate(self.noise_models.items()):
+            if parameter_vector[self.num_parameters()+i]<=0:
+                valid_precision=False
+            else:
+                noise_model.parameter_list['precision'] = parameter_vector[
+                    self.num_parameters()+i]
+                #print("sigma:", 1./np.sqrt(noise_model.parameter_list[
+                #'precision']))
+        if valid_precision:
+            # print("loglike", self.loglike(parameter_vector[
+            # 0:self.num_parameters()]))
+            return self.loglike(parameter_vector[0:self.num_parameters()])
+        else:
+            return -np.inf
+
+    def num_parameters(self):
+        return sum(latent_var.N for latent_var in self.latent.values())
 
 """
 ###############################################################################
@@ -150,8 +190,8 @@ if __name__ == "__main__":
             )
         return time_steps, sensor_data
 
-    data1 = generate_data(101, noise_sd1)
-    data2 = generate_data(51, noise_sd2)
+    data1 = generate_data(1001, noise_sd1)
+    data2 = generate_data(501, noise_sd2)
 
     me1 = MyModelError(fw, data1)
     me2 = MyModelError(fw, data2)
@@ -178,13 +218,13 @@ if __name__ == "__main__":
     noise2.add(key2, s2)
     noise2.add(key2, s3)
 
-    noise_key1 = problem.add_noise_model(noise1)
-    noise_key2 = problem.add_noise_model(noise2)
+    noise_key1 = problem.add_noise_model(noise1, key='noise1')
+    noise_key2 = problem.add_noise_model(noise2, key='noise2')
 
     problem.set_noise_prior(noise_key1, 3 * noise_sd1, sd_shape=0.5)
     problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
 
-    compute_linearized_VB = False
+    compute_linearized_VB = True
     compute_pyro = False
     compute_pymc3 = False
     compute_taralli = True
@@ -274,9 +314,9 @@ if __name__ == "__main__":
                 assert problem.latent[name].N == 1  # vector parameters not yet supported!
                 pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
 
-            for name, gamma in problem.noise_prior.items():
+            for name, gamma_prior in problem.noise_prior.items():
                 idx = problem.latent[name].start_idx
-                shape, scale = gamma.shape, gamma.scale
+                shape, scale = gamma_prior.shape, gamma_prior.scale
                 alpha, beta = shape, 1.0 / scale
                 pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
 
@@ -288,17 +328,15 @@ if __name__ == "__main__":
             pm.Potential("likelihood", pymc3_log_like(theta))
 
             trace = pm.sample(
-                draws=1000,
+                draws=5000,
                 step=pm.Metropolis(),
                 chains=4,
-                tune=100,
+                tune=500,
                 discard_tuned_samples=True,
             )
 
         summary = pm.summary(trace)
         print(summary)
-
-        print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
 
         means = summary["mean"]
         print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
@@ -306,21 +344,58 @@ if __name__ == "__main__":
     if compute_taralli:
         from taralli.parameter_estimation.base import EmceeParameterEstimator
 
-        noise1.parameter_list['precision'] = 1./noise_sd1**2 
-        noise2.parameter_list['precision'] = 1./noise_sd2**2
-
-        emcee_model = EmceeParameterEstimator(
-            log_likelihood=problem.loglike,
-            log_prior=problem.logprior,
-            ndim=sum(latent_var.N for latent_var in problem.latent.values()),  #better create a function for that
-            nwalkers=20,
-            sampling_initial_positions=np.random.multivariate_normal([
-                problem.prm_prior['A'][0], problem.prm_prior['B'][0]],
-                [[problem.prm_prior['A'][1], 0], [0, problem.prm_prior['B'][1]]], 20), # improve accessing prior
-            # mean/std
-            nsteps=5000,
-        )
+        num_walkers = 20
+        identify_noise = True
+        if not identify_noise:
+            noise1.parameter_list['precision'] = 1./noise_sd1**2
+            noise2.parameter_list['precision'] = 1./noise_sd2**2
+            init_samples = np.random.multivariate_normal(
+                [problem.prm_prior['A'][0], problem.prm_prior['B'][0]],
+                [[problem.prm_prior['A'][1], 0],
+                 [0, problem.prm_prior['B'][1]],
+                ], num_walkers)
+            emcee_model = EmceeParameterEstimator(
+                log_likelihood=problem.loglike,
+                log_prior=problem.logprior,
+                ndim=problem.num_parameters(),
+                # better create a
+                # function for
+                # that
+                nwalkers=20,
+                sampling_initial_positions=init_samples,
+                initial_nsteps=200,
+                seed=42,
+                nsteps=1000)
+        else:
+            init_samples = np.c_[
+                np.random.multivariate_normal(
+                    [problem.prm_prior['A'][0], problem.prm_prior['B'][0]],
+                    [[problem.prm_prior['A'][1], 0],
+                     [0, problem.prm_prior['B'][1]],
+                    ], num_walkers),
+                gamma.rvs(problem.noise_prior['noise1'].shape,
+                          scale=problem.noise_prior['noise1'].scale,
+                          size=num_walkers),
+                gamma.rvs(problem.noise_prior['noise2'].shape,
+                          scale=problem.noise_prior['noise2'].scale,
+                          size=num_walkers)]
+            emcee_model = EmceeParameterEstimator(
+                log_likelihood=problem.loglike_with_hyperparameters,
+                log_prior=problem.logprior_with_hyperparameters,
+                ndim=problem.num_parameters() + len(problem.noise_prior),
+                nwalkers=20,
+                sampling_initial_positions=init_samples,
+                initial_nsteps=200,
+                seed=42,
+                nsteps=1000
+            )
         emcee_model.estimate_parameters()
-
+        samples = emcee_model.posterior_sample
+        print("mean of A:", np.mean(samples[:, 0]), ",exact: ", A_correct)
+        print("mean of B:", np.mean(samples[:, 1]), ",exact: ", B_correct)
+        print("mean of noise1 std:",
+              1./np.sqrt(np.mean(samples[:, 2])), ",exact: ", noise_sd1)
+        print("mean of noise2 std:",
+              1./np.sqrt(np.mean(samples[:, 3])), "exact: ", noise_sd2)
         emcee_model.plot_posterior()
         emcee_model.summary()
