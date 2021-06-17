@@ -2,6 +2,7 @@ import numpy as np
 import unittest
 import bayes.noise
 from copy import deepcopy
+import scipy.stats
 
 CHECK = np.testing.assert_almost_equal  # just to make it shorter
 
@@ -140,8 +141,18 @@ at your own risk
 class TestNoiseLoglike(unittest.TestCase):
     def test_loglike(self):
         n = bayes.noise.UncorrelatedSingleNoise()
-        n.parameter_list["precision"] = 42.
-        print(n.loglike_contribution(model_error_dict))
+
+        for precision in np.geomspace(1e-4, 1e4, 10):
+            n.parameter_list["precision"] = precision
+
+            ll_ours = n.loglike_contribution(model_error_dict)
+
+            ll_scipy = 0.
+            terms = n.model_error_terms(model_error_dict)
+            for term in terms: 
+                ll_scipy += sum(scipy.stats.norm.logpdf(term, scale=1./precision**0.5))
+       
+            self.assertAlmostEqual(ll_ours, ll_scipy)
 
 if __name__ == "__main__":
     unittest.main()

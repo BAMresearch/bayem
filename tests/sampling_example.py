@@ -119,14 +119,14 @@ if __name__ == "__main__":
     problem.set_normal_prior("B", 6000.0, 300.0)
 
     noise1 = UncorrelatedNoiseModel()
-    noise1.add(s1, key1)
-    noise1.add(s2, key1)
-    noise1.add(s3, key1)
+    noise1.add(key1, s1)
+    noise1.add(key1, s2)
+    noise1.add(key1, s3)
 
     noise2 = UncorrelatedNoiseModel()
-    noise2.add(s1, key2)
-    noise2.add(s2, key2)
-    noise2.add(s3, key2)
+    noise2.add(key2, s1)
+    noise2.add(key2, s2)
+    noise2.add(key2, s3)
 
     noise_key1 = problem.add_noise_model(noise1)
     noise_key2 = problem.add_noise_model(noise2)
