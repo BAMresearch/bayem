@@ -109,7 +109,7 @@ class BayesEncoder(json.JSONEncoder):
             return {"vb.Gamma": obj.__dict__}
         if isinstance(obj, np.ndarray):
             return {"np.array": obj.tolist()}
-        return JSONEncoder.default(self, obj)
+        return json.JSONEncoder.default(self, obj)
 
 
 def bayes_hook(dct):

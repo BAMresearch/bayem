@@ -35,6 +35,7 @@ class TestMVN(unittest.TestCase):
         data = {}
         data["parameter_prior"] = self.mvn
         data["noise_prior"] = bayes.vb.Gamma()
+        data["non bayes thing"] = {"best number": 6174.0}
 
         string = json.dumps(data, cls=bayes.vb.BayesEncoder, indent=2)
         print(string)
