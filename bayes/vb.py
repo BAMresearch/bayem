@@ -3,6 +3,7 @@ import numpy as np
 import scipy.stats
 import scipy.special as special
 from .jacobian import delta_x
+import json
 
 import logging
 
@@ -18,10 +19,9 @@ class MVN:
     def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
         self.mean = np.atleast_1d(mean).astype(float)
         self.precision = np.atleast_2d(precision).astype(float)
-        self.cov = np.linalg.inv(self.precision)
         self.name = name
-        self.parameter_names=parameter_names
-        
+        self.parameter_names = parameter_names
+
         assert len(self.mean) == len(self.precision)
 
         if self.parameter_names is not None:
@@ -42,7 +42,11 @@ class MVN:
 
     @property
     def covariance(self):
-        return self.cov
+        return np.linalg.inv(self.precision)
+
+    @property
+    def cov(self):
+        return self.covariance
 
     def pdf(self, xs, i):
         """return pdf for all xs for i-th parameter"""
@@ -64,8 +68,6 @@ class MVN:
         for i, name in enumerate(self.parameter_names):
             s += f" ├── {name:{N}s} µ={self.mean[i]:10.6f} σ={sd[i]:10.6f} \n"
         return s
-
-
 
 
 class Gamma:
@@ -97,6 +99,29 @@ class Gamma:
         https://math.stackexchange.com/questions/449234/vague-gamma-prior
         """
         return cls(scale=1.0 / 3.0, shape=0.0)
+
+
+class BayesEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, MVN):
+            return {"vb.MVN": obj.__dict__}
+        if isinstance(obj, Gamma):
+            return {"vb.Gamma": obj.__dict__}
+        if isinstance(obj, np.ndarray):
+            return {"np.array": obj.tolist()}
+        return JSONEncoder.default(self, obj)
+
+
+def bayes_hook(dct):
+    if "vb.MVN" in dct:
+        d = dct["vb.MVN"]
+        return MVN(d["mean"], d["precision"], d["name"], d["parameter_names"])
+    if "vb.Gamma" in dct:
+        d = dct["vb.Gamma"]
+        return Gamma(d["shape"], d["scale"], d["name"])
+    if "np.array" in dct:
+        return np.array(dct["np.array"])
+    return dct
 
 
 def plot_pdf(
@@ -311,7 +336,9 @@ class VBResult:
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.param = MVN(mean, precision, name="MVN posterior", parameter_names=parameter_names)
+            self.param = MVN(
+                mean, precision, name="MVN posterior", parameter_names=parameter_names
+            )
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])

@@ -1,11 +1,12 @@
 import unittest
 import numpy as np
-from bayes.vb import MVN
+import bayes.vb
+import json
 
 
 class TestMVN(unittest.TestCase):
     def setUp(self):
-        self.mvn = MVN(
+        self.mvn = bayes.vb.MVN(
             mean=np.r_[1, 2, 3],
             precision=np.diag([1, 2, 3]),
             parameter_names=["A", "B", "C"],
@@ -24,11 +25,34 @@ class TestMVN(unittest.TestCase):
         prec2 = np.random.random((2, 2))
         prec3 = np.random.random((3, 3))
         with self.assertRaises(Exception):
-            MVN(mean2, prec3)
+            bayes.vb.MVN(mean2, prec3)
 
-        MVN(mean2, prec2)  # no exception!
+        bayes.vb.MVN(mean2, prec2)  # no exception!
         with self.assertRaises(Exception):
-            MVN(mean2, prec2, parameter_names=["A", "B", "C"])
+            bayes.vb.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
+
+    def test_json(self):
+        data = {}
+        data["parameter_prior"] = self.mvn
+        data["noise_prior"] = bayes.vb.Gamma()
+
+        string = json.dumps(data, cls=bayes.vb.BayesEncoder)
+
+        # print(string)
+
+        loaded = json.loads(string, object_hook=bayes.vb.bayes_hook)
+
+        A, B = data["parameter_prior"], loaded["parameter_prior"]
+        CHECK = np.testing.assert_array_equal
+        self.assertEqual(A.name, B.name)
+        self.assertEqual(A.parameter_names, B.parameter_names)
+        CHECK(A.mean, B.mean)
+        CHECK(A.precision, B.precision)
+
+        C, D = data["noise_prior"], loaded["noise_prior"]
+        self.assertEqual(C.name, D.name)
+        self.assertEqual(C.shape, D.shape)
+        self.assertEqual(C.scale, D.scale)
 
 
 if __name__ == "__main__":
