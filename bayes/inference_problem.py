@@ -1,7 +1,6 @@
 import numpy as np
 from .parameters import ParameterList
 from .latent import LatentParameters
-from .noise import SingleSensorNoise
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import d_model_error_d_named_parameter
@@ -36,7 +35,15 @@ class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
-        self.noise_models = OrderedDict()  # key : noise_model
+        self._noise_models = OrderedDict()  # key : noise_model
+
+    @property
+    def noise_models(self):
+        if not self._noise_models:
+            raise RuntimeError(
+                "You need to define and add a noise model first! See `bayes.noise` for options and then call `.add_noise_model` to add it to the inference problem."
+            )
+        return self._noise_models
 
     def add_model_error(self, model_error, key=None):
 
@@ -48,10 +55,10 @@ class InferenceProblem:
 
     def add_noise_model(self, noise_model, key=None):
 
-        key = key or f"noise{len(self.noise_models)}"
+        key = key or f"noise{len(self._noise_models)}"
 
-        assert key not in self.noise_models
-        self.noise_models[key] = noise_model
+        assert key not in self._noise_models
+        self._noise_models[key] = noise_model
         return key
 
     def __call__(self, number_vector):
@@ -120,7 +127,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         info = variational_bayes(self, MVN, self.noise_prior)
         return info
 
-    def jacobian(self, number_vector):
+    def jacobian(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.jacobian
         """
@@ -133,8 +140,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             # model_error ...
             latent_names = self.latent.latent_names(me.parameter_list)
             local_latent_names = [n[0] for n in latent_names]
-
-            # ... and only request the jacobian for the latent parameters. 
+            # ... and only request the jacobian for the latent parameters.
             sensor_parameter_jac = me.jacobian(local_latent_names)
             """
             sensor_parameter_jac contains a 
@@ -172,7 +178,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                     if len(J.shape) == 1:
                         J = np.atleast_2d(J).T
 
-                    stacked_jac[:, self.latent[global_name].global_index_range()] = -J
+                    stacked_jac[:, self.latent[global_name].global_index_range()] += J
 
                 sensor_jac[sensor] = stacked_jac
 
@@ -180,11 +186,14 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         jacs_by_noise = {}
         for key, noise in self.noise_models.items():
-            jacs_by_noise[key] = noise.jacobian_contribution(jac)
+            terms = noise.jacobian_terms(jac)
+            if concatenate:
+                terms = np.concatenate(terms)
+            jacs_by_noise[key] = terms
 
         return jacs_by_noise
 
-    def __call__(self, number_vector):
+    def __call__(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.__call__
         """
@@ -192,7 +201,10 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
-            errors_by_noise[key] = noise.vector_contribution(me)
+            terms = noise.model_error_terms(me)
+            if concatenate:
+                terms = np.concatenate(terms)
+            errors_by_noise[key] = terms
 
         return errors_by_noise
 
@@ -211,4 +223,4 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)
 
-        return MVN(means, np.diag(precs))
+        return MVN(means, np.diag(precs), name="MVN prior", parameter_names=list(self.latent.keys()))

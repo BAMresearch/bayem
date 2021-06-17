@@ -15,11 +15,26 @@ def pretty_array(a, offset=0):
 
 
 class MVN:
-    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN"):
+    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
         self.mean = np.atleast_1d(mean).astype(float)
         self.precision = np.atleast_2d(precision).astype(float)
         self.cov = np.linalg.inv(self.precision)
         self.name = name
+        self.parameter_names=parameter_names
+        
+        assert len(self.mean) == len(self.precision)
+
+        if self.parameter_names is not None:
+            assert len(self.parameter_names) == len(self.mean)
+
+    def index(self, parameter_name):
+        return self.parameter_names.index(parameter_name)
+
+    def named_mean(self, parameter_name):
+        return self.mean[self.index(parameter_name)]
+
+    def named_sd(self, parameter_name):
+        return self.std_diag[self.index(parameter_name)]
 
     @property
     def std_diag(self):
@@ -34,10 +49,23 @@ class MVN:
         return scipy.stats.norm.pdf(xs, self.mean[i], self.std_diag[i])
 
     def __str__(self):
+        if self.parameter_names is not None:
+            return self._named_str()
+        else:
+            s = f"{self.name} with \n"
+            s += f" ├── mean: {pretty_array(self.mean, 9)}\n"
+            s += f" ├── std:  {pretty_array(self.std_diag, 9)}"
+            return s
+
+    def _named_str(self):
+        N = max([len(s) for s in self.parameter_names])
         s = f"{self.name} with \n"
-        s += f" ├── mean: {pretty_array(self.mean, 9)}\n"
-        s += f" ├── std:  {pretty_array(self.std_diag, 9)}"
+        sd = self.std_diag
+        for i, name in enumerate(self.parameter_names):
+            s += f" ├── {name:{N}s} µ={self.mean[i]:10.6f} σ={sd[i]:10.6f} \n"
         return s
+
+
 
 
 class Gamma:
@@ -160,7 +188,7 @@ class VariationalBayesInterface:
                     jac[key] = np.empty([len(f0), len(x)])
 
             for n in fs0:
-                jac[n][:, iParam] = -(fs1[n] - fs0[n]) / (2 * dx)
+                jac[n][:, iParam] = (fs1[n] - fs0[n]) / (2 * dx)
 
         return jac
 
@@ -211,6 +239,8 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
 
         jacobian(parameter_means) [optional]:
             * total jacobian of the forward model w.r.t. the parameters
+            * NOTE: This is differs from the definition in the Chapell paper
+                    where it is defined as MINUS d(forward_model)/d(parameters)
             * list of numpy matrices where each list corresponds to one noise group
             * alternatively: just a numpy matrix for the case of exactly one
                              noise group
@@ -276,12 +306,12 @@ class VBResult:
 
         return s
 
-    def try_update(self, f_new, mean, precision, shapes, scales):
+    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
         self.free_energies.append(f_new)
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.param = MVN(mean, precision)
+            self.param = MVN(mean, precision, name="MVN posterior", parameter_names=parameter_names)
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
@@ -359,7 +389,7 @@ class VB:
             L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
 
-            Lm = sum([s[i] * c[i] * J[i].T @ (k[i] + J[i] @ m) for i in noise0])
+            Lm = sum([s[i] * c[i] * J[i].T @ (-k[i] + J[i] @ m) for i in noise0])
             Lm += L0 @ m0
             m = Lm @ L_inv
 
@@ -393,17 +423,20 @@ class VB:
             # to account for the loop over all noise groups
             f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
             (sign, logdet) = np.linalg.slogdet(L)
-            f_new += 0.5 * sign * logdet
+            f_new -= 0.5 * sign * logdet
 
             for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
-                f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
-                f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
+                f_new += (
+                    -0.5
+                    * s[i]
+                    * c[i]
+                    * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
                 )
+                f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
+                f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
                 if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
                         f_new += (
@@ -413,7 +446,7 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, m, L, c, s)
+            self.result.try_update(f_new, m, L, c, s, param0.parameter_names)
             if self.stop_criteria(f_new, i_iter):
                 break
 

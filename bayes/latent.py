@@ -2,6 +2,16 @@ from collections import OrderedDict
 from operator import itemgetter
 
 
+def len_or_one(vector_or_scalar):
+    """
+    Returns the length of a vector or 1 for a scalar
+    """
+    try:
+        return len(vector_or_scalar)
+    except TypeError:  # "has no __len__"
+        return 1
+
+
 class LatentParameter(list):
     """
     Represents a single latent parameter that is mapped to one or more
@@ -34,10 +44,7 @@ class LatentParameter(list):
                 f"associated with latent parameter {self._name}!"
             )
 
-        try:
-            N = len(parameter_list[parameter_name])
-        except TypeError:  # "has no __len__"
-            N = 1
+        N = len_or_one(parameter_list[parameter_name])
 
         if self.N is None:
             self.N = N
@@ -106,6 +113,19 @@ class LatentParameter(list):
         for parameter_list, parameter_name in self:
             parameter_list[parameter_name] = values
 
+    def set_value(self, value):
+        """
+        Updates the parameters associated to self in all parameter lists.
+        Checks, if the dimensions match.
+        """
+        if self.N != len_or_one(value):
+            raise RuntimeError(
+                f"Dimension mismatch: Global parameter '{self._name}' is of length {self.N} and you provided length {len_or_one(value)}!"
+            )
+
+        for parameter_list, parameter_name in self:
+            parameter_list[parameter_name] = value
+
     def values(self, number_vector):
         return itemgetter(*self.global_index_range())(number_vector)
 
@@ -127,9 +147,30 @@ class LatentParameter(list):
         else:
             return self.values(number_vector)
 
+    def unambiguous_value(self):
+        """
+        Returns the value this latent parameter either from (one of) its 
+        parameter list(s), checking that _all_ values are equal.
+        """
+        p_list0, p_name0 = self[0]
+        value0 = p_list0[p_name0]
+        for p_list, p_name in self:
+            value = p_list[p_name]
+            if value != value0:
+                msg = f"The values of the shared global parameter '{self._name}' differ in the individual parameter lists: \n Parameter '{p_name0, value0}' in \n{p_list0} vs. parameter '{p_name, value}' in \n{p_list}"
+                raise RuntimeError(msg)
+
+        return value0
+
 
 class LatentParameters(OrderedDict):
     def update(self, number_vector):
+        n_parameters = sum(l.N for l in self.values())
+        if n_parameters != len(number_vector):
+            raise RuntimeError(
+                f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(number_vector)}!"
+            )
+
         for latent in self.values():
             latent.update(number_vector)
 
@@ -162,3 +203,38 @@ class LatentParameters(OrderedDict):
                 if prm_list == parameter_list:
                     names.append((local_name, global_name))
         return names
+
+    def get_vector(self, overwrite={}):
+        """
+        Extracts a vector of global parameters from the individual parameter 
+        lists. If a global parameters is inside the `overwrite`, that value
+        is used instead.
+
+        overwrite:
+            dict {global parameter name: parameter value}
+            Note that the dimension of the parameter value must match the
+            the dimension of the parameter.
+        """
+        v = []
+        for name, latent in self.items():
+            if name in overwrite:
+                value = overwrite[name]
+                N_value = len_or_one(value)
+                if latent.N != N_value:
+                    raise RuntimeError(
+                        f"Dimension mismatch: Global parameter '{name}' has length {latent.N}, you provided {value} of length {N_value}."
+                    )
+            else:
+                try:
+                    value = latent.unambiguous_value()
+                except RuntimeError as e:
+                    msg_add = f"You can fix that adding the dict entry '{name}: your_value' to the optional 'overwrite' argument of this method."
+                    raise RuntimeError(str(e) + msg_add)
+
+            if latent.N == 1:
+                v.append(value)
+            else:
+                for i in value:
+                    v.append(i)
+
+        return v

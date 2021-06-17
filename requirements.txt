@@ -8,3 +8,5 @@ pyro-api
 seaborn
 arviz
 pymc3
+sphinx
+sphinx_rtd_theme

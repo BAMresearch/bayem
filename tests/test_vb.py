@@ -2,7 +2,6 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.noise import SingleSensorNoise
 
 
 class ForwardModel:
@@ -42,7 +41,7 @@ class ModelError(VariationalBayesInterface):
 
 class ModelErrorWithJacobian(ModelError):
     def jacobian(self, parameters):
-        jac = -self._forward_model.jacobian(parameters)
+        jac = self._forward_model.jacobian(parameters)
         full_jac = np.tile(jac, (len(self._data), 1))
         return {"noise0": full_jac}
 

@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 from bayes.vb import Gamma
 from bayes.parameters import ParameterList
-from bayes.noise import SingleSensorNoise
+from bayes.noise import UncorrelatedSingleNoise
 from bayes.inference_problem import VariationalBayesProblem, InferenceProblem
 
 
@@ -46,7 +46,7 @@ class TestVBProblem(unittest.TestCase):
         self.assertRaises(Exception, p.set_normal_prior, "not B", 0.0, 1.0)
 
         self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
-        p.add_noise_model(SingleSensorNoise(), key="noise")
+        p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
         p.set_noise_prior("noise", 1.0, 1.0)
         p.set_noise_prior("noise", Gamma.Noninformative())
 
