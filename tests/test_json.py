@@ -33,6 +33,22 @@ class TestJSON(unittest.TestCase):
         self.assertEqual(C.shape, D.shape)
         self.assertEqual(C.scale, D.scale)
 
+    def test_vb_result(self):
+        def dummy_me(prm):
+            return prm ** 2
+
+        result = bayes.vb.variational_bayes(
+            dummy_me,
+            param0=bayes.vb.MVN([1, 1], np.diag([1, 1]), parameter_names=["A", "B"]),
+        )
+
+        dumped = json.dumps(result, cls=bayes.vb.BayesEncoder, indent=2)
+
+        loaded = json.loads(dumped, object_hook=bayes.vb.bayes_hook)
+        dumped_again = json.dumps(loaded, cls=bayes.vb.BayesEncoder, indent=2)
+
+        self.assertEqual(dumped, dumped_again)
+
 
 if __name__ == "__main__":
     unittest.main()
