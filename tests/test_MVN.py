@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
-from bayes.vb import MVN
+import bayes.vb
 
 
 class TestMVN(unittest.TestCase):
     def setUp(self):
-        self.mvn = MVN(
+        self.mvn = bayes.vb.MVN(
             mean=np.r_[1, 2, 3],
             precision=np.diag([1, 2, 3]),
             parameter_names=["A", "B", "C"],
@@ -24,11 +24,11 @@ class TestMVN(unittest.TestCase):
         prec2 = np.random.random((2, 2))
         prec3 = np.random.random((3, 3))
         with self.assertRaises(Exception):
-            MVN(mean2, prec3)
+            bayes.vb.MVN(mean2, prec3)
 
-        MVN(mean2, prec2)  # no exception!
+        bayes.vb.MVN(mean2, prec2)  # no exception!
         with self.assertRaises(Exception):
-            MVN(mean2, prec2, parameter_names=["A", "B", "C"])
+            bayes.vb.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
 
 
 if __name__ == "__main__":
