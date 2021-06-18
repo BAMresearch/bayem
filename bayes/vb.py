@@ -532,6 +532,12 @@ class BayesEncoder(json.JSONEncoder):
     """
 
     def default(self, obj):
+        """
+        `obj`:
+            python object to serialize
+        return:
+            json (serializeable) reprensentation of `obj`
+        """
         if isinstance(obj, VBResult):
             return {"vb.VBResult": obj.__dict__}
 
@@ -550,6 +556,11 @@ class BayesEncoder(json.JSONEncoder):
 
 def bayes_hook(dct):
     """
+    `dct`:
+        json reprensentation of an `obj` (a dict)
+    `obj`:
+        python object created from `dct`
+
     Usage:
         obj = json.loads(string, object_hook=bayes.vb.bayes_hook, ...)
         with open(...) as f:
