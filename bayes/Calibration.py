@@ -13,14 +13,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
+
 class Inference:
     def __init__(self, prior_dist, prior_hyperparameters, forward_solve, fw_input, observed_data, obs_noise_dist,
-                 obs_noise_parameters):
+                 obs_noise_parameters, hyperprior_dist, hyperprior_para):
         """
 
         :param prior_dist: [string] Specify the prior distribution
         :param prior_hyperparameters: [2x1] Specify the hyperparameters of the prior dist.
-        :param forward_solve:
+        :param forward_solve: A called wrapper class, with input and outputs as [tensor]
             * A wrapper to the forward solve to be provided here which internally calls the forward solve,
             takes in known input given by fw_input and takes in parameters to be calibrated and returns the model output.
 
@@ -36,6 +37,8 @@ class Inference:
         self.observed_data = observed_data
         self.obs_noise_dist = obs_noise_dist
         self.obs_noise_parameters = obs_noise_parameters
+        self.hyperprior_dist = hyperprior_dist
+        self.hyperprior_para = hyperprior_para
 
     def posterior_model(self, observed_data):
         """
@@ -59,7 +62,10 @@ class Inference:
 
         # --hyperprior
         if self.obs_noise_parameters is None:
-            sigma_prior = dist.Normal(8, 10) # AA: Hardcoded mean close to the known noise
+            # TODO: To add hyperparamters for the hyperprior
+            #sigma_prior = dist.Normal(0, 1) # AA: Hardcoded mean close to the known noise
+            if self.hyperprior_dist == "Gamma":
+                sigma_prior = dist.Gamma(self.hyperprior_para[0], self.hyperprior_para[1])
             sigma_noise = pyro.sample("sigma", sigma_prior)
             #self.obs_noise_parameters = sigma_noise
         if self.obs_noise_parameters is not None:
@@ -100,21 +106,25 @@ class Inference:
 
     def predict(self, posterior_para, posterior_noise, new_input):
         """
-        Method to get posterior predictive distribution. Integration approximated using Monte Carlo
+        Method to get posterior predictive distribution. Integration approximated using Monte Carlo.
+        Current assumption is no model Bias, just observational noise
         :param posterior_para: p(theta|D) samples
         :param posterior_noise: p(sigma|D) posterior of the observational noise
         :param new_input: New input to the solver. [Dict type] ('known_parameters': , 'sensors': ,'time_steps': )
-        :return: tilda_X: New unobserved data samples
+        :return: tilda_X [S x T]: New unobserved data samples., with S being number of sample and T being the parameters
         """
-        size = np.size(new_input['sensors']) * new_input['time_steps']
-        tilda_X: ndarray = np.ndarray((np.size(posterior_para), size))
-        sigma_mean = np.mean(posterior_noise) # AA : Just using MAP point for the sigma posterior, more involved
+        #size = np.size(new_input['sensors']) * new_input['time_steps']
+        size = [np.size(v) for v in new_input.values()]
+        #size = np.size(new_input['known_inputs'])
+        tilda_X = np.ndarray((np.size(posterior_para), size[0]))
+        sigma_mean = np.max(posterior_noise) # AA : Just using MAP point for the sigma posterior, more involved
         # would be an inner loop for sigma also.
         for i in range(0, np.size(posterior_para)):
             theta = posterior_para[i]
             mean = self.forward_solve(new_input, theta)
-            _dist = dist.Normal(mean, sigma_mean)
-            tilda_X[i, :] = pyro.sample("pos", _dist)
+            #_dist = dist.Normal(mean, sigma_mean)
+            #tilda_X[i, :] = pyro.sample("pos", _dist)
+            tilda_X[i, :] = mean
         return tilda_X
 
     def visualize_prior_posterior(self, posterior_para, posterior_noise):
@@ -138,9 +148,12 @@ class Inference:
         plt.show()
 
         plt.figure(figsize=(3, 3))
-        sns.kdeplot(data=posterior_noise, label="noise_posterior")
+        sns.kdeplot(data=posterior_noise, label="s.d of noise_posterior")
         plt.legend()
+
         plt.show()
+
+
 
         # raise NotImplementedError
 
