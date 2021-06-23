@@ -4,6 +4,7 @@
 import numpy as np
 import torch as th
 
+import torch as th
 import pyro
 import pyro.distributions as dist
 from numpy.core._multiarray_umath import ndarray
@@ -30,6 +31,7 @@ class Inference:
         :param obs_noise_dist: [string] - Specify the noise distribution
         :param obs_noise_parameters: Hyperaparameters of the noise model (Can be None when it is to be inferred)
         """
+
         self.prior_dist = prior_dist
         self.prior_hyperparameters = prior_hyperparameters
         self.forward_solve = forward_solve
@@ -73,6 +75,7 @@ class Inference:
 
         # --likelihood
         mean = self.forward_solve(self.fw_input, para)
+        # TODO: Introduce the black box solver interface here. Can do mean = BBsolver_pytorch.apply(para)
         # TODO: Incorporate noise model dist choice here, default is normal
         # TODO: More involved noise model, with correlation structure
         if self.obs_noise_dist == "Normal":
@@ -169,3 +172,46 @@ class Inference:
             plt.legend()
             plt.xlabel("Y")
             plt.show()
+
+
+class BB_solver:
+    """
+    The black box solver is the included here with all the input files.
+    """
+    def __init__(self):
+
+    def __call__(self, *args, **kwargs):
+    """
+    Returns forward solve output and Jacobians for given parameters/inputs
+    """
+        raise NotImplementedError("Implement me!")
+
+
+
+class BBsolver_pytorch(th.autograd.Function):
+    """
+    Overrides the PyTorch autograd to include Jacobians coming from the forward solver
+    """
+    @staticmethod
+    def forward(ctx, param):
+        """
+
+        """
+        forward_solver = BB_solver()
+        J, grad = forward_solver(param)
+        J = th.tensor(J, requires_grad=True)
+
+        grad = th.tensor(grad)
+        ctx.save_for_backward(grad)
+
+        return J
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+
+        """
+
+        grad = ctx.saved_tensors
+
+        return grad
