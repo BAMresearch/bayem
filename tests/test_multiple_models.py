@@ -2,13 +2,17 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
+from bayes.inference_problem import (
+    VariationalBayesProblem,
+    ModelErrorInterface,
+    InferenceProblem,
+)
 from bayes.noise import UncorrelatedSingleNoise
 
 np.random.seed(6174)
 
 A1, B1, A2, B2 = 100.0, 200.0, 300.0, 400.0
-noise_sd = 12.
+noise_sd = 12.0
 
 N = 2000
 xs = np.linspace(0, 1, N)

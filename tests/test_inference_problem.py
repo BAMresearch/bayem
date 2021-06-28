@@ -1,9 +1,10 @@
 import numpy as np
 import unittest
+import scipy.stats
 from bayes.vb import Gamma
 from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
-from bayes.inference_problem import VariationalBayesProblem, InferenceProblem
+from bayes.inference_problem import InferenceProblem, VariationalBayesProblem
 
 
 class ModelError:
@@ -39,8 +40,8 @@ class TestProblem(unittest.TestCase):
 
 class TestVBProblem(unittest.TestCase):
     def test_prior(self):
-        p = VariationalBayesProblem()
-        p.add_model_error(ModelError())
+        p = InferenceProblem()
+        key = p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
         p.set_parameter_prior("B", 0.0, 1.0)
         self.assertRaises(Exception, p.set_parameter_prior, "not B", 0.0, 1.0)
@@ -51,8 +52,21 @@ class TestVBProblem(unittest.TestCase):
         p.set_noise_prior("noise", Gamma.Noninformative())
 
         result = p([0.1])
-        self.assertEqual(len(result), 1)  # one noise group
-        self.assertEqual(len(result["noise"]), 10)
+        self.assertEqual(len(result[key]["dummy_sensor"]), 10)
+
+    def test_wrong_prior_type(self):
+        p = VariationalBayesProblem()
+        key = p.add_model_error(ModelError())
+        p.define_shared_latent_parameter_by_name("B")
+        p.set_parameter_prior("B", scipy.stats.crystalball(42, 6174))
+        with self.assertRaises(Exception) as e:
+            mvn = p.prior_MVN()
+
+        self.assertRaises(Exception, p.set_parameter_prior, "B", 1.0)
+        self.assertRaises(Exception, p.set_parameter_prior, "B", 1)
+
+
+
 
 
 if __name__ == "__main__":

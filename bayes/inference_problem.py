@@ -64,13 +64,29 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-    def set_parameter_prior(self, latent_name, mean, sd):
+    def set_parameter_prior(self, latent_name, dist_or_mean, sd=None):
+        """
+        Sets a prior distribution for the latent parameter `latent_name`.
+        Case 1:
+            You provide a two floats that will be the mean and sd of a 
+            normal distribution.
+        Case 2: 
+            You provide a scipy.stats distribution and `sd` is ignored.
+        """
         if latent_name not in self.latent:
             raise RuntimeError(
                 f"{latent_name} is not defined as a latent parameter. "
                 f"Call InferenceProblem.latent[{latent_name}].add(...) first."
             )
-        self.prm_prior[latent_name] = scipy.stats.norm(loc=mean, scale=sd)
+
+        try:
+            dist = dist_or_mean.dist
+            assert isinstance(dist, scipy.stats.rv_continuous)
+        except AttributeError:
+            assert sd is not None
+            dist = scipy.stats.norm(loc=dist_or_mean, scale=sd)
+        
+        self.prm_prior[latent_name] = dist
 
     def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
         if isinstance(gamma_or_sd_mean, Gamma):
@@ -107,10 +123,7 @@ class InferenceProblem:
                 self.latent[name].add(model_error.parameter_list, name)
 
     def loglike(self, number_vector):
-        self.latent.update(number_vector)
-        raw_me = {}
-        for key, me in self.model_errors.items():
-            raw_me[key] = me()
+        raw_me = self(number_vector)
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
@@ -216,6 +229,11 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 raise RuntimeError(
                     f"You defined {name} as latent but did not provide a prior distribution!."
                 )
+            if self.prm_prior[name].dist.name != "norm":
+                raise RuntimeError(
+                    f"VB problem can only handle normal priors, you provided `{self.prm_prior[name].dist.name}` for parameter `{name}`."
+                )
+
             mean, sd = self.prm_prior[name].mean(), self.prm_prior[name].std()
             for _ in range(latent.N):
                 means.append(mean)
