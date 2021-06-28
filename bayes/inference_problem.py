@@ -1,7 +1,8 @@
+from collections import OrderedDict
 import numpy as np
+import scipy.stats
 from .parameters import ParameterList
 from .latent import LatentParameters
-from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import d_model_error_d_named_parameter
 
@@ -99,13 +100,13 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         self.prm_prior = {}
         self.noise_prior = {}
 
-    def set_normal_prior(self, latent_name, mean, sd):
+    def set_parameter_prior(self, latent_name, mean, sd):
         if latent_name not in self.latent:
             raise RuntimeError(
                 f"{latent_name} is not defined as a latent parameter. "
                 f"Call InferenceProblem.latent[{latent_name}].add(...) first."
             )
-        self.prm_prior[latent_name] = (mean, sd)
+        self.prm_prior[latent_name] = scipy.stats.norm(loc=mean, scale=sd)
 
     def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
         if isinstance(gamma_or_sd_mean, Gamma):
@@ -218,7 +219,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 raise RuntimeError(
                     f"You defined {name} as latent but did not provide a prior distribution!."
                 )
-            mean, sd = self.prm_prior[name]
+            mean, sd = self.prm_prior[name].mean(), self.prm_prior[name].std()
             for _ in range(latent.N):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)

@@ -42,8 +42,8 @@ class TestVBProblem(unittest.TestCase):
         p = VariationalBayesProblem()
         p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
-        p.set_normal_prior("B", 0.0, 1.0)
-        self.assertRaises(Exception, p.set_normal_prior, "not B", 0.0, 1.0)
+        p.set_parameter_prior("B", 0.0, 1.0)
+        self.assertRaises(Exception, p.set_parameter_prior, "not B", 0.0, 1.0)
 
         self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
