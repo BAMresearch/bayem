@@ -44,12 +44,13 @@ class TestVBProblem(unittest.TestCase):
         key = p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
         p.set_parameter_prior("B", 0.0, 1.0)
+        self.assertAlmostEqual(p.prm_prior["B"].mean(), 0.0)
+        self.assertAlmostEqual(p.prm_prior["B"].std(), 1.0)
         self.assertRaises(Exception, p.set_parameter_prior, "not B", 0.0, 1.0)
 
         self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
         p.set_noise_prior("noise", 1.0, 1.0)
-        p.set_noise_prior("noise", Gamma.Noninformative())
 
         result = p([0.1])
         self.assertEqual(len(result[key]["dummy_sensor"]), 10)
@@ -65,8 +66,12 @@ class TestVBProblem(unittest.TestCase):
         self.assertRaises(Exception, p.set_parameter_prior, "B", 1.0)
         self.assertRaises(Exception, p.set_parameter_prior, "B", 1)
 
+        p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
+        p.set_noise_prior("noise", 1.0, 42.0)
+        self.assertAlmostEqual(p.noise_prior["noise"].mean(), 1.)
+        self.assertAlmostEqual(p.noise_prior["noise"].dist.a, 1.)
 
-
+        # p.set_parameter_prior("B", scipy.stats.crystalball(42, 6174))
 
 
 if __name__ == "__main__":

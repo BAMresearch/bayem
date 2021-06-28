@@ -67,11 +67,11 @@ class InferenceProblem:
     def set_parameter_prior(self, latent_name, dist_or_mean, sd=None):
         """
         Sets a prior distribution for the latent parameter `latent_name`.
-        Case 1:
+        Case 1: 
+            You provide a scipy.stats distribution and `sd` is ignored.
+        Case 2:
             You provide a two floats that will be the mean and sd of a 
             normal distribution.
-        Case 2: 
-            You provide a scipy.stats distribution and `sd` is ignored.
         """
         if latent_name not in self.latent:
             raise RuntimeError(
@@ -80,28 +80,45 @@ class InferenceProblem:
             )
 
         try:
+            # Case 1
             dist = dist_or_mean.dist
             assert isinstance(dist, scipy.stats.rv_continuous)
         except AttributeError:
+            # Case 2
             assert sd is not None
             dist = scipy.stats.norm(loc=dist_or_mean, scale=sd)
         
         self.prm_prior[latent_name] = dist
 
-    def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
-        if isinstance(gamma_or_sd_mean, Gamma):
-            gamma = gamma_or_sd_mean
-            assert sd_shape is None
-        else:
-            sd_shape = sd_shape or 1.0
-            gamma = Gamma.FromSD(gamma_or_sd_mean, sd_shape)
-
-        if name not in self.noise_models:
+    def set_noise_prior(self, noise_key, dist_or_sd_mean, sd_shape=None):
+        """
+        Sets a prior distribution for the noise group `noise_key`.
+        Case 1: 
+            You provide a scipy.stats distribution and `sd` is ignored.
+        Case 2:
+            You provide a two floats that will be the mean and sd of a 
+            normal distribution.
+        """
+        if noise_key not in self.noise_models:
             raise RuntimeError(
-                f"{name} is not associated with noise model.. "
-                f"Call InferenceProblem.add_noise_model({name}, ...) first."
+                f"{noise_key} is not associated with noise model.. "
+                f"Call InferenceProblem.add_noise_model({noise_key}, ...) first."
             )
-        self.noise_prior[name] = gamma
+
+        try:
+            # Case 1
+            dist = dist_or_sd_mean.dist
+            assert isinstance(dist, scipy.stats.rv_continuous)
+        except AttributeError:
+            # Case 2
+            assert sd_shape is not None
+       
+            a = sd_shape
+            scale = 1.0 / dist_or_sd_mean ** 2 / sd_shape
+            dist = scipy.stats.gamma(a=sd_shape, scale=scale)
+            print(dist.dist.a)
+
+        self.noise_prior[noise_key] = dist
 
     def __call__(self, number_vector):
         self.latent.update(number_vector)
