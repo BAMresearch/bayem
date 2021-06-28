@@ -7,6 +7,7 @@ from bayes.inference_problem import (
     ModelErrorInterface,
     InferenceProblem,
 )
+import scipy.stats
 from bayes.noise import UncorrelatedSingleNoise
 
 np.random.seed(6174)
@@ -136,7 +137,7 @@ class Test_VB(unittest.TestCase):
         problem.set_parameter_prior("B2", B2 + 0.5, 2)
 
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-        problem.set_noise_prior(noise_key, Gamma.Noninformative())
+        problem.set_noise_prior(noise_key, scipy.stats.gamma(a=1e-6, scale=1./3.))
 
         info = problem.run()
         print(info)

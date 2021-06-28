@@ -81,8 +81,8 @@ class InferenceProblem:
 
         try:
             # Case 1
-            dist = dist_or_mean.dist
-            assert isinstance(dist, scipy.stats.rv_continuous)
+            dist = dist_or_mean
+            assert isinstance(dist.dist, scipy.stats.rv_continuous)
         except AttributeError:
             # Case 2
             assert sd is not None
@@ -92,12 +92,23 @@ class InferenceProblem:
 
     def set_noise_prior(self, noise_key, dist_or_sd_mean, sd_shape=None):
         """
-        Sets a prior distribution for the noise group `noise_key`.
+        Sets a prior distribution for the _precision_ of the zero-mean noise 
+        term of `noise_key`. 
+        
+        For convenience, it may be much simpler to provide the standard 
+        deviation as mean of this distribution, see case 2.
+
         Case 1: 
-            You provide a scipy.stats distribution and `sd` is ignored.
+            You provide a scipy.stats distribution and `sd_shape` is ignored.
         Case 2:
-            You provide a two floats that will be the mean and sd of a 
-            normal distribution.
+            You provide two floats that are used to build a Gamma distribution
+            for the noise precision. The first one is the mean of the Gamma
+            distribution but in terms of _standard deviation_, not _precision_. 
+
+                precision = 1/standard_deviation**2
+
+            Then, you also have to provide the shape parameter `sd_shape` of 
+            the Gamma distribution
         """
         if noise_key not in self.noise_models:
             raise RuntimeError(
@@ -107,8 +118,8 @@ class InferenceProblem:
 
         try:
             # Case 1
-            dist = dist_or_sd_mean.dist
-            assert isinstance(dist, scipy.stats.rv_continuous)
+            dist = dist_or_sd_mean
+            assert isinstance(dist.dist, scipy.stats.rv_continuous)
         except AttributeError:
             # Case 2
             assert sd_shape is not None
@@ -116,7 +127,6 @@ class InferenceProblem:
             a = sd_shape
             scale = 1.0 / dist_or_sd_mean ** 2 / sd_shape
             dist = scipy.stats.gamma(a=sd_shape, scale=scale)
-            print(dist.dist.a)
 
         self.noise_prior[noise_key] = dist
 
@@ -151,8 +161,7 @@ class InferenceProblem:
 
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def run(self):
-        MVN = self.prior_MVN()
-        info = variational_bayes(self, MVN, self.noise_prior)
+        info = variational_bayes(self, self.prior_MVN(), self.prior_gamma())
         return info
 
     def jacobian(self, number_vector, concatenate=True):
@@ -251,10 +260,10 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                     f"VB problem can only handle normal priors, you provided `{self.prm_prior[name].dist.name}` for parameter `{name}`."
                 )
 
-            mean, sd = self.prm_prior[name].mean(), self.prm_prior[name].std()
+            mean, var = self.prm_prior[name].mean(), self.prm_prior[name].var()
             for _ in range(latent.N):
                 means.append(mean)
-                precs.append(1.0 / sd ** 2)
+                precs.append(1.0 / var)
 
         return MVN(
             means,
@@ -262,3 +271,14 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             name="MVN prior",
             parameter_names=list(self.latent.keys()),
         )
+    
+    def prior_gamma(self):
+        gammas = {}
+        for name, gamma in self.noise_prior.items():
+            mean, var = gamma.mean(), gamma.var()
+            scale = var / mean
+            shape = mean / scale
+            gammas[name] = Gamma(scale=scale, shape=shape)
+        return gammas
+
+

@@ -67,9 +67,13 @@ class TestVBProblem(unittest.TestCase):
         self.assertRaises(Exception, p.set_parameter_prior, "B", 1)
 
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
-        p.set_noise_prior("noise", 1.0, 42.0)
-        self.assertAlmostEqual(p.noise_prior["noise"].mean(), 1.)
-        self.assertAlmostEqual(p.noise_prior["noise"].dist.a, 1.)
+        p.set_noise_prior("noise", 6.174, 42.0)
+        mean, var = p.noise_prior["noise"].mean(), p.noise_prior["noise"].var()
+        scale = var / mean
+        shape = mean / scale
+
+        self.assertAlmostEqual(mean, 1.0 / 6.174 ** 2)
+        self.assertAlmostEqual(shape, 42.0)
 
         # p.set_parameter_prior("B", scipy.stats.crystalball(42, 6174))
 
