@@ -37,6 +37,8 @@ class InferenceProblem:
         self.latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
+        self.prm_prior = {}
+        self.noise_prior = {}
 
     @property
     def noise_models(self):
@@ -61,6 +63,29 @@ class InferenceProblem:
         assert key not in self._noise_models
         self._noise_models[key] = noise_model
         return key
+
+    def set_parameter_prior(self, latent_name, mean, sd):
+        if latent_name not in self.latent:
+            raise RuntimeError(
+                f"{latent_name} is not defined as a latent parameter. "
+                f"Call InferenceProblem.latent[{latent_name}].add(...) first."
+            )
+        self.prm_prior[latent_name] = scipy.stats.norm(loc=mean, scale=sd)
+
+    def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
+        if isinstance(gamma_or_sd_mean, Gamma):
+            gamma = gamma_or_sd_mean
+            assert sd_shape is None
+        else:
+            sd_shape = sd_shape or 1.0
+            gamma = Gamma.FromSD(gamma_or_sd_mean, sd_shape)
+
+        if name not in self.noise_models:
+            raise RuntimeError(
+                f"{name} is not associated with noise model.. "
+                f"Call InferenceProblem.add_noise_model({name}, ...) first."
+            )
+        self.noise_prior[name] = gamma
 
     def __call__(self, number_vector):
         self.latent.update(number_vector)
@@ -95,34 +120,6 @@ class InferenceProblem:
 
 
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
-    def __init__(self):
-        super().__init__()
-        self.prm_prior = {}
-        self.noise_prior = {}
-
-    def set_parameter_prior(self, latent_name, mean, sd):
-        if latent_name not in self.latent:
-            raise RuntimeError(
-                f"{latent_name} is not defined as a latent parameter. "
-                f"Call InferenceProblem.latent[{latent_name}].add(...) first."
-            )
-        self.prm_prior[latent_name] = scipy.stats.norm(loc=mean, scale=sd)
-
-    def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
-        if isinstance(gamma_or_sd_mean, Gamma):
-            gamma = gamma_or_sd_mean
-            assert sd_shape is None
-        else:
-            sd_shape = sd_shape or 1.0
-            gamma = Gamma.FromSD(gamma_or_sd_mean, sd_shape)
-
-        if name not in self.noise_models:
-            raise RuntimeError(
-                f"{name} is not associated with noise model.. "
-                f"Call InferenceProblem.add_noise_model({name}, ...) first."
-            )
-        self.noise_prior[name] = gamma
-
     def run(self):
         MVN = self.prior_MVN()
         info = variational_bayes(self, MVN, self.noise_prior)
@@ -224,4 +221,9 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)
 
-        return MVN(means, np.diag(precs), name="MVN prior", parameter_names=list(self.latent.keys()))
+        return MVN(
+            means,
+            np.diag(precs),
+            name="MVN prior",
+            parameter_names=list(self.latent.keys()),
+        )
