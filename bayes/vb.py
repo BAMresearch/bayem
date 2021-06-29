@@ -329,6 +329,7 @@ class VB:
         self.n_trials_max = n_trials_max
         self.tolerance = tolerance
         self.iter_max = iter_max
+        self.scale_by_prior_mean = True
         self.result = VBResult()
 
     def run(self, model_error, param0, noise0=None, **kwargs):
@@ -339,11 +340,30 @@ class VB:
             self.iter_max = kwargs["iter_max"]
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
+        if "scale_by_prior_mean" in kwargs:
+            self.scale_by_prior_mean = kwargs["scale_by_prior_mean"]
 
         if not isinstance(model_error, VariationalBayesInterface):
             model_error = VBModelErrorWrapper(model_error)
 
-        k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
+        # We perform a scaling of the prior to deal with numerically high
+        # high values.
+        scaling = np.ones_like(param0.mean)
+
+        if self.scale_by_prior_mean:
+            for i, mean in enumerate(param0.mean):
+                if abs(mean) > 1:
+                    scaling[i] = mean
+
+        logger.debug(f"Using scaling {scaling}")
+
+        P = np.diag(scaling)
+        Pinv = np.diag(1.0 / scaling)
+
+        k, J_orig = model_error(param0.mean), model_error.jacobian(param0.mean)
+        J = {}
+        for n, jac in J_orig.items():
+            J[n] = jac @ P
 
         return_single_noise = False
 
@@ -375,8 +395,8 @@ class VB:
         for n, gamma in noise0.items():
             s[n] = gamma.scale
             c[n] = gamma.shape
-        m = np.copy(param0.mean)
-        L = np.copy(param0.precision)
+        m = Pinv @ param0.mean
+        L = P @ param0.precision @ P
 
         m0 = np.copy(m)
         L0 = np.copy(L)
@@ -397,7 +417,10 @@ class VB:
             Lm += L0 @ m0
             m = Lm @ L_inv
 
-            k, J = model_error(m), model_error.jacobian(m)
+            k, J_orig = model_error(P @ m), model_error.jacobian(P @ m)
+            J = {}
+            for n, jac in J_orig.items():
+                J[n] = jac @ P
 
             # noise parameter update
             for i in noise0:
@@ -420,8 +443,12 @@ class VB:
                 r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
 
-            logger.debug(f"current mean: {m}")
-            logger.debug(f"current precision: {L}")
+            Pm = P @ m
+            PinvLPinv = Pinv @ L @ Pinv
+            logger.debug(f"current mean: {Pm}")
+            logger.debug(f"current precision: {PinvLPinv}")
+            logger.debug(f"scaled current mean: {m}")
+            logger.debug(f"scaled current precision: {L}")
 
             # free energy caluclation, formula (23) slightly rearranged
             # to account for the loop over all noise groups
@@ -450,7 +477,9 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, m, L, c, s, param0.parameter_names)
+            self.result.try_update(
+                f_new, Pm, PinvLPinv, c, s, param0.parameter_names
+            )
             if self.stop_criteria(f_new, i_iter):
                 break
 

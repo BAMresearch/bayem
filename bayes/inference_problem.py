@@ -122,9 +122,9 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             )
         self.noise_prior[name] = gamma
 
-    def run(self):
+    def run(self, **kwargs):
         MVN = self.prior_MVN()
-        info = variational_bayes(self, MVN, self.noise_prior)
+        info = variational_bayes(self, MVN, self.noise_prior, **kwargs)
         return info
 
     def jacobian(self, number_vector, concatenate=True):

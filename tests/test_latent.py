@@ -89,6 +89,9 @@ class TestLatentParameters(unittest.TestCase):
         # Provinding a default value for that case is fine though:
         v = latent.get_vector({"shared": 42})
 
+        self.assertEqual(len(v), 5)
+        self.assertEqual(latent.vector_length, 5)
+
 
 if __name__ == "__main__":
     unittest.main()
