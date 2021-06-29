@@ -12,7 +12,7 @@ from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC, HMC
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from ..utils.forwardSolver import forwardSolverInterface
+from ..utils.forwardSolverInterface import forwardSolverInterface
 
 
 class Inference:
