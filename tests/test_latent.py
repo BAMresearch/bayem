@@ -90,7 +90,7 @@ class TestLatentParameters(unittest.TestCase):
         v = latent.get_vector({"shared": 42})
 
         self.assertEqual(len(v), 5)
-        self.assertEqual(latent.N, 5)
+        self.assertEqual(latent.vector_length, 5)
 
 
 if __name__ == "__main__":

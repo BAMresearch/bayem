@@ -165,7 +165,7 @@ class LatentParameter(list):
 
 class LatentParameters(OrderedDict):
     def update(self, number_vector):
-        n_parameters = self.N
+        n_parameters = self.vector_length
         if n_parameters != len(number_vector):
             raise RuntimeError(
                 f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(number_vector)}!"
@@ -175,9 +175,10 @@ class LatentParameters(OrderedDict):
             latent.update(number_vector)
 
     @property
-    def N(self):
+    def vector_length(self):
         """
-        Returns the total number of latent parameters.
+        Returns the total number of latent parameters, considering vector 
+        valued ones.
         """
         return sum(l.N for l in self.values())
 
