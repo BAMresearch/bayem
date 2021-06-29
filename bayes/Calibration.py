@@ -9,10 +9,10 @@ import pyro
 import pyro.distributions as dist
 from numpy.core._multiarray_umath import ndarray
 from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC, HMC
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from ..utils.forwardSolver import forwardSolverInterface
 
 
 class Inference:
@@ -65,21 +65,24 @@ class Inference:
         # --hyperprior
         if self.obs_noise_parameters is None:
             # TODO: To add hyperparamters for the hyperprior
-            #sigma_prior = dist.Normal(0, 1) # AA: Hardcoded mean close to the known noise
+            # sigma_prior = dist.Normal(0, 1) # AA: Hardcoded mean close to the known noise
             if self.hyperprior_dist == "Gamma":
                 sigma_prior = dist.Gamma(self.hyperprior_para[0], self.hyperprior_para[1])
             sigma_noise = pyro.sample("sigma", sigma_prior)
-            #self.obs_noise_parameters = sigma_noise
+            # self.obs_noise_parameters = sigma_noise
         if self.obs_noise_parameters is not None:
             sigma_noise = self.obs_noise_parameters
 
         # --likelihood
-        mean = self.forward_solve(self.fw_input, para)
-        # TODO: Introduce the black box solver interface here. Can do mean = BBsolver_pytorch.apply(para)
+        # ---- wrap forward solver in a forward solver interface with overriden autograd
+        forward = forwardSolverInterface(self.forward_solve, self.fw_input)
+        forward_autograd = forward.override_autograd()
+        u = forward_autograd(para)
+        # mean = self.forward_solve(self.fw_input, para)
         # TODO: Incorporate noise model dist choice here, default is normal
         # TODO: More involved noise model, with correlation structure
         if self.obs_noise_dist == "Normal":
-            self.likelihood = dist.Normal(mean, sigma_noise)
+            self.likelihood = dist.Normal(u, sigma_noise)
         else:
             raise NotImplementedError
         pyro.sample("lkl", self.likelihood, obs=observed_data)
@@ -116,17 +119,17 @@ class Inference:
         :param new_input: New input to the solver. [Dict type] ('known_parameters': , 'sensors': ,'time_steps': )
         :return: tilda_X [S x T]: New unobserved data samples., with S being number of sample and T being the parameters
         """
-        #size = np.size(new_input['sensors']) * new_input['time_steps']
+        # size = np.size(new_input['sensors']) * new_input['time_steps']
         size = [np.size(v) for v in new_input.values()]
-        #size = np.size(new_input['known_inputs'])
+        # size = np.size(new_input['known_inputs'])
         tilda_X = np.ndarray((np.size(posterior_para), size[0]))
-        sigma_mean = np.max(posterior_noise) # AA : Just using MAP point for the sigma posterior, more involved
+        sigma_mean = np.max(posterior_noise)  # AA : Just using MAP point for the sigma posterior, more involved
         # would be an inner loop for sigma also.
         for i in range(0, np.size(posterior_para)):
             theta = posterior_para[i]
             mean = self.forward_solve(new_input, theta)
-            #_dist = dist.Normal(mean, sigma_mean)
-            #tilda_X[i, :] = pyro.sample("pos", _dist)
+            # _dist = dist.Normal(mean, sigma_mean)
+            # tilda_X[i, :] = pyro.sample("pos", _dist)
             tilda_X[i, :] = mean
         return tilda_X
 
@@ -146,7 +149,8 @@ class Inference:
             smpl[i] = (pyro.sample("AA", self.para_prior))
         # plt.figure(figsize=(3, 3))
         sns.kdeplot(data=smpl, label="para_prior",
-                    clip=(np.mean(posterior_para) - 3 * np.std(posterior_para), np.mean(posterior_para) + 3 * np.std(posterior_para)))
+                    clip=(np.mean(posterior_para) - 3 * np.std(posterior_para),
+                          np.mean(posterior_para) + 3 * np.std(posterior_para)))
         plt.legend()
         plt.show()
 
@@ -155,8 +159,6 @@ class Inference:
         plt.legend()
 
         plt.show()
-
-
 
         # raise NotImplementedError
 
@@ -172,46 +174,3 @@ class Inference:
             plt.legend()
             plt.xlabel("Y")
             plt.show()
-
-
-class BB_solver:
-    """
-    The black box solver is the included here with all the input files.
-    """
-    def __init__(self):
-
-    def __call__(self, *args, **kwargs):
-    """
-    Returns forward solve output and Jacobians for given parameters/inputs
-    """
-        raise NotImplementedError("Implement me!")
-
-
-
-class BBsolver_pytorch(th.autograd.Function):
-    """
-    Overrides the PyTorch autograd to include Jacobians coming from the forward solver
-    """
-    @staticmethod
-    def forward(ctx, param):
-        """
-
-        """
-        forward_solver = BB_solver()
-        J, grad = forward_solver(param)
-        J = th.tensor(J, requires_grad=True)
-
-        grad = th.tensor(grad)
-        ctx.save_for_backward(grad)
-
-        return J
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-
-        """
-
-        grad = ctx.saved_tensors
-
-        return grad
