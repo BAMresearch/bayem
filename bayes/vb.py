@@ -329,6 +329,7 @@ class VB:
         self.n_trials_max = n_trials_max
         self.tolerance = tolerance
         self.iter_max = iter_max
+        self.scale_by_prior_mean = True
         self.result = VBResult()
 
     def run(self, model_error, param0, noise0=None, **kwargs):
@@ -339,17 +340,22 @@ class VB:
             self.iter_max = kwargs["iter_max"]
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
+        if "scale_by_prior_mean" in kwargs:
+            self.scale_by_prior_mean = kwargs["scale_by_prior_mean"]
 
         if not isinstance(model_error, VariationalBayesInterface):
             model_error = VBModelErrorWrapper(model_error)
 
         # We perform a scaling of the prior to deal with numerically high
-        # high values. 
-        scaling = np.copy(param0.mean)
-        for i, mean in enumerate(param0.mean):
-            if abs(mean) < 1:
-                scaling[i] = 1.
+        # high values.
+        scaling = np.ones_like(param0.mean)
 
+        if self.scale_by_prior_mean:
+            for i, mean in enumerate(param0.mean):
+                if abs(mean) > 1:
+                    scaling[i] = mean
+
+        logger.debug(f"Using scaling {scaling}")
 
         P = np.diag(scaling)
         Pinv = np.diag(1.0 / scaling)
@@ -437,6 +443,10 @@ class VB:
                 r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
 
+            Pm = P @ m
+            PinvLPinv = Pinv @ L @ Pinv
+            logger.debug(f"current mean: {Pm}")
+            logger.debug(f"current precision: {PinvLPinv}")
             logger.debug(f"scaled current mean: {m}")
             logger.debug(f"scaled current precision: {L}")
 
@@ -468,7 +478,7 @@ class VB:
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
             self.result.try_update(
-                f_new, P @ m, Pinv @ L @ Pinv, c, s, param0.parameter_names
+                f_new, Pm, PinvLPinv, c, s, param0.parameter_names
             )
             if self.stop_criteria(f_new, i_iter):
                 break
