@@ -64,13 +64,6 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-    def set_parameter_prior_normal(self, latent_name, mean, sd):
-        """
-        Sets a prior distribution for the latent parameter `latent_name` as
-        a normal distribution with given `mean` and `sd`.
-        """
-        dist = scipy.stats.norm(loc=mean, scale=sd)
-        self.set_parameter_prior(latent_name, dist)
 
     def set_parameter_prior(self, latent_name, dist):
         """
@@ -146,6 +139,7 @@ class InferenceProblem:
             log_like += noise_term.loglike_contribution(raw_me)
 
         return log_like
+
 
 
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):

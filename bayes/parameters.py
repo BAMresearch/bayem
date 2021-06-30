@@ -9,7 +9,7 @@ class ParameterList:
 
     """
 
-    def __init__(self):
+    def __init__(self, tag=None):
         self.p = {}
 
     def define(self, name, value=None):

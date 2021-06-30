@@ -43,7 +43,7 @@ class TestVBProblem(unittest.TestCase):
         p = InferenceProblem()
         key = p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
-        p.set_parameter_prior_normal("B", 0.0, 1.0)
+        p.set_parameter_prior("B", scipy.stats.norm(0.0, 1.0))
         self.assertAlmostEqual(p.prm_prior["B"].mean(), 0.0)
         self.assertAlmostEqual(p.prm_prior["B"].std(), 1.0)
         self.assertRaises(Exception, p.set_parameter_prior, "not B", 0.0, 1.0)
