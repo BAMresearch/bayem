@@ -142,9 +142,10 @@ class InferenceProblem:
 
 
 
+
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
-    def run(self):
-        info = variational_bayes(self, self.prior_MVN(), self.prior_gamma())
+    def run(self, **kwargs):
+        info = variational_bayes(self, self.prior_MVN(), self.prior_gamma(), **kwargs)
         return info
 
     def jacobian(self, number_vector, concatenate=True):

@@ -65,9 +65,11 @@ class Test_VB(unittest.TestCase):
             me = ModelError(fw, data)
 
         param_prior = MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = {"noise0": Gamma.FromSD(3*noise_sd)}
+        noise_prior = {"noise0": Gamma.FromSD(3 * noise_sd)}
 
-        info = variational_bayes(me, param_prior, noise_prior)
+        info = variational_bayes(
+            me, param_prior, noise_prior, scale_by_prior_mean=given_jac
+        )
         param_post, noise_post = info.param, info.noise
 
         if plot:
