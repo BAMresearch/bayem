@@ -43,7 +43,7 @@ class NoiseModelInterface:
 
 class UncorrelatedNoiseModel(NoiseModelInterface):
     def __init__(self):
-        self.parameter_list = ParameterList()
+        self.parameter_list = ParameterList(is_noise=True)
         self.parameter_list.define("precision")
         self._key_pairs = []
 

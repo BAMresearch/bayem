@@ -9,8 +9,9 @@ class ParameterList:
 
     """
 
-    def __init__(self, tag=None):
+    def __init__(self, is_noise=False):
         self.p = {}
+        self.is_noise = is_noise
 
     def define(self, name, value=None):
         self.p[name] = value
