@@ -37,8 +37,7 @@ class InferenceProblem:
         self.latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
-        self.prm_prior = {}
-        self.noise_prior = {}
+        self.prior = {}
 
     @property
     def noise_models(self):
@@ -64,8 +63,7 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-
-    def set_parameter_prior(self, latent_name, dist):
+    def set_prior(self, latent_name, dist):
         """
         Sets a prior distribution for the latent parameter `latent_name` to
         the provided `dist`. 
@@ -77,40 +75,12 @@ class InferenceProblem:
             )
 
         if hasattr(dist, "ppf") and hasattr(dist, "logpdf"):
-            self.prm_prior[latent_name] = dist
+            self.prior[latent_name] = dist
         else:
             raise RuntimeError(
                 f"The provided distribution must provide a `ppf` and `logpdf` method (e.g. any scipy.stats distribution.)"
             )
 
-    def set_noise_precision_prior(self, noise_key, dist):
-        """
-        Sets the prior distribution `dist` for the _precision_ of the 
-        zero-mean noise term of `noise_key`. 
-        """
-        if noise_key not in self.noise_models:
-            raise RuntimeError(
-                f"{noise_key} is not associated with noise model.. "
-                f"Call InferenceProblem.add_noise_model({noise_key}, ...) first."
-            )
-        if hasattr(dist, "ppf") and hasattr(dist, "logpdf"):
-            self.noise_prior[noise_key] = dist
-        else:
-            raise RuntimeError(
-                f"The provided distribution must provide a `ppf` and `logpdf` method (e.g. any scipy.stats distribution.)"
-            )
-
-    def set_noise_precision_prior_sd(self, noise_key, sd_mean, shape=1.0):
-        """
-        Sets a prior distribution for the _precision_ of the zero-mean noise 
-        term of `noise_key` to a Gamma distribution with shape `shape` and
-        mean 1/`sd_mean`**2.
-
-        """
-        a = shape
-        scale = 1.0 / sd_mean ** 2 / shape
-        dist = scipy.stats.gamma(a=shape, scale=scale)
-        self.set_noise_precision_prior(noise_key, dist)
 
     def __call__(self, number_vector):
         self.latent.update(number_vector)
@@ -141,17 +111,27 @@ class InferenceProblem:
         return log_like
 
 
-
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def run(self):
         info = variational_bayes(self, self.prior_MVN(), self.prior_gamma())
         return info
+    
+    def set_noise_precision_prior_sd(self, latent_name, sd_mean, shape=1.0):
+        """
+        Sets a prior distribution for the _precision_ of the zero-mean noise 
+        term of `latent_name` to a Gamma distribution with shape `shape` and
+        mean 1/`sd_mean`**2.
+        """
+        a = shape
+        scale = 1.0 / sd_mean ** 2 / shape
+        dist = scipy.stats.gamma(a=shape, scale=scale)
+        self.set_prior(latent_name, dist)
 
     def jacobian(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.jacobian
         """
-        self.latent.update(number_vector)
+        self.latent.update_without_noise(number_vector)
         jac = {}
         for key, me in self.model_errors.items():
 
@@ -217,11 +197,15 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         """
         overwrites VariationalBayesInterface.__call__
         """
-        me = super().__call__(number_vector)
+        self.latent.update_without_noise(number_vector)
+        result = {}
+        for key, me in self.model_errors.items():
+            result[key] = me()
 
+        return result
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
-            terms = noise.model_error_terms(me)
+            terms = noise.model_error_terms(result)
             if concatenate:
                 terms = np.concatenate(terms)
             errors_by_noise[key] = terms
@@ -232,33 +216,45 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         means = []
         precs = []
+        names = []
 
         for name, latent in self.latent.items():
-            if name not in self.prm_prior:
+            if name not in self.prior:
                 raise RuntimeError(
                     f"You defined {name} as latent but did not provide a prior distribution!."
                 )
 
-            if self.prm_prior[name].dist.name != "norm":
+            if latent.is_noise:
+                continue
+                
+
+            if self.prior[name].dist.name != "norm":
                 raise RuntimeError(
-                    f"VB problem can only handle normal priors, you provided `{self.prm_prior[name].dist.name}` for parameter `{name}`."
+                    f"VB problem can only handle normal priors, you provided `{self.prior[name].dist.name}` for parameter `{name}`."
                 )
 
-            mean, var = self.prm_prior[name].mean(), self.prm_prior[name].var()
+            mean, var = self.prior[name].mean(), self.prior[name].var()
+            names.append(name)
             for _ in range(latent.N):
                 means.append(mean)
                 precs.append(1.0 / var)
 
-        return MVN(
-            means,
-            np.diag(precs),
-            name="MVN prior",
-            parameter_names=list(self.latent.keys()),
-        )
+        return MVN(means, np.diag(precs), name="MVN prior", parameter_names=names,)
 
     def prior_gamma(self):
+
+        noise_prior = {}
+        for name, latent in self.latent.items():
+
+            if latent.is_noise:
+                if name not in self._noise_models:
+                    raise RuntimeError(f"For VB, the noise parameter name must be equal to a noise key. That is not the case for {name}")
+                dist = self.prior[name]
+                assert dist.dist.name == "gamma"
+                noise_prior[name] = dist
+
         gammas = {}
-        for name, gamma in self.noise_prior.items():
+        for name, gamma in noise_prior.items():
             mean, var = gamma.mean(), gamma.var()
             scale = var / mean
             shape = mean / scale

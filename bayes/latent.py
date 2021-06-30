@@ -25,6 +25,7 @@ class LatentParameter(list):
 
         self.N = None  # number of (scalar) parameters of this
         self.start_idx = None  # start index in the
+        self.is_noise = None
 
     def add(self, parameter_list, parameter_name):
         """
@@ -56,6 +57,11 @@ class LatentParameter(list):
                     f"{self.N}. This does not match length {N} of parameter"
                     f"of {parameter_name} in {parameter_list}!"
                 )
+      
+        if self.is_noise is None:
+            self.is_noise = parameter_list.is_noise
+        else:
+            assert self.is_noise == parameter_list.is_noise
 
         self.append((parameter_list, parameter_name))
 
@@ -166,6 +172,16 @@ class LatentParameter(list):
 class LatentParameters(OrderedDict):
     def update(self, number_vector):
         n_parameters = sum(l.N for l in self.values())
+        if n_parameters != len(number_vector):
+            raise RuntimeError(
+                f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(number_vector)}!"
+            )
+
+        for latent in self.values():
+            latent.update(number_vector)
+    
+    def update_without_noise(self, number_vector):
+        n_parameters = sum(l.N for l in self.values() if not l.is_noise)
         if n_parameters != len(number_vector):
             raise RuntimeError(
                 f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(number_vector)}!"
