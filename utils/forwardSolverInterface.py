@@ -3,7 +3,7 @@
 # ---------
 """
 Interface to To interact with the black box forward solver. To override the pytorch autograd to pass grad obtained by the
-adjoint method. The implementation assumes that the adjoint solver is implemented in the forward solver.
+adjoint method. The implementation assumes that the adjoint solver is implemented in the forward solver and the forward solver to have solve and adjoint methods implemented
 ref: http://www.dolfin-adjoint.org/en/latest/documentation/maths/3-gradients.html
 
 """
@@ -34,8 +34,8 @@ class forwardSolverInterface:
         """
         u = self.solver.solve(self.known_input,latent_para) # pass the input as arguments here
         #grad = self.solver.Jacobian(self.functional,u)
-        grad = self.solver.Jacobian(u)
-        return u, grad
+        #grad = self.solver.Jacobian(u)
+        return u
         #raise NotImplementedError("Implement me! Should return the grad and u")
 
     def override_autograd(self):
@@ -53,13 +53,12 @@ class forwardSolverInterface:
                 :param param: Latent parameter to be inferred
                 :return:
                 """
-                #forward_solver = forwardSolver()
-                u, grad = self.solve(param)
+                u = self.solve(param)
                 u = th.tensor(u, requires_grad=True)
 
                 # solver Jacobian, just an operator, not exactly a big chunky matrix
-                grad = th.tensor(grad)
-                ctx.save_for_backward(grad)
+                #grad = th.tensor(grad)
+                ctx.save_for_backward(state) # the state can be anything which a forward solver returns which maybe needed for grad computation later.
 
                 return u
 
@@ -71,8 +70,8 @@ class forwardSolverInterface:
                 :return dLdx
                 # TODO: Coordinate to implement custom adjoint solver
                 """
-                grad_PDE = ctx.saved_tensors
+                state = ctx.saved_tensors
 
-                grad_input = self.solver.grad_adjoint(grad_output, grad_PDE)
+                grad_input = self.solver.grad_adjoint(grad_output, state)
                 return grad_input
         return custom_autograd.apply
