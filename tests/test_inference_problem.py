@@ -43,39 +43,39 @@ class TestVBProblem(unittest.TestCase):
         p = InferenceProblem()
         key = p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
-        p.set_parameter_prior("B", 0.0, 1.0)
+        p.set_parameter_prior_normal("B", 0.0, 1.0)
         self.assertAlmostEqual(p.prm_prior["B"].mean(), 0.0)
         self.assertAlmostEqual(p.prm_prior["B"].std(), 1.0)
         self.assertRaises(Exception, p.set_parameter_prior, "not B", 0.0, 1.0)
 
-        self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
+        self.assertRaises(Exception, p.set_noise_precision_prior_sd, "noise", 1.0, 1.0)
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
-        p.set_noise_prior("noise", 1.0, 1.0)
+        p.set_noise_precision_prior_sd("noise", 1.0, 1.0)
 
         result = p([0.1])
         self.assertEqual(len(result[key]["dummy_sensor"]), 10)
 
     def test_wrong_prior_type(self):
         p = VariationalBayesProblem()
-        key = p.add_model_error(ModelError())
+        p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
         p.set_parameter_prior("B", scipy.stats.crystalball(42, 6174))
         with self.assertRaises(Exception) as e:
-            mvn = p.prior_MVN()
-
-        self.assertRaises(Exception, p.set_parameter_prior, "B", 1.0)
-        self.assertRaises(Exception, p.set_parameter_prior, "B", 1)
+            p.prior_MVN()
+        print("Expected exception\n\t", e.exception)
+        
+        with self.assertRaises(Exception) as e:
+            p.set_parameter_prior("B", "what?")
+        print("Expected exception\n\t", e.exception)
 
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
-        p.set_noise_prior("noise", 6.174, 42.0)
+        p.set_noise_precision_prior_sd("noise", 6.174, 42.0)
         mean, var = p.noise_prior["noise"].mean(), p.noise_prior["noise"].var()
         scale = var / mean
         shape = mean / scale
 
         self.assertAlmostEqual(mean, 1.0 / 6.174 ** 2)
         self.assertAlmostEqual(shape, 42.0)
-
-        # p.set_parameter_prior("B", scipy.stats.crystalball(42, 6174))
 
 
 if __name__ == "__main__":

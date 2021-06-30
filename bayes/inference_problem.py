@@ -64,14 +64,18 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-    def set_parameter_prior(self, latent_name, dist_or_mean, sd=None):
+    def set_parameter_prior_normal(self, latent_name, mean, sd):
         """
-        Sets a prior distribution for the latent parameter `latent_name`.
-        Case 1: 
-            You provide a scipy.stats distribution and `sd` is ignored.
-        Case 2:
-            You provide a two floats that will be the mean and sd of a 
-            normal distribution.
+        Sets a prior distribution for the latent parameter `latent_name` as
+        a normal distribution with given `mean` and `sd`.
+        """
+        dist = scipy.stats.norm(loc=mean, scale=sd)
+        self.set_parameter_prior(latent_name, dist)
+
+    def set_parameter_prior(self, latent_name, dist):
+        """
+        Sets a prior distribution for the latent parameter `latent_name` to
+        the provided `dist`. 
         """
         if latent_name not in self.latent:
             raise RuntimeError(
@@ -79,56 +83,41 @@ class InferenceProblem:
                 f"Call InferenceProblem.latent[{latent_name}].add(...) first."
             )
 
-        try:
-            # Case 1
-            dist = dist_or_mean
-            assert isinstance(dist.dist, scipy.stats.rv_continuous)
-        except AttributeError:
-            # Case 2
-            assert sd is not None
-            dist = scipy.stats.norm(loc=dist_or_mean, scale=sd)
-        
-        self.prm_prior[latent_name] = dist
+        if hasattr(dist, "ppf") and hasattr(dist, "logpdf"):
+            self.prm_prior[latent_name] = dist
+        else:
+            raise RuntimeError(
+                f"The provided distribution must provide a `ppf` and `logpdf` method (e.g. any scipy.stats distribution.)"
+            )
 
-    def set_noise_prior(self, noise_key, dist_or_sd_mean, sd_shape=None):
+    def set_noise_precision_prior(self, noise_key, dist):
         """
-        Sets a prior distribution for the _precision_ of the zero-mean noise 
-        term of `noise_key`. 
-        
-        For convenience, it may be much simpler to provide the standard 
-        deviation as mean of this distribution, see case 2.
-
-        Case 1: 
-            You provide a scipy.stats distribution and `sd_shape` is ignored.
-        Case 2:
-            You provide two floats that are used to build a Gamma distribution
-            for the noise precision. The first one is the mean of the Gamma
-            distribution but in terms of _standard deviation_, not _precision_. 
-
-                precision = 1/standard_deviation**2
-
-            Then, you also have to provide the shape parameter `sd_shape` of 
-            the Gamma distribution
+        Sets the prior distribution `dist` for the _precision_ of the 
+        zero-mean noise term of `noise_key`. 
         """
         if noise_key not in self.noise_models:
             raise RuntimeError(
                 f"{noise_key} is not associated with noise model.. "
                 f"Call InferenceProblem.add_noise_model({noise_key}, ...) first."
             )
+        if hasattr(dist, "ppf") and hasattr(dist, "logpdf"):
+            self.noise_prior[noise_key] = dist
+        else:
+            raise RuntimeError(
+                f"The provided distribution must provide a `ppf` and `logpdf` method (e.g. any scipy.stats distribution.)"
+            )
 
-        try:
-            # Case 1
-            dist = dist_or_sd_mean
-            assert isinstance(dist.dist, scipy.stats.rv_continuous)
-        except AttributeError:
-            # Case 2
-            assert sd_shape is not None
-       
-            a = sd_shape
-            scale = 1.0 / dist_or_sd_mean ** 2 / sd_shape
-            dist = scipy.stats.gamma(a=sd_shape, scale=scale)
+    def set_noise_precision_prior_sd(self, noise_key, sd_mean, shape=1.0):
+        """
+        Sets a prior distribution for the _precision_ of the zero-mean noise 
+        term of `noise_key` to a Gamma distribution with shape `shape` and
+        mean 1/`sd_mean`**2.
 
-        self.noise_prior[noise_key] = dist
+        """
+        a = shape
+        scale = 1.0 / sd_mean ** 2 / shape
+        dist = scipy.stats.gamma(a=shape, scale=scale)
+        self.set_noise_precision_prior(noise_key, dist)
 
     def __call__(self, number_vector):
         self.latent.update(number_vector)
@@ -255,6 +244,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 raise RuntimeError(
                     f"You defined {name} as latent but did not provide a prior distribution!."
                 )
+
             if self.prm_prior[name].dist.name != "norm":
                 raise RuntimeError(
                     f"VB problem can only handle normal priors, you provided `{self.prm_prior[name].dist.name}` for parameter `{name}`."
@@ -271,7 +261,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             name="MVN prior",
             parameter_names=list(self.latent.keys()),
         )
-    
+
     def prior_gamma(self):
         gammas = {}
         for name, gamma in self.noise_prior.items():
@@ -280,5 +270,3 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             shape = mean / scale
             gammas[name] = Gamma(scale=scale, shape=shape)
         return gammas
-
-

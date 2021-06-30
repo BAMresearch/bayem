@@ -131,13 +131,13 @@ class Test_VB(unittest.TestCase):
         problem.latent["A2"].add(me2.parameter_list, "A")
         problem.latent["B2"].add(me2.parameter_list, "B")
 
-        problem.set_parameter_prior("A1", A1 + 0.5, 2)
-        problem.set_parameter_prior("B1", B1 + 0.5, 2)
-        problem.set_parameter_prior("A2", A2 + 0.5, 2)
-        problem.set_parameter_prior("B2", B2 + 0.5, 2)
+        problem.set_parameter_prior_normal("A1", A1 + 0.5, 2)
+        problem.set_parameter_prior_normal("B1", B1 + 0.5, 2)
+        problem.set_parameter_prior_normal("A2", A2 + 0.5, 2)
+        problem.set_parameter_prior_normal("B2", B2 + 0.5, 2)
 
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-        problem.set_noise_prior(noise_key, scipy.stats.gamma(a=1e-6, scale=1./3.))
+        problem.set_noise_precision_prior(noise_key, scipy.stats.gamma(a=1e-6, scale=1./3.))
 
         info = problem.run()
         print(info)
