@@ -12,7 +12,7 @@ from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC, HMC
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from ..utils.forwardSolverInterface import forwardSolverInterface
+from utils.forwardSolverInterface import forwardSolverInterface
 
 
 class Inference:
@@ -75,14 +75,16 @@ class Inference:
 
         # --likelihood
         # ---- wrap forward solver in a forward solver interface with overriden autograd
-        forward = forwardSolverInterface(self.forward_solve, self.fw_input)
-        forward_autograd = forward.override_autograd()
-        u = forward_autograd(para)
-        # mean = self.forward_solve(self.fw_input, para)
+        BB_solver = False
+        if BB_solver:
+            forward = forwardSolverInterface(self.forward_solve, self.fw_input)
+            forward_autograd = forward.override_autograd()
+            mean = forward_autograd(para)
+        mean = self.forward_solve(self.fw_input, para)
         # TODO: Incorporate noise model dist choice here, default is normal
         # TODO: More involved noise model, with correlation structure
         if self.obs_noise_dist == "Normal":
-            self.likelihood = dist.Normal(u, sigma_noise)
+            self.likelihood = dist.Normal(mean, sigma_noise)
         else:
             raise NotImplementedError
         pyro.sample("lkl", self.likelihood, obs=observed_data)
