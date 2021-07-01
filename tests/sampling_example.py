@@ -78,34 +78,37 @@ class PytorchTaralliProblem(VariationalBayesProblem):
         for name, (mean, sd) in self.prm_prior.items():
             # idx = problem.latent[name].start_idx
             assert self.latent[name].N == 1  # vector parameters not yet supported!
-            sampled_parameters = pyro.sample(name, dist.Normal(mean, sd))
+            sampled_parameters[name] = pyro.sample(name, dist.Normal(mean, sd))
 
+        sampled_hyperparameter = ParamStoreDict()
         for name, gamma in self.noise_prior.items():
             # idx = problem.latent[name].start_idx
             shape, scale = gamma.shape, gamma.scale
             alpha, beta = shape, 1.0 / scale
             # check for Gamma and Inverse Gamma
-            sampled_noise_precision = pyro.sample(name, dist.Gamma(alpha, beta))
-            self.noise_models[name].parameter_list['precision'] = sampled_noise_precision
+            sampled_hyperparameter[name] = pyro.sample(name, dist.Gamma(alpha,
+                                                                     beta))
+            #self.noise_models[name].parameter_list[
+            # 'precision'] = sampled_noise_precision
 
         for noise_key, noise_term in self.noise_models.items():
             pyro.sample(noise_key + "_latent",
                         dist.Normal(self.wrapper_function(sampled_parameters, noise_key),
-                        noise_term.parameter_list['precision']),
-                        obs=torch.zeros(len(vector)))
+                        sampled_hyperparameter[noise_key]),
+                        obs=torch.zeros(1502))
         return
 
     def wrapper_function(self, sampled_parameters, noise_key):
         for name, value in sampled_parameters.items():
-            self.latent[name].set_value(value)
+            self.latent[name].set_value(value.detach().numpy())
 
         # compute raw model error using the samples parameters, this is now done for each noise term separately
         raw_me = {}
         for key, me in self.model_errors.items():
             raw_me[key] = me()
 
-        vector = self.noise_models[noise_key].vector_contribution(raw_me)
-        return torch.from_numpy(vector)
+        vector_list = self.noise_models[noise_key].model_error_terms(raw_me)
+        return torch.from_numpy(np.concatenate(vector_list))
 
     def logprior(self, parameter_vector):
         self.latent.update(parameter_vector)
@@ -164,7 +167,7 @@ class PytorchTaralliProblem(VariationalBayesProblem):
 """
 
 if __name__ == "__main__":
-    # Define the sensor
+    # Define the sensor with it's position
     s1, s2, s3 = MySensor("S1", 0.2), MySensor("S2", 0.5), MySensor("S3", 42.0)
 
     fw = MyForwardModel()
@@ -177,8 +180,8 @@ if __name__ == "__main__":
     prm["B"] = B_correct
 
     np.random.seed(6174)
-    noise_sd1 = 0.2
-    noise_sd2 = 0.4
+    #the exact noise for each sensor
+    noise_sd ={"S1":1, "S2":2, "S3": 5}
 
     def generate_data(N_time_steps, noise_sd):
         time_steps = np.linspace(0, 1, N_time_steps)
@@ -186,19 +189,20 @@ if __name__ == "__main__":
         sensor_data = {}
         for sensor, perfect_data in model_response.items():
             sensor_data[sensor] = perfect_data + np.random.normal(
-                0.0, noise_sd, N_time_steps
+                0.0, noise_sd[sensor.name], N_time_steps
             )
         return time_steps, sensor_data
 
-    data1 = generate_data(1001, noise_sd1)
-    data2 = generate_data(501, noise_sd2)
+    #generate two independent datasets (two experiments are performed)
+    data1 = generate_data(1001, noise_sd)
+    data2 = generate_data(501, noise_sd)
 
     me1 = MyModelError(fw, data1)
     me2 = MyModelError(fw, data2)
 
     problem = PytorchTaralliProblem()
-    key1 = problem.add_model_error(me1)
-    key2 = problem.add_model_error(me2)
+    me_key1 = problem.add_model_error(me1)
+    me_key2 = problem.add_model_error(me2)
 
     problem.latent["A"].add(me1.parameter_list, "A")
     problem.latent["A"].add(me2.parameter_list, "A")
@@ -209,25 +213,29 @@ if __name__ == "__main__":
     problem.set_normal_prior("B", 6000.0, 300.0)
 
     noise1 = UncorrelatedNoiseModel()
-    noise1.add(key1, s1)
-    noise1.add(key1, s2)
-    noise1.add(key1, s3)
+    noise1.add(me_key1, s1)
+    noise1.add(me_key2, s1)
 
     noise2 = UncorrelatedNoiseModel()
-    noise2.add(key2, s1)
-    noise2.add(key2, s2)
-    noise2.add(key2, s3)
+    noise2.add(me_key1, s2)
+    noise2.add(me_key2, s2)
+
+    noise3 = UncorrelatedNoiseModel()
+    noise3.add(me_key1, s3)
+    noise3.add(me_key2, s3)
 
     noise_key1 = problem.add_noise_model(noise1, key='noise1')
     noise_key2 = problem.add_noise_model(noise2, key='noise2')
+    noise_key3 = problem.add_noise_model(noise3, key='noise3')
 
-    problem.set_noise_prior(noise_key1, 3 * noise_sd1, sd_shape=0.5)
-    problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
+    problem.set_noise_prior(noise_key1, 3 * noise_sd["S1"], sd_shape=0.5)
+    problem.set_noise_prior(noise_key2, 3 * noise_sd["S2"], sd_shape=0.5)
+    problem.set_noise_prior(noise_key3, 3 * noise_sd["S3"], sd_shape=0.5)
 
     compute_linearized_VB = True
-    compute_pyro = False
+    compute_pyro = True
     compute_pymc3 = False
-    compute_taralli = True
+    compute_taralli = False
 
     if compute_linearized_VB:
         info = problem.run()
