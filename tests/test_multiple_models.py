@@ -111,7 +111,7 @@ class Test_VB(unittest.TestCase):
         parameter_vec = np.array([1, 2, 4])
         error_list = problem(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
-
+        
         np.testing.assert_almost_equal(error_list[noise_key], error_multi)
 
     def test_joint(self):

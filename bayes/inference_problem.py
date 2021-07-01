@@ -127,11 +127,11 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         dist = scipy.stats.gamma(a=shape, scale=scale)
         self.set_prior(latent_name, dist)
 
-    def jacobian(self, number_vector, concatenate=True):
+    def jacobian(self, parameter_number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.jacobian
         """
-        self.latent.update_without_noise(number_vector)
+        self.latent.update_without_noise(parameter_number_vector)
         jac = {}
         for key, me in self.model_errors.items():
 
@@ -166,8 +166,8 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 N = len(first_jac)
 
                 # We allocate "stacked_jac" where each column corresponds
-                # to a number in the "number_vector".
-                stacked_jac = np.zeros((N, len(number_vector)))
+                # to a number in the "parameter_number_vector".
+                stacked_jac = np.zeros((N, len(parameter_number_vector)))
 
                 for (local_name, global_name) in latent_names:
                     J = parameter_jac[local_name]
@@ -193,16 +193,15 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         return jacs_by_noise
 
-    def __call__(self, number_vector, concatenate=True):
+    def __call__(self, parameter_number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.__call__
         """
-        self.latent.update_without_noise(number_vector)
+        self.latent.update_without_noise(parameter_number_vector)
         result = {}
         for key, me in self.model_errors.items():
             result[key] = me()
 
-        return result
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
             terms = noise.model_error_terms(result)
@@ -234,10 +233,11 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 )
 
             mean, var = self.prior[name].mean(), self.prior[name].var()
-            names.append(name)
             for _ in range(latent.N):
                 means.append(mean)
                 precs.append(1.0 / var)
+                names.append(name)
+
 
         return MVN(means, np.diag(precs), name="MVN prior", parameter_names=names,)
 
