@@ -1,9 +1,15 @@
 import unittest
 import numpy as np
+import scipy.stats
 
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
-from bayes.noise import UncorrelatedNoiseModel
+from bayes.inference_problem import (
+    InferenceProblem,
+    VariationalBayesSolver,
+    ModelErrorInterface,
+    gamma_from_sd,
+)
+from bayes.noise import UncorrelatedSensorNoise
 
 """
 Not really a test yet.
@@ -87,26 +93,25 @@ if __name__ == "__main__":
     prm["B"] = B_correct
 
     np.random.seed(6174)
-    noise_sd1 = 0.2
-    noise_sd2 = 0.4
+    noise_sd = {s1: 0.2, s2: 0.4, s3: 0.6}
 
-    def generate_data(N_time_steps, noise_sd):
+    def generate_data(N_time_steps):
         time_steps = np.linspace(0, 1, N_time_steps)
         model_response = fw(prm, [s1, s2, s3], time_steps)
         sensor_data = {}
         for sensor, perfect_data in model_response.items():
             sensor_data[sensor] = perfect_data + np.random.normal(
-                0.0, noise_sd, N_time_steps
+                0.0, noise_sd[sensor], N_time_steps
             )
         return time_steps, sensor_data
 
-    data1 = generate_data(101, noise_sd1)
-    data2 = generate_data(51, noise_sd2)
+    data1 = generate_data(101)
+    data2 = generate_data(51)
 
     me1 = MyModelError(fw, data1)
     me2 = MyModelError(fw, data2)
 
-    problem = VariationalBayesProblem()
+    problem = InferenceProblem()
     key1 = problem.add_model_error(me1)
     key2 = problem.add_model_error(me2)
 
@@ -115,98 +120,101 @@ if __name__ == "__main__":
     # or simply
     problem.define_shared_latent_parameter_by_name("B")
 
-    problem.set_normal_prior("A", 40.0, 5.0)
-    problem.set_normal_prior("B", 6000.0, 300.0)
+    problem.set_prior("A", scipy.stats.norm(40.0, 5.0))
+    problem.set_prior("B", scipy.stats.norm(6000.0, 300.0))
 
-    noise1 = UncorrelatedNoiseModel()
-    noise1.add(key1, s1)
-    noise1.add(key1, s2)
-    noise1.add(key1, s3)
+    for sensor in [s1, s2, s3]:
+        noise_model = UncorrelatedSensorNoise([sensor])
+        noise_key = "noise" + sensor.name
+        problem.add_noise_model(noise_model, noise_key)
+        problem.latent[noise_key].add(noise_model.parameter_list, "precision")
+        problem.set_prior(noise_key, gamma_from_sd(3 * noise_sd[sensor], shape=0.5))
 
-    noise2 = UncorrelatedNoiseModel()
-    noise2.add(key2, s1)
-    noise2.add(key2, s2)
-    noise2.add(key2, s3)
-
-    noise_key1 = problem.add_noise_model(noise1)
-    noise_key2 = problem.add_noise_model(noise2)
-
-    problem.set_noise_prior(noise_key1, 3 * noise_sd1, sd_shape=0.5)
-    problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
-
-    info = problem.run()
+    vb = VariationalBayesSolver(problem)
+    info = vb.run()
     print(info)
 
-    """
-    We now transform the vb problem into a sampling problem. 
+    if True:
+        
+        import taralli.parameter_estimation.base as taralli_estimator
 
+        nwalker = 20
+        init = np.empty((nwalker, len(problem.prior)))
+        for i, prior in enumerate(problem.prior.values()):
+            init[:,i] = prior.rvs(nwalker)
 
-    1)  Set the parameters of the noise models latent. For convenience (since
-        there is only one parameter per noise model), we define the global 
-        name of the latent parameter to be the noise_key.
-    """
-    for noise_key in problem.noise_prior:
-        noise_parameters = problem.noise_models[noise_key].parameter_list
-        problem.latent[noise_key].add(noise_parameters, "precision")
+        emcee = taralli_estimator.EmceeParameterEstimator(
+                seed=6174,
+                ndim=init.shape[1],
+                nwalkers=init.shape[0],
+                sampling_initial_positions=init,
+                log_prior=problem.logprior,
+                log_likelihood=problem.loglike
+                )
+        emcee.estimate_parameters()
+        emcee.summary()
 
-    """
-    2)  Wrap problem.loglike for a tool of your choice
-    """
-    import theano.tensor as tt
+        sampler = taralli_estimator.NestleParameterEstimator(
+                seed=6174,
+                ndim=len(problem.prior),
+                log_likelihood=problem.loglike,
+                prior_transform=problem.prior_transform
+                )
+        sampler.estimate_parameters()
+        sampler.summary()
 
-    class LogLike(tt.Op):
-        itypes = [tt.dvector]  # expects a vector of parameter values when called
-        otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
+    if True:
+    
+        import theano.tensor as tt
 
-        def __init__(self, loglike):
-            self.likelihood = loglike
+        class LogLike(tt.Op):
+            itypes = [tt.dvector]  # expects a vector of parameter values when called
+            otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
 
-        def perform(self, node, inputs, outputs):
-            (theta,) = inputs  # this will contain my variables
-            result = self.likelihood(theta)
-            outputs[0][0] = np.array(result)  # output the log-likelihood
+            def __init__(self, loglike):
+                self.likelihood = loglike
 
-    pymc3_log_like = LogLike(problem.loglike)
+            def perform(self, node, inputs, outputs):
+                (theta,) = inputs  # this will contain my variables
+                result = self.likelihood(theta)
+                outputs[0][0] = np.array(result)  # output the log-likelihood
 
-    """
-    3)  Define prior distributions in a tool of your choice!
-    """
-    import pymc3 as pm
+        pymc3_log_like = LogLike(problem.loglike)
 
-    pymc3_prior = [None] * len(problem.latent)
+        import pymc3 as pm
 
-    model = pm.Model()
-    with model:
-        for name, (mean, sd) in problem.prm_prior.items():
-            idx = problem.latent[name].start_idx
-            assert problem.latent[name].N == 1  # vector parameters not yet supported!
-            pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
+        pymc3_prior = [None] * len(problem.latent)
 
-        for name, gamma in problem.noise_prior.items():
-            idx = problem.latent[name].start_idx
-            shape, scale = gamma.shape, gamma.scale
-            alpha, beta = shape, 1.0 / scale
-            pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
+        model = pm.Model()
+        with model:
+            for name, latent in problem.latent.items():
+                assert latent.N == 1  # vector parameters not yet supported!
+                idx = latent.start_idx
 
-    """
-    4)  Go!
-    """
-    with model:
-        theta = tt.as_tensor_variable(pymc3_prior)
-        pm.Potential("likelihood", pymc3_log_like(theta))
+                prior = problem.prior[name]
+                if prior.dist.name == "norm":
+                    pymc3_prior[idx] = pm.Normal(name, mu=prior.mean(), sigma=prior.std())
+                elif prior.dist.name == "gamma":
+                    scale = prior.var() / prior.mean()
+                    shape = prior.mean() / scale
+                    pymc3_prior[idx] = pm.Gamma(name, alpha=shape, beta=1./scale)
 
-        trace = pm.sample(
-            draws=1000,
-            step=pm.Metropolis(),
-            chains=4,
-            tune=100,
-            discard_tuned_samples=True,
-        )
+        with model:
+            theta = tt.as_tensor_variable(pymc3_prior)
+            pm.Potential("likelihood", pymc3_log_like(theta))
 
-    summary = pm.summary(trace)
-    print(summary)
+            trace = pm.sample(
+                draws=2000,
+                step=pm.Metropolis(),
+                chains=4,
+                tune=500,
+                discard_tuned_samples=True,
+            )
 
-    print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
+            summary = pm.summary(trace)
 
-    means = summary["mean"]
-    print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
+        print(summary)
+
+        means = summary["mean"]
+        for s in [s1, s2, s3]:
+            print(s, 1./means["noise"+s.name]**0.5)

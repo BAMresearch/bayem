@@ -3,9 +3,10 @@ import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
 from bayes.inference_problem import (
-    VariationalBayesProblem,
+    VariationalBayesSolver,
     ModelErrorInterface,
     InferenceProblem,
+    gamma_from_sd,
 )
 import scipy.stats
 from bayes.noise import UncorrelatedSingleNoise
@@ -99,7 +100,7 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        problem = VariationalBayesProblem()
+        problem = InferenceProblem()
         problem.add_model_error(me1)
         problem.add_model_error(me2)
 
@@ -107,9 +108,10 @@ class Test_VB(unittest.TestCase):
         problem.latent["B2"].add(me2.parameter_list, "B")
         problem.define_shared_latent_parameter_by_name("A")
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-
         parameter_vec = np.array([1, 2, 4])
-        error_list = problem(parameter_vec)
+
+        vb = VariationalBayesSolver(problem)
+        error_list = vb(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
         np.testing.assert_almost_equal(error_list[noise_key], error_multi)
@@ -121,7 +123,7 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        problem = VariationalBayesProblem()
+        problem = InferenceProblem()
         key1 = problem.add_model_error(me1)
         key2 = problem.add_model_error(me2)
         print(key1, key2)
@@ -131,15 +133,19 @@ class Test_VB(unittest.TestCase):
         problem.latent["A2"].add(me2.parameter_list, "A")
         problem.latent["B2"].add(me2.parameter_list, "B")
 
-        problem.set_parameter_prior("A1", scipy.stats.norm(A1 + 0.5, 2))
-        problem.set_parameter_prior("B1", scipy.stats.norm(B1 + 0.5, 2))
-        problem.set_parameter_prior("A2", scipy.stats.norm(A2 + 0.5, 2))
-        problem.set_parameter_prior("B2", scipy.stats.norm(B2 + 0.5, 2))
+        problem.set_prior("A1", scipy.stats.norm(A1 + 0.5, 2))
+        problem.set_prior("B1", scipy.stats.norm(B1 + 0.5, 2))
+        problem.set_prior("A2", scipy.stats.norm(A2 + 0.5, 2))
+        problem.set_prior("B2", scipy.stats.norm(B2 + 0.5, 2))
 
-        noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-        problem.set_noise_precision_prior(noise_key, scipy.stats.gamma(a=1e-6, scale=1./3.))
+        noise_model = UncorrelatedSingleNoise()
+        noise_key = problem.add_noise_model(noise_model)
+        problem.latent[noise_key].add(noise_model.parameter_list, "precision")
 
-        info = problem.run()
+        problem.set_prior(noise_key, gamma_from_sd(noise_sd * 2, shape=0.5))
+
+        vb = VariationalBayesSolver(problem)
+        info = vb.run()
         print(info)
         self.check_posterior(info, noise_key)
 

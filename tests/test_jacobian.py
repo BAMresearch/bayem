@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from bayes.inference_problem import ModelErrorInterface, VariationalBayesProblem
+from bayes.inference_problem import ModelErrorInterface, VariationalBayesSolver, InferenceProblem
 from bayes.noise import UncorrelatedSingleNoise
 
 CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
@@ -123,7 +123,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
 
     def test_three_joints(self):
         me = OddEvenME()
-        p = VariationalBayesProblem()
+        p = InferenceProblem()
         p.add_model_error(me)
         p.latent["E"].add(me.parameter_list, "E_odd")
         p.latent["E"].add(me.parameter_list, "E_even")
@@ -134,7 +134,8 @@ class TestJacobianJointGlobal(unittest.TestCase):
 
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
-        J = p.jacobian([42.0])[noise_key]
+        vb = VariationalBayesSolver(p)
+        J = vb.jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
         CHECK(J[:, 0], me.x_odd + me.x_even + me.x_all)
 
@@ -144,13 +145,14 @@ class TestJacobianJointGlobal(unittest.TestCase):
         two of the three parameters are defined latent.
         """
         me = OddEvenME()
-        p = VariationalBayesProblem()
+        p = InferenceProblem()
         p.add_model_error(me)
         p.latent["E"].add(me.parameter_list, "E_odd")
         p.latent["E"].add(me.parameter_list, "E_even")
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
-        J = p.jacobian([42.0])[noise_key]
+        vb = VariationalBayesSolver(p)
+        J = vb.jacobian([42.0])[noise_key]
         CHECK(J[:, 0], me.x_odd + me.x_even)
 
 
