@@ -3,7 +3,7 @@ import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
 from bayes.inference_problem import (
-    VariationalBayesProblem,
+    VariationalBayesSolver,
     ModelErrorInterface,
     InferenceProblem,
 )
@@ -99,7 +99,7 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        problem = VariationalBayesProblem()
+        problem = InferenceProblem()
         problem.add_model_error(me1)
         problem.add_model_error(me2)
 
@@ -107,9 +107,10 @@ class Test_VB(unittest.TestCase):
         problem.latent["B2"].add(me2.parameter_list, "B")
         problem.define_shared_latent_parameter_by_name("A")
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-
         parameter_vec = np.array([1, 2, 4])
-        error_list = problem(parameter_vec)
+
+        vb = VariationalBayesSolver(problem)
+        error_list = vb(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
         
         np.testing.assert_almost_equal(error_list[noise_key], error_multi)
@@ -121,7 +122,7 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        problem = VariationalBayesProblem()
+        problem = InferenceProblem()
         key1 = problem.add_model_error(me1)
         key2 = problem.add_model_error(me2)
         print(key1, key2)
@@ -144,7 +145,8 @@ class Test_VB(unittest.TestCase):
             noise_key, scipy.stats.gamma(a=1e-6, scale=1.0 / 3.0)
         )
 
-        info = problem.run()
+        vb = VariationalBayesSolver(problem)
+        info = vb.run()
         print(info)
         self.check_posterior(info, noise_key)
 

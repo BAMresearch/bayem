@@ -32,6 +32,17 @@ class ModelErrorInterface:
         return jac
 
 
+def gamma_from_sd(sd_mean, shape):
+    """
+        Returns a prior distribution for the _precision_ of the zero-mean noise 
+        term of `latent_name` to a Gamma distribution with shape `shape` and
+        mean 1/`sd_mean`**2.
+        """
+    a = shape
+    scale = 1.0 / sd_mean ** 2 / shape
+    return scipy.stats.gamma(a=shape, scale=scale)
+
+
 class InferenceProblem:
     def __init__(self):
         self.latent = LatentParameters()
@@ -81,7 +92,6 @@ class InferenceProblem:
                 f"The provided distribution must provide a `ppf` and `logpdf` method (e.g. any scipy.stats distribution.)"
             )
 
-
     def __call__(self, number_vector):
         self.latent.update(number_vector)
         result = {}
@@ -110,35 +120,26 @@ class InferenceProblem:
 
         return log_like
 
+class VariationalBayesSolver(VariationalBayesInterface):
+    def __init__(self, problem):
+        self.problem = problem
 
-class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def run(self):
         info = variational_bayes(self, self.prior_MVN(), self.prior_gamma())
         return info
-    
-    def set_noise_precision_prior_sd(self, latent_name, sd_mean, shape=1.0):
-        """
-        Sets a prior distribution for the _precision_ of the zero-mean noise 
-        term of `latent_name` to a Gamma distribution with shape `shape` and
-        mean 1/`sd_mean`**2.
-        """
-        a = shape
-        scale = 1.0 / sd_mean ** 2 / shape
-        dist = scipy.stats.gamma(a=shape, scale=scale)
-        self.set_prior(latent_name, dist)
 
     def jacobian(self, parameter_number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.jacobian
         """
-        self.latent.update_without_noise(parameter_number_vector)
+        self.problem.latent.update_without_noise(parameter_number_vector)
         jac = {}
-        for key, me in self.model_errors.items():
+        for key, me in self.problem.model_errors.items():
 
             # For each global latent parameter, we now need to find its
             # _local_ name, so the name in the parameter_list of the
             # model_error ...
-            latent_names = self.latent.latent_names(me.parameter_list)
+            latent_names = self.problem.latent.latent_names(me.parameter_list)
             local_latent_names = [n[0] for n in latent_names]
             # ... and only request the jacobian for the latent parameters.
             sensor_parameter_jac = me.jacobian(local_latent_names)
@@ -178,14 +179,14 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                     if len(J.shape) == 1:
                         J = np.atleast_2d(J).T
 
-                    stacked_jac[:, self.latent[global_name].global_index_range()] += J
+                    stacked_jac[:, self.problem.latent[global_name].global_index_range()] += J
 
                 sensor_jac[sensor] = stacked_jac
 
             jac[key] = sensor_jac
 
         jacs_by_noise = {}
-        for key, noise in self.noise_models.items():
+        for key, noise in self.problem.noise_models.items():
             terms = noise.jacobian_terms(jac)
             if concatenate:
                 terms = np.concatenate(terms)
@@ -197,13 +198,13 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         """
         overwrites VariationalBayesInterface.__call__
         """
-        self.latent.update_without_noise(parameter_number_vector)
+        self.problem.latent.update_without_noise(parameter_number_vector)
         result = {}
-        for key, me in self.model_errors.items():
+        for key, me in self.problem.model_errors.items():
             result[key] = me()
 
         errors_by_noise = {}
-        for key, noise in self.noise_models.items():
+        for key, noise in self.problem.noise_models.items():
             terms = noise.model_error_terms(result)
             if concatenate:
                 terms = np.concatenate(terms)
@@ -217,39 +218,39 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         precs = []
         names = []
 
-        for name, latent in self.latent.items():
-            if name not in self.prior:
+        for name, latent in self.problem.latent.items():
+            if name not in self.problem.prior:
                 raise RuntimeError(
                     f"You defined {name} as latent but did not provide a prior distribution!."
                 )
 
             if latent.is_noise:
                 continue
-                
 
-            if self.prior[name].dist.name != "norm":
+            if self.problem.prior[name].dist.name != "norm":
                 raise RuntimeError(
-                    f"VB problem can only handle normal priors, you provided `{self.prior[name].dist.name}` for parameter `{name}`."
+                    f"VB problem can only handle normal priors, you provided `{self.problem.prior[name].dist.name}` for parameter `{name}`."
                 )
 
-            mean, var = self.prior[name].mean(), self.prior[name].var()
+            mean, var = self.problem.prior[name].mean(), self.problem.prior[name].var()
             for _ in range(latent.N):
                 means.append(mean)
                 precs.append(1.0 / var)
                 names.append(name)
-
 
         return MVN(means, np.diag(precs), name="MVN prior", parameter_names=names,)
 
     def prior_gamma(self):
 
         noise_prior = {}
-        for name, latent in self.latent.items():
+        for name, latent in self.problem.latent.items():
 
             if latent.is_noise:
-                if name not in self._noise_models:
-                    raise RuntimeError(f"For VB, the noise parameter name must be equal to a noise key. That is not the case for {name}")
-                dist = self.prior[name]
+                if name not in self.problem.noise_models:
+                    raise RuntimeError(
+                        f"For VB, the noise parameter name must be equal to a noise key. That is not the case for {name}"
+                    )
+                dist = self.problem.prior[name]
                 assert dist.dist.name == "gamma"
                 noise_prior[name] = dist
 

@@ -4,7 +4,7 @@ import scipy.stats
 from bayes.vb import Gamma
 from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
-from bayes.inference_problem import InferenceProblem, VariationalBayesProblem
+from bayes.inference_problem import InferenceProblem, VariationalBayesSolver, gamma_from_sd
 
 
 class ModelError:
@@ -57,28 +57,33 @@ class TestVBProblem(unittest.TestCase):
         self.assertEqual(len(result[key]["dummy_sensor"]), 10)
 
     def test_wrong_prior_type(self):
-        p = VariationalBayesProblem()
+        p = InferenceProblem()
         p.add_model_error(ModelError())
         p.define_shared_latent_parameter_by_name("B")
-        p.set_prior("B", scipy.stats.crystalball(42, 6174))
-        with self.assertRaises(Exception) as e:
-            p.prior_MVN()
-        print("Expected exception\n\t", e.exception)
-        
         with self.assertRaises(Exception) as e:
             p.set_parameter_prior("B", "what?")
         print("Expected exception\n\t", e.exception)
 
+        p.set_prior("B", scipy.stats.crystalball(42, 6174))
+
         noise_model = UncorrelatedSingleNoise()
         p.add_noise_model(noise_model, key="noise")
         p.latent["noise"].add(noise_model.parameter_list, "precision")
-        p.set_noise_precision_prior_sd("noise", 6.174, 42.0)
+        p.set_prior("noise", gamma_from_sd(6.174, 42.0))
+
+
         mean, var = p.prior["noise"].mean(), p.prior["noise"].var()
         scale = var / mean
         shape = mean / scale
 
         self.assertAlmostEqual(mean, 1.0 / 6.174 ** 2)
         self.assertAlmostEqual(shape, 42.0)
+       
+        vb = VariationalBayesSolver(p)
+        with self.assertRaises(Exception) as e:
+            vb.prior_MVN()
+        print("Expected exception\n\t", e.exception)
+        
 
 
 if __name__ == "__main__":
