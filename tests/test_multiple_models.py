@@ -6,6 +6,7 @@ from bayes.inference_problem import (
     VariationalBayesSolver,
     ModelErrorInterface,
     InferenceProblem,
+    gamma_from_sd,
 )
 import scipy.stats
 from bayes.noise import UncorrelatedSingleNoise
@@ -112,7 +113,7 @@ class Test_VB(unittest.TestCase):
         vb = VariationalBayesSolver(problem)
         error_list = vb(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
-        
+
         np.testing.assert_almost_equal(error_list[noise_key], error_multi)
 
     def test_joint(self):
@@ -141,9 +142,7 @@ class Test_VB(unittest.TestCase):
         noise_key = problem.add_noise_model(noise_model)
         problem.latent[noise_key].add(noise_model.parameter_list, "precision")
 
-        problem.set_prior(
-            noise_key, scipy.stats.gamma(a=1e-6, scale=1.0 / 3.0)
-        )
+        problem.set_prior(noise_key, gamma_from_sd(noise_sd * 2, shape=0.5))
 
         vb = VariationalBayesSolver(problem)
         info = vb.run()

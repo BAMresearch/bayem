@@ -4,7 +4,11 @@ import scipy.stats
 from bayes.vb import Gamma
 from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
-from bayes.inference_problem import InferenceProblem, VariationalBayesSolver, gamma_from_sd
+from bayes.inference_problem import (
+    InferenceProblem,
+    VariationalBayesSolver,
+    gamma_from_sd,
+)
 
 
 class ModelError:
@@ -71,19 +75,17 @@ class TestVBProblem(unittest.TestCase):
         p.latent["noise"].add(noise_model.parameter_list, "precision")
         p.set_prior("noise", gamma_from_sd(6.174, 42.0))
 
-
         mean, var = p.prior["noise"].mean(), p.prior["noise"].var()
         scale = var / mean
         shape = mean / scale
 
         self.assertAlmostEqual(mean, 1.0 / 6.174 ** 2)
         self.assertAlmostEqual(shape, 42.0)
-       
+
         vb = VariationalBayesSolver(p)
         with self.assertRaises(Exception) as e:
             vb.prior_MVN()
         print("Expected exception\n\t", e.exception)
-        
 
 
 if __name__ == "__main__":

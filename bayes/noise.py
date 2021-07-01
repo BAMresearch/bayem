@@ -83,6 +83,9 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
         """
         overwritten
         """
+        if self.parameter_list["precision"] <= 0:
+            return -np.inf
+
         terms = self.model_error_terms(model_error_dict)
         prec = self.parameter_list["precision"]
         ll = 0.0

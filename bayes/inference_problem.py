@@ -120,6 +120,21 @@ class InferenceProblem:
 
         return log_like
 
+    def prior_transform(self, number_vector):
+        ppf = []
+        for name, prior in self.prior.items():
+            theta = self.latent[name].value(number_vector)
+            ppf.append(prior.ppf(theta))
+        return np.array(ppf)
+
+    def logprior(self, number_vector):
+        p = 0.0
+        for name, prior in self.prior.items():
+            theta = self.latent[name].value(number_vector)
+            p += prior.logpdf(theta)
+        return p
+
+
 class VariationalBayesSolver(VariationalBayesInterface):
     def __init__(self, problem):
         self.problem = problem
@@ -179,7 +194,9 @@ class VariationalBayesSolver(VariationalBayesInterface):
                     if len(J.shape) == 1:
                         J = np.atleast_2d(J).T
 
-                    stacked_jac[:, self.problem.latent[global_name].global_index_range()] += J
+                    stacked_jac[
+                        :, self.problem.latent[global_name].global_index_range()
+                    ] += J
 
                 sensor_jac[sensor] = stacked_jac
 

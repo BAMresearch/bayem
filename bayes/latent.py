@@ -184,7 +184,7 @@ class LatentParameters(OrderedDict):
         n_parameters = sum(l.N for l in self.values() if not l.is_noise)
         if n_parameters != len(only_parameter_number_vector):
             raise RuntimeError(
-                f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(number_vector)}!"
+                f"Dimension mismatch: There are {n_parameters} global parameters, but you provided {len(only_parameter_number_vector)}!"
             )
 
 
