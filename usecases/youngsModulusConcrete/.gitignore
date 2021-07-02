@@ -1,0 +1,8 @@
+# virtual experiment yaml files
+virtual_*.yaml
+
+# doit helper files 
+.doit.db.*
+
+# python cache
+__pycache__/
