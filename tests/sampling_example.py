@@ -7,6 +7,7 @@ from bayes.inference_problem import (
     InferenceProblem,
     VariationalBayesSolver,
     ModelErrorInterface,
+    TaralliSolver,
     gamma_from_sd,
 )
 from bayes.noise import UncorrelatedSensorNoise
@@ -137,10 +138,10 @@ if __name__ == "__main__":
     if True:
         
         import taralli.parameter_estimation.base as taralli_estimator
-
+        taralli_solver = TaralliSolver(problem)
         nwalker = 20
-        init = np.empty((nwalker, len(problem.prior)))
-        for i, prior in enumerate(problem.prior.values()):
+        init = np.empty((nwalker, len(taralli_solver.prior)))
+        for i, prior in enumerate(taralli_solver.prior.values()):
             init[:,i] = prior.rvs(nwalker)
 
         emcee = taralli_estimator.EmceeParameterEstimator(
@@ -148,22 +149,22 @@ if __name__ == "__main__":
                 ndim=init.shape[1],
                 nwalkers=init.shape[0],
                 sampling_initial_positions=init,
-                log_prior=problem.logprior,
-                log_likelihood=problem.loglike
+                log_prior=taralli_solver.logprior,
+                log_likelihood=taralli_solver.loglike
                 )
-        emcee.estimate_parameters()
+        emcee.estimate_parameters(vectorize=True)
         emcee.summary()
 
         sampler = taralli_estimator.NestleParameterEstimator(
                 seed=6174,
                 ndim=len(problem.prior),
-                log_likelihood=problem.loglike,
-                prior_transform=problem.prior_transform
+                log_likelihood=taralli_solver.loglike,
+                prior_transform=taralli_solver.prior_transform
                 )
         sampler.estimate_parameters()
         sampler.summary()
 
-    if True:
+    if False:
     
         import theano.tensor as tt
 

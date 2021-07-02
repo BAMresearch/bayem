@@ -120,19 +120,7 @@ class InferenceProblem:
 
         return log_like
 
-    def prior_transform(self, number_vector):
-        ppf = []
-        for name, prior in self.prior.items():
-            theta = self.latent[name].value(number_vector)
-            ppf.append(prior.ppf(theta))
-        return np.array(ppf)
 
-    def logprior(self, number_vector):
-        p = 0.0
-        for name, prior in self.prior.items():
-            theta = self.latent[name].value(number_vector)
-            p += prior.logpdf(theta)
-        return p
 
 
 class VariationalBayesSolver(VariationalBayesInterface):
@@ -278,3 +266,41 @@ class VariationalBayesSolver(VariationalBayesInterface):
             shape = mean / scale
             gammas[name] = Gamma(scale=scale, shape=shape)
         return gammas
+
+class TaralliSolver:
+    def __init__(self, problem):
+        self.problem = problem
+        self.prior = problem.prior
+        self.latent = problem.latent
+
+    def prior_transform(self, number_vector):
+        ppf = []
+        for name, prior in self.prior.items():
+            theta = self.latent[name].value(number_vector)
+            ppf.append(prior.ppf(theta))
+        return np.array(ppf)
+
+    def logprior(self, number_vector):
+        """
+        For taralli, number_vector has shape [n_processes x n_param] and must
+        output a vector of length [n_processes] logpriors
+        """
+        number_vector2d = np.atleast_2d(number_vector)
+        p = np.zeros(number_vector2d.shape[0])
+        for i, serial_number_vector in enumerate(number_vector2d):
+            for name, prior in self.prior.items():
+                theta = self.latent[name].value(serial_number_vector)
+                p[i] += prior.logpdf(theta)
+
+        return p
+
+    def loglike(self, number_vector):
+        """
+        For taralli, number_vector has shape [n_processes x n_param] and must
+        output a vector of length [n_processes] loglikes
+        """
+        number_vector2d = np.atleast_2d(number_vector)
+        ll = np.zeros(number_vector2d.shape[0])
+        for i, serial_number_vector in enumerate(number_vector2d):
+            ll[i] = self.problem.loglike(serial_number_vector)
+        return ll
