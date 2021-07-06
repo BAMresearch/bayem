@@ -112,13 +112,15 @@ class Inference:
         mcmc.summary()
         return posterior_para, posterior_noise
 
-    def predict(self, posterior_para, posterior_noise, new_input):
+    def predict(self, posterior_para, posterior_noise, new_input,model_discrepancy=False):
         """
         Method to get posterior predictive distribution. Integration approximated using Monte Carlo.
         Current assumption is no model Bias, just observational noise
         :param posterior_para: p(theta|D) samples
         :param posterior_noise: p(sigma|D) posterior of the observational noise
         :param new_input: New input to the solver. [Dict type] ('known_parameters': , 'sensors': ,'time_steps': )
+        :param model_discrepancy: If its True, then additive noise is due to model discrepancy, else due to sensor noise.
+                In the materials domain, as reported by BAM people, model discrepancy is much more pronounced than sensor noise.
         :return: tilda_X [S x T]: New unobserved data samples., with S being number of sample and T being the parameters
         """
         # size = np.size(new_input['sensors']) * new_input['time_steps']
@@ -130,9 +132,11 @@ class Inference:
         for i in range(0, np.size(posterior_para)):
             theta = posterior_para[i]
             mean = self.forward_solve(new_input, theta)
-            # _dist = dist.Normal(mean, sigma_mean)
-            # tilda_X[i, :] = pyro.sample("pos", _dist)
-            tilda_X[i, :] = mean
+            _dist = dist.Normal(mean, sigma_mean)
+            if model_discrepancy:
+                tilda_X[i, :] = pyro.sample("pos", _dist)
+            else:
+                tilda_X[i, :] = mean
         return tilda_X
 
     def visualize_prior_posterior(self, posterior_para, posterior_noise):
@@ -157,6 +161,7 @@ class Inference:
         plt.show()
 
         plt.figure(figsize=(3, 3))
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
         sns.kdeplot(data=posterior_noise, label="s.d of noise_posterior")
         plt.legend()
 
