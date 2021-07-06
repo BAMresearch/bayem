@@ -11,6 +11,7 @@ from numpy.core._multiarray_umath import ndarray
 from pyro.infer import EmpiricalMarginal, Importance, NUTS, MCMC, HMC
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from utils.forwardSolverInterface import forwardSolverInterface
 
@@ -96,7 +97,7 @@ class Inference:
         Method to find approximate posterior with MCMC/VI
         :param n:
         :param kernel:
-        :return: posterior: [N,]
+        :return: posterior: Dict of the all the parameters
         """
         # TODO: Incorporate VI
         if kernel == "NUTS":
@@ -110,20 +111,22 @@ class Inference:
         posterior_para = mcmc.get_samples()['theta'].numpy()
         posterior_noise = mcmc.get_samples()['sigma'].numpy()
         mcmc.summary()
-        return posterior_para, posterior_noise
+        posterior = {'parameter': posterior_para, 'noise_sd': posterior_noise}
+        return posterior
 
-    def predict(self, posterior_para, posterior_noise, new_input,model_discrepancy=False):
+    def predict(self, posterior, new_input,model_discrepancy=False):
         """
         Method to get posterior predictive distribution. Integration approximated using Monte Carlo.
         Current assumption is no model Bias, just observational noise
-        :param posterior_para: p(theta|D) samples
-        :param posterior_noise: p(sigma|D) posterior of the observational noise
+        :param posterior: Dict of the all the parameters with keys 'parameter' and 'noise_sd'
         :param new_input: New input to the solver. [Dict type] ('known_parameters': , 'sensors': ,'time_steps': )
         :param model_discrepancy: If its True, then additive noise is due to model discrepancy, else due to sensor noise.
                 In the materials domain, as reported by BAM people, model discrepancy is much more pronounced than sensor noise.
         :return: tilda_X [S x T]: New unobserved data samples., with S being number of sample and T being the parameters
         """
-        # size = np.size(new_input['sensors']) * new_input['time_steps']
+        posterior_para = posterior['parameter']
+        posterior_noise = posterior['noise_sd']
+
         size = [np.size(v) for v in new_input.values()]
         # size = np.size(new_input['known_inputs'])
         tilda_X = np.ndarray((np.size(posterior_para), size[0]))
@@ -139,12 +142,14 @@ class Inference:
                 tilda_X[i, :] = mean
         return tilda_X
 
-    def visualize_prior_posterior(self, posterior_para, posterior_noise):
+    def visualize_prior_posterior(self, posterior, pairplot = False):
         """
-
-        :param posterior: Pass the posterior after MCMC
+        Returns KDE plots of the posterior, plus optionally pair plots.
+        :param posterior: Dict of the all the parameters with keys 'parameter' and 'noise_sd'
         :return:
         """
+        posterior_para = posterior['parameter']
+        posterior_noise = posterior['noise_sd']
 
         plt.figure(figsize=(3, 3))
         # sns.histplot(posterior, kde=True, label="para_posterior", bins=20)
@@ -167,17 +172,21 @@ class Inference:
 
         plt.show()
 
-        # raise NotImplementedError
+        if pairplot:
+            sns.pairplot(pd.DataFrame(data=posterior), kind="kde")
 
-    def visualize_predictive_posterior(self, pred_posterior):
+
+    def visualize_predictive_posterior(self, pred_posterior, test_data):
         """
 
-        :param pred_posterior: [NxM] Samples of the predictive posterior, with N being the total number of samples
-        and M being the number of experiments. :return:
+        :param pred_posterior: [S x T] New unobserved data samples., with S being number of sample and T being the parameters
+        :param test_data: [Dict] Contains stress and strain experimental values to compare our predictions
+        :return:
         """
-        for i in range(0, np.shape(pred_posterior)[1]):
-            plt.figure(figsize=(3, 3))
-            sns.kdeplot(data=pred_posterior[:, i], label="predictive_posterior")
-            plt.legend()
-            plt.xlabel("Y")
-            plt.show()
+        pos = np.quantile(pred_posterior, [0.05, 0.5, 0.95], axis=0)
+        plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        plt.fill_betweenx(test_data['stress'], pos[0, :], pos[2, :], alpha=0.4, label='Predicted strain')
+        plt.plot(test_data['strain'], test_data['stress'], 'g', label='Experimental strain')
+        plt.legend()
+        plt.xlabel('strain')
+        plt.ylabel('stress')
