@@ -9,7 +9,7 @@ def task_website():
         raise ImportError(
             "You need to install `sphinx` and "
             "`sphinx_rtd_theme` to build the website locally. Install "
-            "them manually or via \n $pip3 install -r requirements.txt"
+            "them manually or via \n $pip3 install .[doc]"
         ) from e
 
     pages = glob.glob("docs/*.rst")
