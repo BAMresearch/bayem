@@ -22,6 +22,6 @@ setuptools.setup(
     extras_require={  # Optional
         "dev": ["black"],
         "test": ["coverage, pytest, flake8"],
-        "doc": ["sphinx, sphinx_rtd_theme"],
+        "doc": ["sphinx, sphinx_rtd_theme, doit"],
     },
 )
