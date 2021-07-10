@@ -21,7 +21,7 @@ setuptools.setup(
     install_requires=["numpy", "scipy"],
     extras_require={  # Optional
         "dev": ["black"],
-        "test": ["coverage, pytest, flake8"],
-        "doc": ["sphinx, sphinx_rtd_theme, doit"],
+        "test": ["coverage", "pytest", "flake8"],
+        "doc": ["sphinx", "sphinx_rtd_theme", "doit"],
     },
 )
