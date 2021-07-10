@@ -6,7 +6,6 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="bayes",
     version="0.1",
-    install_requires=["numpy", "scipy"],
     author="BAM",
     author_email="thomas.titscher@bam.de",
     description="Variational Bayes",
@@ -19,4 +18,10 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    install_requires=["numpy", "scipy"],
+    extras_require={  # Optional
+        "dev": ["black"],
+        "test": ["coverage, pytest, flake8"],
+        "doc": ["sphinx, sphinx_rtd_theme"],
+    },
 )
