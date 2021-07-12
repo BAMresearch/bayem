@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
-from bayes.inference_problem import ModelErrorInterface, VariationalBayesProblem
+from bayes.inference_problem import  VariationalBayesProblem
+from bayes.model_error import ModelErrorInterface
 from bayes.noise import UncorrelatedSingleNoise
 
 CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
