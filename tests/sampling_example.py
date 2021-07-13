@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 from bayes.parameters import ParameterList
-from bayes.vb import VariationalBayesProblem
+from bayes.vb_problem import VariationalBayesProblem
 from bayes.model_error import ModelErrorInterface
 from bayes.noise import UncorrelatedNoiseModel
 

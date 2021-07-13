@@ -4,7 +4,7 @@ from bayes.vb import Gamma
 from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
 from bayes.inference_problem import InferenceProblem
-from bayes.vb import VariationalBayesProblem
+from bayes.vb_problem import VariationalBayesProblem
 
 
 class ModelError:

@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from bayes.vb import VariationalBayesProblem
+from bayes.vb_problem import VariationalBayesProblem
 from bayes.model_error import ModelErrorInterface
 from bayes.noise import UncorrelatedSingleNoise
 
