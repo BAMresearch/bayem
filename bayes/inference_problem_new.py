@@ -45,6 +45,7 @@ class InferenceProblem:
         #          parameter; None for 'const'-parameters)
         # 'value': float or None (defines the value for 'const'-parameters;
         #          None for 'calibration'-parameters)
+        # 'info':  string (a short explanation of the parameter)
         self._prm_dict = {}
 
         # the number of currently defined 'calibration'-parameters
@@ -113,6 +114,12 @@ class InferenceProblem:
             prm_value = self._prm_dict[prm_name]['value']
             const_prms_str += tcs(prm_name, f"{prm_value:.2f}", col_width=w)
 
+        # additional information on the problem's parameters
+        prms_info_str = underlined_string("Parameter explanations", symbol="-")
+        w = len(max(self._prm_dict.keys(), key=len)) + 2
+        for prm_name, prm_dict in self._prm_dict.items():
+            prms_info_str += tcs(prm_name, f"{prm_dict['info']}", col_width=w)
+
         # include information on the defined priors
         prior_str = underlined_string("Priors defined", symbol="-")
         w = len(max(self._priors.keys(), key=len)) + 2
@@ -120,10 +127,12 @@ class InferenceProblem:
             prior_str += tcs(prior_name, str(prior_obj), col_width=w)
 
         # concatenate the string and return it
-        full_string = title_string + prms_string + const_prms_str + prior_str
+        full_string = title_string + prms_string + const_prms_str
+        full_string += prms_info_str + prior_str
         return full_string
 
-    def add_parameter(self, prm_name, prm_type, const=None, prior=None):
+    def add_parameter(self, prm_name, prm_type, const=None, prior=None,
+                      info="No explanation provided"):
         """
         Adds a parameter to the inference problem.
 
@@ -146,6 +155,8 @@ class InferenceProblem:
             element must be a dictionary stating the prior's parameters; its
             definition is identical to the one of prm_dict explained in the
             docstring of the self._add_prior method.
+        info : string, optional
+            Short explanation on the added parameter
         """
 
         # make sure the given prm_type is valid
@@ -190,7 +201,10 @@ class InferenceProblem:
                 new_name = f"{prior_parameter_name}_{prm_name}"
                 prior_parameter_names.append(new_name)
                 # the prior parameter is considered a constant parameter
-                self.add_parameter(new_name, 'prior', const=value)
+                default_info = f"{prior_type.capitalize()} prior's parameter "
+                default_info += f"for calibration-parameter '{prm_name}'"
+                self.add_parameter(new_name, 'prior', const=value,
+                                   info=default_info)
             prior_name = f"{prm_name}_{prior_type}"  # unique name of this prior
             prm_prior = self._add_prior(prior_name, prior_type, prm_name,
                                         prior_parameter_names)
@@ -203,11 +217,12 @@ class InferenceProblem:
                                     'type': prm_type,
                                     'role': prm_role,
                                     'prior': prm_prior,
-                                    'value': prm_value}
+                                    'value': prm_value,
+                                    'info': info}
 
     def remove_parameter(self, prm_name):
         """
-        Removes a parameter from the inference problem
+        Removes a parameter from the inference problem.
 
         Parameters
         ----------
@@ -282,8 +297,29 @@ class InferenceProblem:
         # change the parameter's role by first removing it from the problem, and
         # then adding it again in its new role
         prm_type = self._prm_dict[prm_name]['type']
+        prm_info = self._prm_dict[prm_name]['info']
         self.remove_parameter(prm_name)
-        self.add_parameter(prm_name, prm_type, const=const, prior=prior)
+        self.add_parameter(prm_name, prm_type, const=const, prior=prior,
+                           info=prm_info)
+
+    def change_parameter_info(self, prm_name, new_info):
+        """
+        Changes the info-string of a given parameter
+
+        Parameters
+        ----------
+        prm_name : string
+            The name of the parameter whose info-string should be changed
+        new_info : string
+            The new string for the explanation of parameter prm_name
+        """
+        # check if the given parameter exists
+        if prm_name not in self._prm_dict.keys():
+            raise RuntimeError(
+                f"A parameter with name '{prm_name}' has not been defined yet."
+            )
+        # change the info-string
+        self._prm_dict[prm_name]['info'] = new_info
 
     def change_constant(self, prm_name, new_value):
         """
@@ -428,7 +464,8 @@ class InferenceProblem:
         assert len(idx_list) == self.n_calibration_prms
         assert idx_list[0] == 0  # first index must be zero
         if self.n_calibration_prms > 1:
-            diff_list = [x-idx_list[i - 1] for i, x in enumerate(idx_list)][1:]
+            diff_list = [x - idx_list[i - 1] for i, x in enumerate(idx_list)][
+                        1:]
             assert max(diff_list) == 1  # no index can be skipped
 
         # check if all output sensors defined in the experiments have been
@@ -561,7 +598,7 @@ class InferenceProblem:
         # inference problem's forward model
         self._forward_model = forward_model_class(prms_def)
 
-    def evaluate_model_error(self, theta,  experiments=None, key="sensor"):
+    def evaluate_model_error(self, theta, experiments=None, key="sensor"):
         """
         Evaluates the model error for the given parameter vector and the given
         experiments.
@@ -602,7 +639,8 @@ class InferenceProblem:
 
         # the model error is computed within the model object
         theta_model = self.get_parameters(theta, self._forward_model.prms_def)
-        model_error = self._forward_model.error(theta_model, experiments, key=key)
+        model_error = self._forward_model.error(theta_model, experiments,
+                                                key=key)
 
         return model_error
 
@@ -696,6 +734,7 @@ class InferenceProblem:
 
         return ll
 
+
 # -----------------------------------------------------------------------------#
 
 # the number of conducted experiments
@@ -731,18 +770,24 @@ if show_data:
 problem = InferenceProblem("Linear model with normal noise")
 
 # add all parameters to the problem
-problem.add_parameter('a', 'model',
+problem.add_parameter('a', 'model', info="Slope of the graph",
                       prior=('normal', {'loc': 2.0, 'scale': 1.0}))
-problem.add_parameter('b', 'model',
+problem.add_parameter('b', 'model', info="Intersection of graph with y-axis",
                       prior=('normal', {'loc': 1.0, 'scale': 1.0}))
 problem.add_parameter('prec', 'noise',
+                      info="Controls noise model variance (prec=1/sigma^2)",
                       prior=('normal', {'loc': 0.5, 'scale': 1.0}))
+
+# overwrite default info-strings for a's prior parameters
+problem.change_parameter_info("loc_a", "Mean of normal prior for 'a'")
+problem.change_parameter_info("scale_a",
+                              "Standard deviation of normal prior for 'a'")
 
 # in case the 'prec' should not be inferred, change it to a constant
 if not infer_noise_parameter:
     problem.change_parameter_role('prec', const=1.0)
     problem.change_parameter_role('b', const=1.7)
-    #problem.change_parameter_role('b', prior=('normal', {'loc': 2.0, 'scale': 1.0}))
+    # problem.change_parameter_role('b', prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 
 # add the experimental data
 for i in range(n_tests):
@@ -750,12 +795,14 @@ for i in range(n_tests):
                            ('x-Sensor', x_test[i]),
                            ('y-Sensor', y_test[i]))
 
+
 # define the forward model
 class LinearModel(ModelTemplate):
     def __call__(self, x, theta):
         a = theta[0]
         b = theta[1]
         return a * x + b
+
 
 # add the forward model to the problem
 problem.add_forward_model(LinearModel, ['a', 'b'])
