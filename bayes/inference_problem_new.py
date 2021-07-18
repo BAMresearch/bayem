@@ -285,6 +285,31 @@ class InferenceProblem:
         self.remove_parameter(prm_name)
         self.add_parameter(prm_name, prm_type, const=const, prior=prior)
 
+    def change_constant(self, prm_name, new_value):
+        """
+        Changes the value of a 'const'-parameter, i.e. a constant parameter of
+        the inference problem.
+
+        Parameters
+        ----------
+        prm_name : string
+            The name of the 'const'-parameter whose value should be changed
+        new_value : float
+            The new value that prm_name should assume
+        """
+        # check if the given parameter exists
+        if prm_name not in self._prm_dict.keys():
+            raise RuntimeError(
+                f"A parameter with name '{prm_name}' has not been defined yet."
+            )
+        # check if the given parameter is a constant
+        if self._prm_dict[prm_name]['role'] != "const":
+            raise RuntimeError(
+                f"The parameter '{prm_name}' is not a constant!"
+            )
+        # change the parameter's value
+        self._prm_dict[prm_name]['value'] = new_value
+
     def _add_prior(self, name, prior_type, prm_dict, ref_prm):
         """
         Adds a prior-object of a calibration parameter to the internal prior
