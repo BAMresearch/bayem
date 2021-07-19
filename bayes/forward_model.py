@@ -5,8 +5,8 @@ import copy as cp
 import numpy as np
 
 # local imports
-from jacobian import delta_x
-from subroutines import len_or_one
+from bayes.jacobian import delta_x
+from bayes.subroutines import len_or_one
 
 
 class ModelTemplate:

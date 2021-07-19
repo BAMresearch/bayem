@@ -5,7 +5,7 @@ import math
 import numpy as np
 
 # local imports
-from subroutines import len_or_one
+from bayes.subroutines import len_or_one
 
 
 class NoiseTemplate:
