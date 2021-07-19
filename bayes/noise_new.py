@@ -57,7 +57,8 @@ class NormalNoise(NoiseTemplate):
         """
         # the precision 'prec' is defined as the inverse of the variance, hence
         # prec = 1 / sigma**2 where sigma denotes the standard deviation
-        prec = prms[0]
+        sigma = prms[0]
+        prec = 1.0 / sigma**2-0
         ll = 0.0
         # evaluate the Gaussian log-PDF with zero mean and a variance of
         # 1/prec for each error term and sum them up

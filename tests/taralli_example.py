@@ -14,10 +14,10 @@ a_true = 2.5
 b_true = 1.7
 sigma_noise = 0.5
 n_walkers = 20
-n_steps = 5000
+n_steps = 50000
 seed = 1
 show_data = False
-infer_noise_parameter = False
+infer_noise_parameter = True
 
 # data-generation process; normal noise with constant variance around each point
 np.random.seed(1)
@@ -45,9 +45,9 @@ problem.add_parameter('a', 'model', info="Slope of the graph",
                       prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 problem.add_parameter('b', 'model', info="Intersection of graph with y-axis",
                       prior=('normal', {'loc': 1.0, 'scale': 1.0}))
-problem.add_parameter('prec', 'noise',
-                      info="Controls noise model variance (prec=1/sigma^2)",
-                      prior=('normal', {'loc': 0.5, 'scale': 1.0}))
+problem.add_parameter('sigma', 'noise',
+                      info="Standard deviation of zero-mean noise model",
+                      prior=('uniform', {'loc': 0.1, 'scale': 1.9}))
 
 # overwrite default info-strings for a's prior parameters
 problem.change_parameter_info("loc_a", "Mean of normal prior for 'a'")
@@ -79,17 +79,19 @@ class LinearModel(ModelTemplate):
 problem.add_forward_model(LinearModel, ['a', 'b'])
 
 # add the noise model to the problem
-problem.add_noise_model('y-Sensor', NormalNoise, ['prec'])
+problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 
 problem.theta_explanation()
 
 print(problem)
-exit(0)
+#exit(0)
 
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
 init_array[:, 0] = a_true + np.random.randn(n_walkers)
-if problem.n_calibration_prms == 2:
-    init_array[:, 1] = b_true + np.random.randn(n_walkers)
+#if problem.n_calibration_prms == 2:
+init_array[:, 1] = b_true + np.random.randn(n_walkers)
+init_array[:, 2] = np.random.uniform(0.1, 2.0, n_walkers)
+print(init_array[:, 2])
 
 emcee_model = EmceeParameterEstimator(
     log_likelihood=problem.loglike,
