@@ -97,6 +97,12 @@ class InferenceProblem:
         # contains the name of the inference problem
         title_string = underlined_string(self.name, n_empty_start=2)
 
+        # list the forward models that have been defined within the problem
+        fwd_string = underlined_string("Forward models", symbol="-")
+        w = len(max(self._forward_models.keys(), key=len)) + 2
+        for name, fwd_model in self._forward_models.items():
+            fwd_string += tcs(name, f"{fwd_model.prms_def}", col_width=w)
+
         # provide a parameter overview sorted by their roles and types
         n_prms = len(self._prm_dict.keys())
         prms_string = underlined_string("Parameter overview", symbol="-")
@@ -142,7 +148,7 @@ class InferenceProblem:
         theta_string += self.theta_explanation(print_it=False)
 
         # concatenate the string and return it
-        full_string = title_string + prms_string + const_prms_str
+        full_string = title_string + fwd_string + prms_string + const_prms_str
         full_string += prms_info_str + prior_str + alias_str + theta_string
         return full_string
 
