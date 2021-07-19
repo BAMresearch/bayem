@@ -128,9 +128,18 @@ class InferenceProblem:
         for prior_name, prior_obj in self._priors.items():
             prior_str += tcs(prior_name, str(prior_obj), col_width=w)
 
+        # show aliases defined within the problem
+        alias_str = underlined_string("Aliases defined", symbol="-")
+        aliases = set(self._alias_dict.keys()).\
+            difference(set(self._alias_dict.values()))
+        w = len(max(list(aliases), key=len)) + 2
+        for alias_name, original_name in self._alias_dict.items():
+            if alias_name != original_name:
+                alias_str += tcs(alias_name, str(original_name), col_width=w)
+
         # concatenate the string and return it
         full_string = title_string + prms_string + const_prms_str
-        full_string += prms_info_str + prior_str
+        full_string += prms_info_str + prior_str + alias_str
         return full_string
 
     def add_parameter(self, prm_name, prm_type, const=None, prior=None,

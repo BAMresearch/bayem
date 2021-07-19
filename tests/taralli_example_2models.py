@@ -77,8 +77,8 @@ class QuadraticModel(ModelTemplate):
 
 # add the forward model to the problem
 problem.add_forward_model('LinearModel', LinearModel, ['a', 'b'])
-#problem.add_parameter_alias('b', 'beta')
-problem.add_forward_model('QuadraticModel', QuadraticModel, ['alpha', 'b'])
+problem.add_parameter_alias('b', 'beta')
+problem.add_forward_model('QuadraticModel', QuadraticModel, ['alpha', 'beta'])
 
 
 # add the experimental data
@@ -96,7 +96,7 @@ problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 
 problem.theta_explanation()
 print(problem)
-
+exit(0)
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
 init_array[:, 0] = a_true + np.random.randn(n_walkers)
 init_array[:, 1] = alpha_true + np.random.randn(n_walkers)
