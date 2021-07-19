@@ -137,9 +137,13 @@ class InferenceProblem:
             if alias_name != original_name:
                 alias_str += tcs(alias_name, str(original_name), col_width=w)
 
+        # include the information on the theta interpretation
+        theta_string = "\nTheta interpretation"
+        theta_string += self.theta_explanation(print_it=False)
+
         # concatenate the string and return it
         full_string = title_string + prms_string + const_prms_str
-        full_string += prms_info_str + prior_str + alias_str
+        full_string += prms_info_str + prior_str + alias_str + theta_string
         return full_string
 
     def add_parameter(self, prm_name, prm_type, const=None, prior=None,
@@ -647,30 +651,50 @@ class InferenceProblem:
 
         return relevant_experiments
 
-    def theta_explanation(self):
+    def theta_explanation(self, print_it=True):
         """
-        Prints out how the theta-vector, which is the numeric parameter vector
-        that is given to the self.loglike and self.logprior methods, is
-        interpreted with respect to the problems parameters. The printout will
-        tell you which parameter is connected to which index of theta.
+        Prints out or returns a string on how the theta-vector, which is the
+        numeric parameter vector that is given to the self.loglike and
+        self.logprior methods, is interpreted with respect to the problems
+        parameters. The printout will tell you which parameter is connected to
+        which index of theta.
+
+        Parameters
+        ----------
+        print_it : boolean
+            If True, the explanation string is printed and not returned; if set
+            to False, the info-string is not printed but returned
+
+        Returns
+        -------
+        s : string or None
+            The constructed string when 'print_it' was set to False
         """
 
         # an explanation is not printed if the problem is inconsistent
         self.check_problem_consistency()
 
         # assemble the parameter's names in the order as they appear in theta
-        # from the index information in self._prm_dict, and print the result
+        # from the index information in self._prm_dict
         theta_names = []
         for prm_name, prm_dict in self._prm_dict.items():
             if prm_dict['index'] is not None:
                 theta_names.append(prm_name)
-        print("\n---------------------")
-        print("| Theta | Parameter |")
-        print("| index |   name    |")
-        print("|-------------------|")
+
+        # construct the info-string
+        s = "\n---------------------\n"
+        s += "| Theta | Parameter |\n"
+        s += "| index |   name    |\n"
+        s += "|-------------------|\n"
         for i, prm_name in enumerate(theta_names):
-            print(f"|{i:5d} --> {prm_name:<9s}|")
-        print("---------------------\n")
+            s += f"|{i:5d} --> {prm_name:<9s}|\n"
+        s += "---------------------\n"
+
+        # print or return s
+        if print_it:
+            print(s)
+        else:
+            return s
 
     def add_forward_model(self, name, forward_model_class, prms_def):
         """

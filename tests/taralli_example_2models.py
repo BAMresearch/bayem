@@ -94,7 +94,6 @@ for i in range(n_tests):
 # add the noise model to the problem
 problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 
-problem.theta_explanation()
 print(problem)
 exit(0)
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
