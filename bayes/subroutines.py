@@ -1,14 +1,46 @@
 def len_or_one(obj):
-    """Returns the length of an object or 1 if no length is defined."""
+    """
+    Returns the length of an object or 1 if no length is defined.
+
+    Parameters
+    ----------
+    obj : object
+        Most of the time this will be a list/tuple or a single scalar number.
+
+    Returns
+    -------
+    length : int
+        The length of the given list/tuple etc. or 1, if obj has no __len__
+        attribute; the latter case is mostly intended for scalar numbers
+
+    """
     if hasattr(obj, '__len__'):
         length = len(obj)
     else:
         length = 1
     return length
 
-
-
 def underlined_string(string, symbol="=", n_empty_start=1, n_empty_end=1):
+    """
+    Adds a line made of 'symbol'-characters under a given string and returns it.
+
+    Parameters
+    ----------
+    string : string
+        The string that should be underlined
+    symbol : string
+        A single character the line should be 'made' of
+    n_empty_start : int, optional
+        Number of empty lines added before the underlined string
+    n_empty_end : int, optional
+        Number of empty lines added after the underlined string
+
+    Returns
+    -------
+    result_string : string
+        The generated string representing an underlined string, possibly with
+        empty lines added before/after
+    """
     n_chars = len(string)
     underline_string = n_chars * symbol
     empty_lines_start = n_empty_start * "\n"
@@ -18,52 +50,55 @@ def underlined_string(string, symbol="=", n_empty_start=1, n_empty_end=1):
     return result_string
 
 def sub_when_empty(string, empty_str="-"):
+    """
+    Just returns a given string if it is not empty. If it is empty though, a
+    default string is returned instead.
+
+    Parameters
+    ----------
+    string : string
+        The string to check if it is empty or not
+    empty_str : string, optional
+        The string to be returned if the given string is empty
+
+    Returns
+    -------
+    result_string : string
+        Either the given string (when 'string' is not empty) or the empty_str
+        (when 'string' is empty)
+    """
     if len(string) > 0:
         result_string = string
     else:
         result_string = empty_str
     return result_string
 
-def tcs(string_1, string_2, sep=":", col_width=24, empty_str="-", par=True):
-    # two-column-string
-    result_string = f"{string_1+sep:{col_width}s}{sub_when_empty(string_2, empty_str=empty_str)}"
-    if par:
-        result_string += "\n"
+def tcs(string_1, string_2, sep=":", col_width=24, empty_str="-"):
+    """
+    Returns a two-column-string (tcs) made from two given strings with a
+    separator in between. The two features are the definable with of the first
+    column and the replacement of empty strings in the second column. The
+    created output looks like 'alpha:    1.45'.
+
+    Parameters
+    ----------
+    string_1 : string
+        The string to appear in the left column
+    string_2 : string
+        The string to appear in the right column
+    sep : string, optional
+        A single character to appear right after string_1
+    col_width : int, optional
+        The column width of the first column
+    empty_str : string, optional
+        The replacement string of string_2 if the latter is empty
+
+    Returns
+    -------
+    result_string : string
+        The created string representing a two-column-string
+    """
+    first_column = string_1+sep
+    second_column = sub_when_empty(string_2, empty_str=empty_str)
+    result_string = f"{first_column:{col_width}s}{second_column}\n"
     return result_string
-
-def mcs(string_list, col_width=18, par=False):
-    # multi-column-string
-    result_string = ""
-    for string in string_list:
-        result_string += f"{string:{col_width}}"
-    if par:
-        result_string += "\n"
-    return result_string
-
-
-
-# def __str__(self):
-#
-#     title_string = underlined_string(self.name, n_empty_start=2)
-#
-#     n_prms = len(self._prm_names)
-#     prms_string = underlined_string("Parameter overview", symbol="-")
-#     prms_string += f"Number of parameters:   {n_prms}\n"
-#     for group in self._prm_names_dict.keys():
-#         prms_string += tcs(f'{group.capitalize()} parameters',
-#                            self._prm_names_dict[group])
-#
-#     const_prms_str = underlined_string("Constant parameters", symbol="-")
-#     w = len(max(self._const_dict.keys(), key=len)) + 2
-#     for prm_name, prm_value in self._const_dict.items():
-#         const_prms_str += tcs(prm_name, f"{prm_value:.2f}", col_width=w)
-#
-#     prior_str = underlined_string("Priors defined", symbol="-")
-#     w = len(max(self._priors.keys(), key=len)) + 2
-#
-#     for prior_name, prior_obj in self._priors.items():
-#         prior_str += tcs(prior_name, str(prior_obj), col_width=w)
-#
-#     full_string = title_string + prms_string + const_prms_str + prior_str
-#
-#     return full_string

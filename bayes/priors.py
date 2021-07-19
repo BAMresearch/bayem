@@ -48,7 +48,7 @@ class LogPriorTemplate:
         s : string
             A string containing the prior's attributes.
         """
-        s = f"({self.prior_type} for '{self.ref_prm}', prms={self.prms_def})"
+        s = f"{self.prior_type} for '{self.ref_prm}', prms={self.prms_def}"
         return s
 
 
