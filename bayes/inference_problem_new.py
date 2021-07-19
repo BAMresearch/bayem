@@ -638,8 +638,8 @@ class InferenceProblem:
             experiments = self._experiments
 
         # the model error is computed within the model object
-        theta_model = self.get_parameters(theta, self._forward_model.prms_def)
-        model_error = self._forward_model.error(theta_model, experiments,
+        prms_model = self.get_parameters(theta, self._forward_model.prms_def)
+        model_error = self._forward_model.error(prms_model, experiments,
                                                 key=key)
 
         return model_error
