@@ -32,8 +32,8 @@ class NoiseTemplate:
         ----------
         model_error_vector : array_like
             Usually a 1D numerical array containing the model errors.
-        prms : array_like
-            The parameter vector of the noise model.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs.
 
         Returns
         -------
@@ -53,11 +53,11 @@ class NormalNoise(NoiseTemplate):
     def loglike_contribution(self, model_error_vector, prms):
         """
         This method overwrites the corresponding method of the parent class.
-        Checkout the docstring there for additional information.
+        Check out the docstring there for additional information.
         """
         # the precision 'prec' is defined as the inverse of the variance, hence
         # prec = 1 / sigma**2 where sigma denotes the standard deviation
-        sigma = prms[0]
+        sigma = prms['sigma']
         prec = 1.0 / sigma**2-0
         ll = 0.0
         # evaluate the Gaussian log-PDF with zero mean and a variance of

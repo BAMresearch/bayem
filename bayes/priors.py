@@ -17,9 +17,7 @@ class LogPriorTemplate:
         ref_prm : string
             The name of the calibration-parameter the prior refers to.
         prms_def : list
-            A list of strings defining the priors parameters. Note that the
-            order is important! Check out the explanation of the attribute
-            self.prms_def given below.
+            A list of strings defining the priors parameters.
         name : string
             Defining the priors name.
         prior_type : string
@@ -31,12 +29,7 @@ class LogPriorTemplate:
         self.name = name
         self.prior_type = prior_type  # "normal distribution"
 
-        # this attribute defines how the parameter vector given to the __call__
-        # method is going to be set up; if self.prms_def = ["a", "mu_a", "sd_a"]
-        # then the prms argument of __call__ will be a numeric vector giving a
-        # value for "a" at the first position, a value for "mu_a" at the second
-        # position and a value for "sd_a" at the third position; make sure the
-        # call method processes the prms argument correspondingly!
+        # this attribute defines the parameters given to the __call__-method
         self.prms_def = [ref_prm] + prms_def
 
     def __str__(self):
@@ -64,21 +57,17 @@ class LogPriorNormal(LogPriorTemplate):
 
         Parameters
         ----------
-        prms : array_like
-            A numeric vector to be interpreted according to self.prms. The first
-            element refers to the priors reference parameter (e.g. if the prior
-            refers to some parameter "b" of the inference problem, then the
-            first element of prms is a value for b). The following elements are
-            the priors parameter.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs
 
         Returns
         -------
         float
             The logarithm of the prior's normal PDF evaluated at x.
         """
-        x = prms[0]
-        loc = prms[1]
-        scale = prms[2]
+        x = prms[self.ref_prm]
+        loc = prms[f"loc_{self.ref_prm}"]
+        scale = prms[f"scale_{self.ref_prm}"]
         return stats.norm.logpdf(x, loc, scale)
 
 
@@ -94,21 +83,17 @@ class LogPriorLognormal(LogPriorTemplate):
 
         Parameters
         ----------
-        prms : array_like
-            A numeric vector to be interpreted according to self.prms. The first
-            element refers to the priors reference parameter (e.g. if the prior
-            refers to some parameter "b" of the inference problem, then the
-            first element of prms is a value for b). The following elements are
-            the priors parameter.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs
 
         Returns
         -------
         float
             The logarithm of the prior's normal PDF evaluated at x.
         """
-        x = prms[0]
-        loc = prms[1]
-        scale = prms[2]
+        x = prms[self.ref_prm]
+        loc = prms[f"loc_{self.ref_prm}"]
+        scale = prms[f"scale_{self.ref_prm}"]
         return stats.lognorm.logpdf(x, loc, scale)
 
 
@@ -124,21 +109,17 @@ class LogPriorUniform(LogPriorTemplate):
 
         Parameters
         ----------
-        prms : array_like
-            A numeric vector to be interpreted according to self.prms. The first
-            element refers to the priors reference parameter (e.g. if the prior
-            refers to some parameter "b" of the inference problem, then the
-            first element of prms is a value for b). The following elements are
-            the priors parameter.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs
 
         Returns
         -------
         float
             The logarithm of the prior's normal PDF evaluated at x.
         """
-        x = prms[0]
-        loc = prms[1]
-        scale = prms[2]
+        x = prms[self.ref_prm]
+        loc = prms[f"loc_{self.ref_prm}"]
+        scale = prms[f"scale_{self.ref_prm}"]
         return stats.uniform.logpdf(x, loc, scale)
 
 class LogPriorWeibull(LogPriorTemplate):
@@ -153,20 +134,16 @@ class LogPriorWeibull(LogPriorTemplate):
 
         Parameters
         ----------
-        prms : array_like
-            A numeric vector to be interpreted according to self.prms. The first
-            element refers to the priors reference parameter (e.g. if the prior
-            refers to some parameter "b" of the inference problem, then the
-            first element of prms is a value for b). The following elements are
-            the priors parameter.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs
 
         Returns
         -------
         float
             The logarithm of the prior's normal PDF evaluated at x.
         """
-        x = prms[0]
-        shape = prms[1]
-        scale = prms[2]
-        loc = prms[3]
+        x = prms[self.ref_prm]
+        shape = prms[f"shape_{self.ref_prm}"]
+        scale = prms[f"scale_{self.ref_prm}"]
+        loc = prms[f"loc_{self.ref_prm}"]
         return stats.weibull_min.logpdf(x, shape, scale=scale, loc=loc)

@@ -61,17 +61,17 @@ problem.add_parameter('sigma', 'noise', const=0.5,
 
 # define the linear forward model
 class LinearModel(ModelTemplate):
-    def __call__(self, x, theta):
-        a = theta[0]
-        b = theta[1]
+    def __call__(self, x, prms):
+        a = prms['a']
+        b = prms['b']
         return a * x + b
 
 
 # define the quadratic forward model
 class QuadraticModel(ModelTemplate):
-    def __call__(self, x, theta):
-        alpha = theta[0]
-        b = theta[1]
+    def __call__(self, x, prms):
+        alpha = prms['alpha']
+        b = prms['beta']
         return alpha * x**2 + b
 
 
@@ -95,7 +95,7 @@ for i in range(n_tests):
 problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 
 print(problem)
-exit(0)
+#exit(0)
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
 init_array[:, 0] = a_true + np.random.randn(n_walkers)
 init_array[:, 1] = alpha_true + np.random.randn(n_walkers)

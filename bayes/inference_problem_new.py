@@ -2,6 +2,7 @@
 from copy import deepcopy as dc
 
 # local imports
+from bayes.parameters import ParameterList
 from bayes.priors import LogPriorNormal
 from bayes.priors import LogPriorLognormal
 from bayes.priors import LogPriorUniform
@@ -138,10 +139,13 @@ class InferenceProblem:
         alias_str = underlined_string("Aliases defined", symbol="-")
         aliases = set(self._alias_dict.keys()).\
             difference(set(self._alias_dict.values()))
-        w = len(max(list(aliases), key=len)) + 2
-        for alias_name, original_name in self._alias_dict.items():
-            if alias_name != original_name:
-                alias_str += tcs(alias_name, str(original_name), col_width=w)
+        if len(aliases) > 0:
+            w = len(max(list(aliases), key=len)) + 2
+            for alias_name, original_name in self._alias_dict.items():
+                if alias_name != original_name:
+                    alias_str += tcs(alias_name, original_name, col_width=w)
+        else:
+            alias_str += "--No aliases defined--"
 
         # include the information on the theta interpretation
         theta_string = "\nTheta interpretation"
@@ -590,7 +594,7 @@ class InferenceProblem:
         self._input_sensors.add(exp_input[0])
         self._output_sensors.add(exp_output[0])
 
-    def get_parameters(self, theta, prm_names_):
+    def get_parameters_old(self, theta, prm_names_):
         """
         Extracts the numeric values for a given list of parameters from the
         parameter vector and the constant parameters of the problem.
@@ -624,6 +628,42 @@ class InferenceProblem:
                 # in this case, the parameter is a calibration parameter, and
                 # its value is read from theta
                 prms.append(theta[idx])
+        return prms
+
+    def get_parameters(self, theta, prm_names_):
+        """
+        Extracts the numeric values for a given list of parameters from the
+        parameter vector and the constant parameters of the problem.
+
+        Parameters
+        ----------
+        theta : array_like
+            A numeric parameter vector passed to the loglike and logprior
+            method. Which parameters these numbers refer to can be checked
+            by calling self.theta_explanation() once the problem is set up.
+        prm_names_ : string or list of strings
+            The names of the parameters whose values should be returned. The
+            returned values will be in the same order as given in prm_names_.
+
+        Returns
+        -------
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs
+        """
+        # if prm_names_ is given as a single string, it is converted to a list
+        prm_names = prm_names_ if type(prm_names_) is list else [prm_names_]
+        prms = ParameterList()
+        for prm_name in prm_names:
+            prm_name_ori = self._alias_dict[prm_name]  # original parameter name
+            idx = self._prm_dict[prm_name_ori]['index']
+            if idx is None:
+                # in this case, the parameter is a constant and hence not read
+                # from theta
+                prms.define(prm_name, self._prm_dict[prm_name_ori]['value'])
+            else:
+                # in this case, the parameter is a calibration parameter, and
+                # its value is read from theta
+                prms.define(prm_name, theta[idx])
         return prms
 
     def get_experiments(self, forward_model_name, experiments=None):
@@ -871,7 +911,7 @@ class InferenceProblem:
         # compute the contribution to the log-likelihood function for the
         # model error of each sensor type, and sum it all up
         ll = 0.0
-        for name, me_dict in model_error_dict.items():
+        for fwd_model_name, me_dict in model_error_dict.items():
             for sensor, me_vector in me_dict.items():
                 noise_model = self._noise_models[sensor]
                 prms_noise = self.get_parameters(theta, noise_model.prms_def)

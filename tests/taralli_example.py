@@ -14,7 +14,7 @@ a_true = 2.5
 b_true = 1.7
 sigma_noise = 0.5
 n_walkers = 20
-n_steps = 50000
+n_steps = 5000
 seed = 1
 show_data = False
 infer_noise_parameter = True
@@ -60,23 +60,23 @@ if not infer_noise_parameter:
     problem.change_parameter_role('b', const=1.7)
     # problem.change_parameter_role('b', prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 
-# add the experimental data
-for i in range(n_tests):
-    problem.add_experiment(f'Experiment_{i}',
-                           ('x-Sensor', x_test[i]),
-                           ('y-Sensor', y_test[i]))
-
-
 # define the forward model
 class LinearModel(ModelTemplate):
-    def __call__(self, x, theta):
-        a = theta[0]
-        b = theta[1]
+    def __call__(self, x, prms):
+        a = prms['a']
+        b = prms['b']
         return a * x + b
 
 
 # add the forward model to the problem
-problem.add_forward_model(LinearModel, ['a', 'b'])
+problem.add_forward_model("LinearModel", LinearModel, ['a', 'b'])
+
+# add the experimental data
+for i in range(n_tests):
+    problem.add_experiment(f'Experiment_{i}',
+                           ('x-Sensor', x_test[i]),
+                           ('y-Sensor', y_test[i]),
+                           "LinearModel")
 
 # add the noise model to the problem
 problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])

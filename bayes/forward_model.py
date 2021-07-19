@@ -87,8 +87,8 @@ class ModelTemplate:
         ----------
         x : array_like
             The input data of the model, i.e. the experimental input data.
-        prms : array_like
-            The parameter vector of the model.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs.
         ye : array_like
             The measured output of the considered experiment.
         """
@@ -103,8 +103,8 @@ class ModelTemplate:
 
         Parameters
         ----------
-        prms : array_like
-            The parameter vector of the model.
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs
         experiments : dict
             A dictionary with a structure like self._experiments in the class
             InferenceProblem.
