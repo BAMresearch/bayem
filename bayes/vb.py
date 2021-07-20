@@ -331,6 +331,7 @@ class VB:
         self.iter_max = iter_max
         self.scale_by_prior_mean = True
         self.result = VBResult()
+        self.scaling_eps = 1.e-20
 
     def run(self, model_error, param0, noise0=None, **kwargs):
 
@@ -342,6 +343,8 @@ class VB:
             self.n_trials_max = kwargs["n_trials_max"]
         if "scale_by_prior_mean" in kwargs:
             self.scale_by_prior_mean = kwargs["scale_by_prior_mean"]
+        if "scaling_eps" in kwargs:
+            self.scaling_eps = kwargs["scaling_eps"]
 
         if not isinstance(model_error, VariationalBayesInterface):
             model_error = VBModelErrorWrapper(model_error)
@@ -352,7 +355,7 @@ class VB:
 
         if self.scale_by_prior_mean:
             for i, mean in enumerate(param0.mean):
-                if abs(mean) > 1:
+                if abs(mean) > self.scaling_eps:
                     scaling[i] = mean
 
         logger.debug(f"Using scaling {scaling}")
