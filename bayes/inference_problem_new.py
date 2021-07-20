@@ -39,9 +39,11 @@ class InferenceProblem:
         #          parameter; None for 'const'-parameters)
         # 'value': float or None (defines the value for 'const'-parameters;
         #          None for 'calibration'-parameters)
-        # 'alias': string or None (another name for this parameter; if no alias
-        #          is defined, this value is None)
+        # 'alias': set (other names for this parameter; if no aliases are
+        #          defined, this value is an empty set)
         # 'info':  string (a short explanation of the parameter)
+        # 'tex':   string or None (the TeX version of the parameter's name, for
+        #          example r'$\alpha$' for a parameter named 'alpha')
         self._prm_dict = {}
 
         # the number of currently defined 'calibration'-parameters
@@ -145,7 +147,7 @@ class InferenceProblem:
                 if alias_name != original_name:
                     alias_str += tcs(alias_name, original_name, col_width=w)
         else:
-            alias_str += "--No aliases defined--"
+            alias_str += "--No aliases defined--\n"
 
         # include the information on the theta interpretation
         theta_string = "\nTheta interpretation"
@@ -157,7 +159,7 @@ class InferenceProblem:
         return full_string
 
     def add_parameter(self, prm_name, prm_type, const=None, prior=None,
-                      alias=None, info="No explanation provided"):
+                      aliases=[], info="No explanation provided", tex=None):
         """
         Adds a parameter to the inference problem.
 
@@ -180,11 +182,13 @@ class InferenceProblem:
             element must be a dictionary stating the prior's parameters; its
             definition is identical to the one of prm_dict explained in the
             docstring of the self._add_prior method.
-        alias : string or None, optional
-            Another name used for this parameter; if no such name is defined,
-            this value should be set to None
+        aliases : string or list, optional
+            Other names used for this parameter
         info : string, optional
             Short explanation on the added parameter
+        tex : string or None, optional
+            The TeX version of the parameter's name, for example r'$\beta$'
+            for a parameter named 'beta'
         """
 
         # make sure the given prm_type is valid
@@ -241,19 +245,23 @@ class InferenceProblem:
             prm_index = None
             prm_prior = None
             prm_value = const
-        # add an alias to the alias dictionary if one was given
-        if alias is None:
-            self._alias_dict[prm_name] = prm_name
-        else:
-            self._alias_dict[alias] = prm_name
+        # add aliases to the alias dictionary when given; note that every
+        # parameter name is its own alias by default
+        self._alias_dict[prm_name] = prm_name
+        aliases = [aliases] if (type(aliases) == str) else aliases
+        if len(aliases) > 0:
+            for alias in aliases:
+                self._alias_dict[alias] = prm_name
+        aliases = set(aliases)
         # add the parameter to the central parameter dictionary
         self._prm_dict[prm_name] = {'index': prm_index,
                                     'type': prm_type,
                                     'role': prm_role,
                                     'prior': prm_prior,
                                     'value': prm_value,
-                                    'alias': alias,
-                                    'info': info}
+                                    'alias': aliases,
+                                    'info': info,
+                                    'tex': tex}
 
     def remove_parameter(self, prm_name, remove_aliases=True):
         """
@@ -284,9 +292,12 @@ class InferenceProblem:
             del self._prm_dict[prm_name_ori]
             if remove_aliases:
                 # remove all aliases for this parameter
+                prm_aliases = []
                 for alias, name in self._alias_dict.items():
                     if name == prm_name:
-                        del self._alias_dict[alias]
+                        prm_aliases.append(alias)
+                for alias in prm_aliases:
+                    del self._alias_dict[alias]
         else:
             # in this case prm_name refers to a calibration parameter; hence we
             # need to remove the prior-parameter and the prior-object; also, we
@@ -298,9 +309,12 @@ class InferenceProblem:
             del self._prm_dict[prm_name_ori]
             if remove_aliases:
                 # remove all aliases for this parameter
+                prm_aliases = []
                 for alias, name in self._alias_dict.items():
                     if name == prm_name:
-                        del self._alias_dict[alias]
+                        prm_aliases.append(alias)
+                for alias in prm_aliases:
+                    del self._alias_dict[alias]
             # correct the indices of the remaining 'calibration'-parameters
             idx = 0
             for name, prm_dict in self._prm_dict.items():
@@ -352,9 +366,10 @@ class InferenceProblem:
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
         prm_type = self._prm_dict[prm_name_ori]['type']
         prm_info = self._prm_dict[prm_name_ori]['info']
+        aliases = self._prm_dict[prm_name_ori]['alias']
         self.remove_parameter(prm_name_ori, remove_aliases=False)
         self.add_parameter(prm_name_ori, prm_type, const=const, prior=prior,
-                           info=prm_info)
+                           info=prm_info, aliases=aliases)
 
     def change_parameter_info(self, prm_name, new_info):
         """
@@ -404,7 +419,7 @@ class InferenceProblem:
         # change the parameter's value
         self._prm_dict[prm_name_ori]['value'] = new_value
 
-    def add_parameter_alias(self, prm_name, alias):
+    def add_parameter_alias(self, prm_name, aliases):
         """
         Adds an alias for a parameter of the problem.
 
@@ -412,15 +427,25 @@ class InferenceProblem:
         ----------
         prm_name : string
             The name of an original parameter defined in the problem
-        alias : string
+        aliases : string or set
             The alias to be used for prm_name
         """
+
+        # convert to set if string is given
+        if type(aliases) == str:
+            aliases = set({aliases})
+
         # throw warning if the alias has already been defined
-        if alias in self._alias_dict.keys():
-            print(f"WARNING - The alias '{alias}' has been defined before " +
-                  f"and will now be overwritten!")
+        for alias in aliases:
+            if alias in self._alias_dict.keys():
+                print(f"WARNING - The alias '{alias}' has been defined " +
+                      f"before and will now be overwritten!")
+
         # add the alias to the central dictionary
-        self._alias_dict[alias] = prm_name
+        self._prm_dict[prm_name]['alias'] =\
+            self._prm_dict[prm_name]['alias'].union(aliases)
+        for alias in aliases:
+            self._alias_dict[alias] = prm_name
 
     def _add_prior(self, name, prior_type, prm_dict, ref_prm):
         """
@@ -697,6 +722,34 @@ class InferenceProblem:
 
         return relevant_experiments
 
+    def get_theta_names(self, tex=False):
+        """
+        Returns the parameter names of the parameter vector theta in the
+        corresponding order.
+
+        Parameters
+        ----------
+        tex : boolean
+            If True, the TeX-names of the parameters will be returned,
+            otherwise the names as they are used in the code will be returned.
+
+        Returns
+        -------
+        theta_names : list
+            List of strings with the parameter names appearing in theta.
+        """
+
+        # assemble the parameter's names in the order as they appear in theta
+        # from the index information in self._prm_dict
+        theta_names = []
+        for prm_name, prm_dict in self._prm_dict.items():
+            if prm_dict['index'] is not None:
+                if tex and prm_dict['tex'] is not None:
+                    theta_names.append(prm_dict['tex'])
+                else:
+                    theta_names.append(prm_name)
+        return theta_names
+
     def theta_explanation(self, print_it=True):
         """
         Prints out or returns a string on how the theta-vector, which is the
@@ -720,12 +773,8 @@ class InferenceProblem:
         # an explanation is not printed if the problem is inconsistent
         self.check_problem_consistency()
 
-        # assemble the parameter's names in the order as they appear in theta
-        # from the index information in self._prm_dict
-        theta_names = []
-        for prm_name, prm_dict in self._prm_dict.items():
-            if prm_dict['index'] is not None:
-                theta_names.append(prm_name)
+        # collect the list of theta names in the right order
+        theta_names = self.get_theta_names()
 
         # construct the info-string
         s = "\n---------------------\n"

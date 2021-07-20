@@ -15,9 +15,9 @@ alpha_true = 0.7
 b_true = 1.7
 sigma_noise = 0.15
 n_walkers = 20
-n_steps = 5000
+n_steps = 500
 seed = 1
-show_data = False
+show_data = True
 infer_noise_parameter = True
 
 # data-generation process; normal noise with constant variance around each point
@@ -51,13 +51,17 @@ problem = InferenceProblem("Linear model with normal noise")
 
 # add all parameters to the problem
 problem.add_parameter('a', 'model', info="Slope of the graph in linear model",
+                      tex='$a$ (linear)',
                       prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 problem.add_parameter('alpha', 'model', info="Factor of quadratic term",
+                      tex=r'$\alpha$ (quad.)',
                       prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 problem.add_parameter('b', 'model', info="Intersection of graph with y-axis",
+                      tex='$b$ (shared)',
                       prior=('normal', {'loc': 1.0, 'scale': 1.0}))
-problem.add_parameter('sigma', 'noise', const=0.5,
-                      info="Standard deviation of zero-mean noise model")
+problem.add_parameter('sigma', 'noise', tex=r"$\sigma$ (noise)",
+                      info="Standard deviation of zero-mean noise model",
+                      prior=('uniform', {'loc': 0.1, 'scale': 1.9}))
 
 # define the linear forward model
 class LinearModel(ModelTemplate):
@@ -65,7 +69,7 @@ class LinearModel(ModelTemplate):
         a = prms['a']
         b = prms['b']
         return a * x + b
-
+    
 
 # define the quadratic forward model
 class QuadraticModel(ModelTemplate):
@@ -95,11 +99,12 @@ for i in range(n_tests):
 problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 
 print(problem)
-#exit(0)
+
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
 init_array[:, 0] = a_true + np.random.randn(n_walkers)
 init_array[:, 1] = alpha_true + np.random.randn(n_walkers)
 init_array[:, 2] = b_true + np.random.randn(n_walkers)
+init_array[:, 3] = np.random.uniform(0.05, 1.0, n_walkers)
 
 emcee_model = EmceeParameterEstimator(
     log_likelihood=problem.loglike,
@@ -111,7 +116,7 @@ emcee_model = EmceeParameterEstimator(
 )
 
 emcee_model.estimate_parameters()
-emcee_model.plot_posterior()
+emcee_model.plot_posterior(dim_labels=problem.get_theta_names(tex=True))
 plt.show(block=True)
 
 emcee_model.summary()

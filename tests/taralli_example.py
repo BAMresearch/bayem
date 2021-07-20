@@ -14,7 +14,7 @@ a_true = 2.5
 b_true = 1.7
 sigma_noise = 0.5
 n_walkers = 20
-n_steps = 5000
+n_steps = 50
 seed = 1
 show_data = False
 infer_noise_parameter = True
@@ -41,11 +41,11 @@ if show_data:
 problem = InferenceProblem("Linear model with normal noise")
 
 # add all parameters to the problem
-problem.add_parameter('a', 'model', info="Slope of the graph",
+problem.add_parameter('a', 'model', info="Slope of the graph", tex="$a$",
                       prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 problem.add_parameter('b', 'model', info="Intersection of graph with y-axis",
-                      prior=('normal', {'loc': 1.0, 'scale': 1.0}))
-problem.add_parameter('sigma', 'noise',
+                      tex='$b$', prior=('normal', {'loc': 1.0, 'scale': 1.0}))
+problem.add_parameter('sigma', 'noise', tex=r"$\sigma$",
                       info="Standard deviation of zero-mean noise model",
                       prior=('uniform', {'loc': 0.1, 'scale': 1.9}))
 
@@ -84,7 +84,6 @@ problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 problem.theta_explanation()
 
 print(problem)
-#exit(0)
 
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
 init_array[:, 0] = a_true + np.random.randn(n_walkers)
@@ -103,7 +102,7 @@ emcee_model = EmceeParameterEstimator(
 )
 
 emcee_model.estimate_parameters()
-emcee_model.plot_posterior()
+emcee_model.plot_posterior(dim_labels=problem.get_theta_names(tex=True))
 plt.show(block=True)
 
 emcee_model.summary()
