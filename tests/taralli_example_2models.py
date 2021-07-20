@@ -69,7 +69,7 @@ class LinearModel(ModelTemplate):
         a = prms['a']
         b = prms['b']
         return a * x + b
-    
+
 
 # define the quadratic forward model
 class QuadraticModel(ModelTemplate):

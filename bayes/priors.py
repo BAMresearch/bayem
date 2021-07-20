@@ -51,7 +51,7 @@ class LogPriorNormal(LogPriorTemplate):
         """Check out the explanations for LogPriorTemplate given above"""
         super().__init__(ref_prm, prms_def, name, "normal distribution")
 
-    def __call__(self, prms):
+    def __call__(self, prms, method):
         """
         Evaluates the log-PDF of the prior's normal distribution.
 
@@ -59,6 +59,8 @@ class LogPriorNormal(LogPriorTemplate):
         ----------
         prms : ParameterList-object
             Dictionary-like object containing parameter name:value pairs
+        method : string
+            Method from the used scipy distribution (e.g. 'pdf', 'logpdf', etc.)
 
         Returns
         -------
@@ -68,7 +70,7 @@ class LogPriorNormal(LogPriorTemplate):
         x = prms[self.ref_prm]
         loc = prms[f"loc_{self.ref_prm}"]
         scale = prms[f"scale_{self.ref_prm}"]
-        return stats.norm.logpdf(x, loc, scale)
+        return eval(f"stats.norm.{method}")(x, loc, scale)
 
 
 class LogPriorLognormal(LogPriorTemplate):
@@ -77,7 +79,7 @@ class LogPriorLognormal(LogPriorTemplate):
         """Check out the explanations for LogPriorTemplate given above"""
         super().__init__(ref_prm, prms_def, name, "lognormal distribution")
 
-    def __call__(self, prms):
+    def __call__(self, prms, method):
         """
         Evaluates the log-PDF of the prior's lognormal distribution.
 
@@ -85,6 +87,8 @@ class LogPriorLognormal(LogPriorTemplate):
         ----------
         prms : ParameterList-object
             Dictionary-like object containing parameter name:value pairs
+        method : string
+            Method from the used scipy distribution (e.g. 'pdf', 'logpdf', etc.)
 
         Returns
         -------
@@ -94,7 +98,7 @@ class LogPriorLognormal(LogPriorTemplate):
         x = prms[self.ref_prm]
         loc = prms[f"loc_{self.ref_prm}"]
         scale = prms[f"scale_{self.ref_prm}"]
-        return stats.lognorm.logpdf(x, loc, scale)
+        return eval(f"stats.lognorm.{method}")(x, loc, scale)
 
 
 class LogPriorUniform(LogPriorTemplate):
@@ -103,7 +107,7 @@ class LogPriorUniform(LogPriorTemplate):
         """Check out the explanations for LogPriorTemplate given above"""
         super().__init__(ref_prm, prms_def, name, "uniform distribution")
 
-    def __call__(self, prms):
+    def __call__(self, prms, method):
         """
         Evaluates the log-PDF of the prior's uniform distribution.
 
@@ -111,6 +115,8 @@ class LogPriorUniform(LogPriorTemplate):
         ----------
         prms : ParameterList-object
             Dictionary-like object containing parameter name:value pairs
+        method : string
+            Method from the used scipy distribution (e.g. 'pdf', 'logpdf', etc.)
 
         Returns
         -------
@@ -120,7 +126,7 @@ class LogPriorUniform(LogPriorTemplate):
         x = prms[self.ref_prm]
         loc = prms[f"loc_{self.ref_prm}"]
         scale = prms[f"scale_{self.ref_prm}"]
-        return stats.uniform.logpdf(x, loc, scale)
+        return eval(f"stats.uniform.{method}")(x, loc, scale)
 
 class LogPriorWeibull(LogPriorTemplate):
     """Prior class for a three-parameter Weibull distribution."""
@@ -128,7 +134,7 @@ class LogPriorWeibull(LogPriorTemplate):
         """Check out the explanations for LogPriorTemplate given above"""
         super().__init__(ref_prm, prms_def, name, "uniform distribution")
 
-    def __call__(self, prms):
+    def __call__(self, prms, method):
         """
         Evaluates the log-PDF of the prior's Weibull distribution.
 
@@ -136,6 +142,8 @@ class LogPriorWeibull(LogPriorTemplate):
         ----------
         prms : ParameterList-object
             Dictionary-like object containing parameter name:value pairs
+        method : string
+            Method from the used scipy distribution (e.g. 'pdf', 'logpdf', etc.)
 
         Returns
         -------
@@ -146,4 +154,6 @@ class LogPriorWeibull(LogPriorTemplate):
         shape = prms[f"shape_{self.ref_prm}"]
         scale = prms[f"scale_{self.ref_prm}"]
         loc = prms[f"loc_{self.ref_prm}"]
-        return stats.weibull_min.logpdf(x, shape, scale=scale, loc=loc)
+        return eval(f"stats.weibull_min.{method}")(x, shape, scale=scale,
+                                                   loc=loc)
+

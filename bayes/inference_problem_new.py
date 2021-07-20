@@ -933,7 +933,7 @@ class InferenceProblem:
         lp = 0.0
         for prior in self._priors.values():
             prms = self.get_parameters(theta, prior.prms_def)
-            lp += prior(prms)
+            lp += prior(prms, 'logpdf')
         return lp
 
     def loglike(self, theta):
