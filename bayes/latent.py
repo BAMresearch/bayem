@@ -1,6 +1,7 @@
 import copy
 import collections
 from typing import Hashable
+import logging
 
 import numpy as np
 from tabulate import tabulate
@@ -8,12 +9,12 @@ from tabulate import tabulate
 from .parameters import ParameterList
 
 
+logger = logging.getLogger(__name__)
+
+
 class LatentParameter(list):
     def __init__(self, N):
         self.N = N
-
-    def add(self, model_error_key, local_name):
-        self.append((model_error_key, local_name))
 
 
 class InconsistentLengthException(Exception):
@@ -39,7 +40,13 @@ class LatentParameters(collections.OrderedDict):
         latent = self[global_name]
         if latent.N != N:
             raise InconsistentLengthException("TODO: some info")
-        latent.add(model_error_key, local_name)
+
+        parameter_reference = (model_error_key, local_name)
+        if parameter_reference in latent:
+            msg = f"{parameter_reference} is already associated to the global "
+            msg += f"parameter {global_name}. No need to add it again!"
+            logger.warning(msg)
+        latent.append((model_error_key, local_name))
 
     def updated_parameters(
         self, number_vector: np.ndarray
@@ -77,4 +84,6 @@ class LatentParameters(collections.OrderedDict):
             for model_error_key, local_name in latent:
                 to_print.append((global_name, latent.N, model_error_key, local_name))
 
-        return tabulate(to_print, headers=["global name", "length", "model error", "local name"])
+        return tabulate(
+            to_print, headers=["global name", "length", "model error", "local name"]
+        )

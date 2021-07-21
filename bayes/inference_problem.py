@@ -1,6 +1,6 @@
 import numpy as np
 from .parameters import ParameterList
-# from .latent import LatentParameters
+from .latent import LatentParameters
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import d_model_error_d_named_parameter
@@ -47,7 +47,7 @@ class ModelErrorInterface:
 
 class InferenceProblem:
     def __init__(self):
-        self._latent = LatentParameters()
+        self.latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
 
@@ -75,41 +75,36 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-    def __call__(self, number_vector):
-        self.latent.update(number_vector)
+    def evaluate_model_errors(self, number_vector):
+        updated_latent_parameters = self.latent.updated_parameters(number_vector)
         result = {}
-        for key, me in self.model_errors.items():
-            result[key] = me()
+        for me_key, prms in updated_latent_parameters.items():
+            result[me_key] = self.model_errors[me_key](prms)
         return result
 
     def set_latent(self, global_and_local_name):
-        pass
-
-    def set_latent_individually(self, global_name, model_error_key, local_name):
-        pass
-
-
-    def define_latent_parameter(self, global_and_local_name):
         """
-
+        There is no way to check if a model error actually has a
+        `global_and_local_name` parameter, so we pass it to all of them.
         """
-        for model_error in self.model_errors.values():
-            try:
-                prm = model_error.parameter_list
-            except AttributeError:
-                raise AttributeError(
-                    "This method requires the `model_error` to have a `parameter_list` attribute!"
-                )
+        for me_key in self.model_errors:
+            self.set_latent_individually(global_and_local_name, me_key)
 
-            if name in model_error.parameter_list:
-                self.latent[name].add(model_error.parameter_list, name)
+
+    def set_latent_individually(self, global_name, model_error_key, local_name=None):
+        local_name = global_name if local_name is None else local_name
+        model_error = self.model_errors[model_error_key]
+
+        try:
+            N = model_error.get_shape(local_name)
+        except AttributeError:
+            N = 1
+
+        self.latent.add(global_name, local_name, model_error_key, N)
 
 
     def loglike(self, number_vector):
-        self.latent.update(number_vector)
-        raw_me = {}
-        for key, me in self.model_errors.items():
-            raw_me[key] = me()
+        model_errors = self.evaluate_model_errors(number_vector)
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
@@ -222,7 +217,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         """
         overwrites VariationalBayesInterface.__call__
         """
-        me = super().__call__(number_vector)
+        me = super().evaluate_model_errors(number_vector)
 
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
