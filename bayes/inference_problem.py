@@ -97,7 +97,7 @@ class InferenceProblem:
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
-            log_like += noise_term.loglike_contribution(raw_me)
+            log_like += noise_term.loglike_contribution(model_errors)
 
         return log_like
 
