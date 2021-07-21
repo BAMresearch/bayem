@@ -1,7 +1,9 @@
 import copy
 import collections
 from typing import Hashable
+
 import numpy as np
+from tabulate import tabulate
 
 from .parameters import ParameterList
 
@@ -68,3 +70,11 @@ class LatentParameters(collections.OrderedDict):
             start_index += latent.N
 
         return lists
+
+    def __str__(self):
+        to_print = []
+        for global_name, latent in self.items():
+            for model_error_key, local_name in latent:
+                to_print.append((global_name, latent.N, model_error_key, local_name))
+
+        return tabulate(to_print, headers=["global name", "length", "model error", "local name"])

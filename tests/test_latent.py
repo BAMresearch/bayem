@@ -38,6 +38,14 @@ class TestLatentParameters(unittest.TestCase):
         self.assertIn("42", msg)
         self.assertIn("3", msg)
 
+    def test_pretty_print(self):
+        l = LatentParameters()
+        l.add("shared", "A1", "model1")
+        l.add("shared", "A2", "model2")
+        l.add("B", "B", "model1", 2)
+
+        print(l)
+
 
 if __name__ == "__main__":
     unittest.main()

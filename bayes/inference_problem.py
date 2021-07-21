@@ -1,19 +1,16 @@
 import numpy as np
 from .parameters import ParameterList
-from .latent import LatentParameters
+# from .latent import LatentParameters
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import d_model_error_d_named_parameter
+from typing import Hashable
 
 
 class ModelErrorInterface:
-    def __init__(self):
-        self.parameter_list = ParameterList()
-
-    def __call__(self):
+    def __call__(self, latent_parameter_list: ParameterList) -> dict[Hashable: np.ndarray]: 
         """
-        Evaluate the model error based on `self.parameter_list` as a dict of
-        {some_key: numpy.array}.
+        Evaluate the model error based on the `latent_parameter_list`.
         """
         raise NotImplementedError("Override this!")
 
@@ -30,10 +27,27 @@ class ModelErrorInterface:
 
         return jac
 
+    def get_length(self, parameter_name):
+        """
+        Overwrite for more complex behaviours, e.g. to 
+
+        ~~~py
+            if parameter_name == "displacement_field":
+                return len(self.u)
+            if parameter_name == "force_vector":
+                return 3
+            raise UnknownParameter()
+            # or
+            return 1
+        ~~~
+        """
+        return 1
+
+
 
 class InferenceProblem:
     def __init__(self):
-        self.latent = LatentParameters()
+        self._latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
 
@@ -68,7 +82,17 @@ class InferenceProblem:
             result[key] = me()
         return result
 
-    def define_shared_latent_parameter_by_name(self, name):
+    def set_latent(self, global_and_local_name):
+        pass
+
+    def set_latent_individually(self, global_name, model_error_key, local_name):
+        pass
+
+
+    def define_latent_parameter(self, global_and_local_name):
+        """
+
+        """
         for model_error in self.model_errors.values():
             try:
                 prm = model_error.parameter_list
@@ -79,6 +103,7 @@ class InferenceProblem:
 
             if name in model_error.parameter_list:
                 self.latent[name].add(model_error.parameter_list, name)
+
 
     def loglike(self, number_vector):
         self.latent.update(number_vector)
