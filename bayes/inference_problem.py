@@ -1,11 +1,12 @@
-import numpy as np
-from .parameters import ParameterList
-from .latent import LatentParameters
 from collections import OrderedDict
-from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
-from .jacobian import jacobian
-from typing import Hashable, Dict
+from typing import Dict, Hashable
 
+import numpy as np
+
+from .jacobian import jacobian
+from .latent import LatentParameters
+from .parameters import ParameterList
+from .vb import MVN, Gamma, VariationalBayesInterface, variational_bayes
 
 
 class ModelErrorInterface:

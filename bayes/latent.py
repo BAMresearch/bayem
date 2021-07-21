@@ -1,19 +1,18 @@
-import copy
 import collections
-from typing import Hashable, Dict
+import copy
 import logging
+from typing import Dict, Hashable, List, Tuple
 
-import numpy as np
+import numpy as np  # type: ignore
 from tabulate import tabulate
 
 from .parameters import ParameterList
 
-
 logger = logging.getLogger(__name__)
 
 
-class LatentParameter(list):
-    def __init__(self, N):
+class ParameterListReferences(list):
+    def __init__(self, N: int):
         self.N = N
 
 
@@ -35,7 +34,7 @@ class LatentParameters(collections.OrderedDict):
         self._empty_parameter_lists[model_error_key] = ParameterList()
 
         if global_name not in self:
-            self[global_name] = LatentParameter(N)
+            self[global_name] = ParameterListReferences(N)
 
         latent = self[global_name]
         if latent.N != N:
@@ -78,23 +77,24 @@ class LatentParameters(collections.OrderedDict):
 
         return lists
 
-    def global_name(self, local_name):
+    def global_name(self, local_name: str) -> str:
         for global_name, latent in self.items():
             for _, ref_local_name in latent:
                 if ref_local_name == local_name:
                     return global_name
-        return None 
+        raise RuntimeError(
+            f"{local_name} has no global_name, since it is not defined as latent!"
+        )
 
-    def global_indices(self, global_name):
+    def global_indices(self, global_name: str) -> str:
         start_idx = 0
         for _global_name, _latent in self.items():
             if global_name == _global_name:
                 return list(range(start_idx, start_idx + _latent.N))
             start_idx += _latent.N
-        assert False
+        raise RuntimeError(f"{global_name} is not defined as latent!")
 
-
-    def __str__(self):
+    def __str__(self) -> str:
         to_print = []
         for global_name, latent in self.items():
             for model_error_key, local_name in latent:
