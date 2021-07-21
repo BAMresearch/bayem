@@ -4,79 +4,70 @@ import numpy as np
 def delta_x(x0, delta=None):
     if delta is not None:
         return delta
-    dx = x0 * 1.0e-7 + 1.0e-7  # approx x0 * sqrt(machine precision)
-    if dx == 0:
-        dx = 1.0e-7
-    return dx
+
+    if x0 == 0:
+        return 1.0e-6
+
+    return x0 * 1.0e-6  # approx x0 * sqrt(machine precision)
 
 
-def d_model_error_d_named_parameter(model_error, prm_name):
-    if hasattr(model_error.parameter_list[prm_name], "__len__"):
-        return d_model_error_d_vector_parameter(model_error, prm_name)
-    else:
-        return d_model_error_d_scalar_parameter(model_error, prm_name)
-
-
-def d_model_error_d_scalar_parameter(model_error, prm_name):
-    """
-    Calculates the derivative of `model_error` w.r.t the named parameter 
-    `prm_name`.
-
-    model_error:
-        object that has an attribute `parameter_list` and a __call__() method
-        without arguments that returns a dict of type 
-        {key : numpy_vector of length N}
-    prm_name:
-        name of a named scalar parameter in `model_error.parameter_list` 
-    returns:
-        dict of type {key : numpy_vector of length N}
-    """
-    prm0 = model_error.parameter_list[prm_name]
-    dx = delta_x(prm0)
-
-    model_error.parameter_list[prm_name] = prm0 - dx
-    me0 = model_error()
-    model_error.parameter_list[prm_name] = prm0 + dx
-    me1 = model_error()
-    model_error.parameter_list[prm_name] = prm0
-
+def jacobian(f, latent_parameter_list, w_r_t_what=None):
     jac = dict()
-    for key in me0:
-        jac[key] = (me1[key] - me0[key]) / (2 * dx)
+    w_r_t_what = w_r_t_what or latent_parameter_list.names
+    for prm_name in w_r_t_what:
+        if hasattr(latent_parameter_list[prm_name], "__len__"):
+            prm_jac = _vector_jac(f, latent_parameter_list, prm_name)
+        else:
+            prm_jac = _scalar_jac(f, latent_parameter_list, prm_name)
+
+        for sensor_key, sensor_jac in prm_jac.items():
+            if sensor_key not in jac:
+                jac[sensor_key] = dict()
+            jac[sensor_key][prm_name] = sensor_jac
+
     return jac
 
 
-def d_model_error_d_vector_parameter(model_error, prm_name):
-    """
-    Calculates the derivative of `model_error` w.r.t the named parameter 
-    `prm_name`.
+def _vector_jac(f, latent_parameter_list, prm_name):
+    jac = None
+    value = latent_parameter_list[prm_name]
+    N = len(value)
 
-    model_error:
-        object that has an attribute `parameter_list` and a __call__() method
-        without arguments that returns a dict of type 
-        {key : numpy_vector of length N}
-    prm_name:
-        name of a named vector parameter in `model_error.parameter_list` of 
-        length M
-    returns:
-        dict of type {key : numpy_matrix of length NxM}
-    """
-    prm0 = np.copy(model_error.parameter_list[prm_name])
-    M = len(prm0)
+    for row in range(N):
+        dx = delta_x(value[row])
+
+        # generate N zeros with a single 1 at position row
+        mask = np.eye(1, N, k=row).flatten()
+
+        prm_plus = latent_parameter_list.with_value(prm_name, value + mask * 0.5 * dx)
+        prm_minus = latent_parameter_list.with_value(prm_name, value - mask * 0.5 * dx)
+
+        me_plus = f(prm_plus)
+        me_minus = f(prm_minus)
+
+        if jac is None:
+            jac = dict()
+            for sensor_key, me_values in me_plus.items():
+                jac[sensor_key] = np.empty((len(me_values), N))
+
+        for sensor_key in jac:
+            jac[sensor_key][:, row] = (me_plus[sensor_key] - me_minus[sensor_key]) / dx
+
+    return jac
+
+
+def _scalar_jac(f, latent_parameter_list, prm_name):
     jac = dict()
+    value = latent_parameter_list[prm_name]
 
-    for row in range(M):
-        dx = delta_x(prm0[row])
+    dx = delta_x(value)
+    prm_plus = latent_parameter_list.with_value(prm_name, value + 0.5 * dx)
+    prm_minus = latent_parameter_list.with_value(prm_name, value - 0.5 * dx)
 
-        model_error.parameter_list[prm_name][row] = prm0[row] - dx
-        me0 = model_error()
-        model_error.parameter_list[prm_name][row] = prm0[row] + dx
-        me1 = model_error()
-        model_error.parameter_list[prm_name][row] = prm0[row]
+    me_plus = f(prm_plus)
+    me_minus = f(prm_minus)
 
-        for key in me0:
-            if key not in jac:
-                jac[key] = np.empty((len(me0[key]), M))
+    for sensor_key in me_plus:
+        jac[sensor_key] = (me_plus[sensor_key] - me_minus[sensor_key]) / dx
 
-            jac[key][:, row] = (me1[key] - me0[key]) / (2 * dx)
     return jac

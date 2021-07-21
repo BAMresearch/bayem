@@ -1,93 +1,88 @@
 import unittest
 import numpy as np
+from bayes.jacobian import jacobian
 from bayes.inference_problem import ModelErrorInterface, VariationalBayesProblem
+from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
 
 CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
 
 
-class DummyME(ModelErrorInterface):
+class DummyME:
     def __init__(self):
-        super().__init__()
-        self.parameter_list.define("A", 42.0)
-        self.parameter_list.define("B", 0.0)
         self.xs = np.linspace(0.0, 1.0, 3)
 
-    def __call__(self):
-        A, B = self.parameter_list["A"], self.parameter_list["B"]
+    def __call__(self, prm):
+        A, B = prm["A"], prm["B"]
         return {"out1": self.xs * A + B ** 2, "out2": self.xs * A ** 2 + B * self.xs}
 
 
 class DummyMEPartial(ModelErrorInterface):
     def __init__(self):
-        super().__init__()
-        self.parameter_list.define("A", 42.0)
-        self.parameter_list.define("B", 0.0)
         self.xs = np.linspace(0.0, 1.0, 3)
 
-    def __call__(self):
-        A, B = self.parameter_list["A"], self.parameter_list["B"]
+    def __call__(self, prm):
+        A, B = prm["A"], prm["B"]
         return {"out1": self.xs * A + B ** 2, "out2": self.xs * A ** 2 + B * self.xs}
 
-    def jacobian(self):
+    def jacobian(self, prm):
         """
         We can provide the derivative w.r.t. "A" analytically and use the
         central differences of the superclass for the parameter "B".
         """
-        jac = super().jacobian(["B"])
+        jac = super().jacobian(prm, ["B"])
         jac["out1"]["A"] = self.xs
-        jac["out2"]["A"] = 2 * self.parameter_list["A"] * self.xs
+        jac["out2"]["A"] = 2 * prm["A"] * self.xs
         return jac
 
 
-class DummyMEVectorPrm(ModelErrorInterface):
-    def __init__(self):
-        super().__init__()
-        self.parameter_list.define("X", [1.0, 2.0, 3.0])
-
-    def __call__(self):
-        x = np.asarray(self.parameter_list["X"])
-        return {"out": np.concatenate([x ** 2, x ** 3])}
+def dummy_me_vector_prm(prm):
+    x = np.asarray(prm["X"])
+    return {"out": np.concatenate([x ** 2, x ** 3])}
 
 
-class DummyMEVectorPrm2(ModelErrorInterface):
-    def __init__(self):
-        super().__init__()
-        self.parameter_list.define("X", [0.0, 42.0])
-
-    def __call__(self):
-        return {"out": np.r_[6174 + sum(self.parameter_list["X"])]}
+def dummy_me_vector_prm2(prm):
+    return {"out": np.r_[6174 + sum(prm["X"])]}
 
 
 class TestJacobian(unittest.TestCase):
     def test_scalar_prm(self):
+        A, B = 42.0, 0.0
+
         me = DummyME()
-        A, B = me.parameter_list["A"], me.parameter_list["B"]
-        jac = me.jacobian()
+        prm = ParameterList()
+        prm.define("A", A)
+        prm.define("B", B)
+        jac = jacobian(me, prm)
         CHECK(jac["out1"]["A"], me.xs)
         CHECK(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
         CHECK(jac["out2"]["A"], me.xs * 2 * A)
         CHECK(jac["out2"]["B"], me.xs)
 
     def test_vector_prm(self):
-        me = DummyMEVectorPrm()
-        x = np.asarray(me.parameter_list["X"])
-        jac = me.jacobian()
+        x = np.r_[1, 2, 3]
+        prm = ParameterList()
+        prm.define("X", x)
+        jac = jacobian(dummy_me_vector_prm, prm)
 
         jac_correct = np.concatenate([np.diag(2 * x), np.diag(3 * x ** 2)])
         CHECK(jac["out"]["X"], jac_correct)
 
     def test_vector_prm2(self):
-        me = DummyMEVectorPrm2()
-        jac = me.jacobian()
+        prm = ParameterList()
+        prm.define("X", [0.0, 42.0])
+        jac = jacobian(dummy_me_vector_prm2, prm)
 
         jac_correct = np.array([[1, 1]])
         CHECK(jac["out"]["X"], jac_correct)
 
     def test_partial_jacobian_definition(self):
+        A, B = 42.0, 0.0
         me = DummyMEPartial()
-        A, B = me.parameter_list["A"], me.parameter_list["B"]
-        jac = me.jacobian()
+        prm = ParameterList()
+        prm.define("A", A)
+        prm.define("B", B)
+        jac = me.jacobian(prm)
 
         CHECK(jac["out1"]["A"], me.xs)
         CHECK(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
@@ -97,26 +92,29 @@ class TestJacobian(unittest.TestCase):
 
 class OddEvenME(ModelErrorInterface):
     def __init__(self):
-        super().__init__()
-        self.parameter_list.define("E_odd", 42.0)
-        self.parameter_list.define("E_even", 4.0)
-        self.parameter_list.define("E_all", 4.0)
         self.x_odd = np.r_[0, 2, 0, 2, 0, 2]
         self.x_even = np.r_[1, 0, 1, 0, 1, 0]
         self.x_all = np.r_[3, 3, 3, 3, 3, 3]
 
-    def __call__(self):
+        self.prms = ParameterList()
+        self.prms.define("E_odd", 42.0)
+        self.prms.define("E_even", 4.0)
+        self.prms.define("E_all", 4.0)
+
+    def __call__(self, latent_prm):
+        prm = self.prms.overwrite_with(latent_prm)
         return {
-            "out": self.x_odd * self.parameter_list["E_odd"]
-            + self.x_even * self.parameter_list["E_even"]
-            + self.x_all * self.parameter_list["E_all"]
+            "out": self.x_odd * prm["E_odd"]
+            + self.x_even * prm["E_even"]
+            + self.x_all * prm["E_all"]
         }
 
 
 class TestJacobianJointGlobal(unittest.TestCase):
     def test_individual(self):
         me = OddEvenME()
-        jac = me.jacobian()
+
+        jac = me.jacobian(me.prms)
         CHECK(jac["out"]["E_odd"], me.x_odd)
         CHECK(jac["out"]["E_even"], me.x_even)
         CHECK(jac["out"]["E_all"], me.x_all)
@@ -124,19 +122,18 @@ class TestJacobianJointGlobal(unittest.TestCase):
     def test_three_joints(self):
         me = OddEvenME()
         p = VariationalBayesProblem()
-        p.add_model_error(me)
-        p.latent["E"].add(me.parameter_list, "E_odd")
-        p.latent["E"].add(me.parameter_list, "E_even")
-        p.latent["E"].add(me.parameter_list, "E_all")
-
-        with self.assertRaises(Exception):
-            p.jacobian([42.0])  # we have not defined a noise model yet!
+        me_key = p.add_model_error(me)
+        p.set_latent_individually("E", me_key, "E_odd")
+        p.set_latent_individually("E", me_key, "E_even")
+        p.set_latent_individually("E", me_key, "E_all")
 
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
         J = p.jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
         CHECK(J[:, 0], me.x_odd + me.x_even + me.x_all)
+
+
 
     def test_two_joints(self):
         """
@@ -145,9 +142,9 @@ class TestJacobianJointGlobal(unittest.TestCase):
         """
         me = OddEvenME()
         p = VariationalBayesProblem()
-        p.add_model_error(me)
-        p.latent["E"].add(me.parameter_list, "E_odd")
-        p.latent["E"].add(me.parameter_list, "E_even")
+        me_key = p.add_model_error(me)
+        p.set_latent_individually("E", me_key, "E_odd")
+        p.set_latent_individually("E", me_key, "E_even")
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
         J = p.jacobian([42.0])[noise_key]

@@ -63,20 +63,36 @@ class LatentParameters(collections.OrderedDict):
 
         lists = copy.deepcopy(self._empty_parameter_lists)
 
-        start_index = 0
+        start_idx = 0
 
         for global_name, latent in self.items():
 
             if latent.N == 1:
-                value = number_vector[start_index]
+                value = number_vector[start_idx]
             else:
-                value = number_vector[start_index : start_index + latent.N]
+                value = number_vector[start_idx : start_idx + latent.N]
 
             for model_error_key, local_name in latent:
                 lists[model_error_key].define(local_name, value)
-            start_index += latent.N
+            start_idx += latent.N
 
         return lists
+
+    def global_name(self, local_name):
+        for global_name, latent in self.items():
+            for _, ref_local_name in latent:
+                if ref_local_name == local_name:
+                    return global_name
+        return None 
+
+    def global_indices(self, global_name):
+        start_idx = 0
+        for _global_name, _latent in self.items():
+            if global_name == _global_name:
+                return list(range(start_idx, start_idx + _latent.N))
+            start_idx += _latent.N
+        assert False
+
 
     def __str__(self):
         to_print = []

@@ -1,6 +1,9 @@
+import copy
+
+
 class ParameterList:
     """
-    The ParameterList serves as an input to the user-defined models. It is 
+    The ParameterList serves as an input to the user-defined models. It is
     basically a name:value-dict that allows the user to access the parameters
     by name instead of some vector index, which could read:
 
@@ -33,10 +36,10 @@ class ParameterList:
 
     def __add__(self, other):
         """
-        Adding two ParameterLists can be convenient of nested models. An 
+        Adding two ParameterLists can be convenient of nested models. An
         example could be a model error that combines a forward_model and
         a sensor_data_model like:
-            
+
             class MyModelError:
                 def __init__(self, forward_model, sensor_data_model):
                     self.fw = forward_model
@@ -45,13 +48,25 @@ class ParameterList:
                                                                  ^
                                     this "+" is defined here ----|
         """
-        concat = ParameterList()
-        for name, value in self.p.items():
-            concat.define(name, value)
+        concat = copy.deepcopy(self)
         for name, value in other.p.items():
             concat.define(name, value)
         return concat
-    
+
+    def overwrite_with(self, other):
+        """ """
+        concat = copy.deepcopy(self)
+        for name, value in other.p.items():
+            assert name in concat
+            concat.define(name, value)
+        return concat
+
+    def with_value(self, name, value):
+        """ """
+        new = copy.deepcopy(self)
+        new[name] = value
+        return new
+
     def __str__(self):
         s = ""
         for name, value in self.p.items():
