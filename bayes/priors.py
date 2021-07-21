@@ -124,9 +124,9 @@ class LogPriorUniform(LogPriorTemplate):
             The logarithm of the prior's normal PDF evaluated at x.
         """
         x = prms[self.ref_prm]
-        loc = prms[f"loc_{self.ref_prm}"]
-        scale = prms[f"scale_{self.ref_prm}"]
-        return eval(f"stats.uniform.{method}")(x, loc, scale)
+        low = prms[f"low_{self.ref_prm}"]
+        high = prms[f"high_{self.ref_prm}"]
+        return eval(f"stats.uniform.{method}")(x, loc=low, scale=high-low)
 
 class LogPriorWeibull(LogPriorTemplate):
     """Prior class for a three-parameter Weibull distribution."""

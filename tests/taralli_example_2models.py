@@ -61,7 +61,7 @@ problem.add_parameter('b', 'model', info="Intersection of graph with y-axis",
                       prior=('normal', {'loc': 1.0, 'scale': 1.0}))
 problem.add_parameter('sigma', 'noise', tex=r"$\sigma$ (noise)",
                       info="Standard deviation of zero-mean noise model",
-                      prior=('uniform', {'loc': 0.1, 'scale': 1.9}))
+                      prior=('uniform', {'low': 0.1, 'high': 2.0}))
 
 # define the linear forward model
 class LinearModel(ModelTemplate):

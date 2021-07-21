@@ -366,14 +366,15 @@ class InferenceProblem:
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
         prm_type = self._prm_dict[prm_name_ori]['type']
         prm_info = self._prm_dict[prm_name_ori]['info']
+        prm_tex = self._prm_dict[prm_name_ori]['tex']
         aliases = self._prm_dict[prm_name_ori]['alias']
         self.remove_parameter(prm_name_ori, remove_aliases=False)
         self.add_parameter(prm_name_ori, prm_type, const=const, prior=prior,
-                           info=prm_info, aliases=aliases)
+                           info=prm_info, aliases=aliases, tex=prm_tex)
 
-    def change_parameter_info(self, prm_name, new_info):
+    def change_parameter_info(self, prm_name, new_info, new_tex=None):
         """
-        Changes the info-string of a given parameter
+        Changes the info-string and/or the tex-string of a given parameter
 
         Parameters
         ----------
@@ -381,6 +382,8 @@ class InferenceProblem:
             The name of the parameter whose info-string should be changed
         new_info : string
             The new string for the explanation of parameter prm_name
+        new_tex : string or None
+            The new string for the parameter's tex-representation
         """
         # check if the given parameter exists
         if prm_name not in self._alias_dict.keys():
@@ -388,9 +391,11 @@ class InferenceProblem:
                 f"A parameter or parameter-alias with name '{prm_name}' " +
                 f"has not been defined yet."
             )
-        # change the info-string
+        # change the info/tex-string
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
         self._prm_dict[prm_name_ori]['info'] = new_info
+        if new_tex is not None:
+            self._prm_dict[prm_name_ori]['tex'] = new_tex
 
     def change_constant(self, prm_name, new_value):
         """
@@ -545,7 +550,6 @@ class InferenceProblem:
             for prior_prm in prior_prms:
                 assert prior_prm in self._prm_dict.keys()
                 assert self._prm_dict[prior_prm]['type'] == 'prior'
-                assert self._prm_dict[prior_prm]['role'] == 'const'
 
         # check if the prior-parameters of each calibration parameter exist in
         # the problem's parameter dictionary
@@ -554,7 +558,6 @@ class InferenceProblem:
                 prior_prms = prm_dict['prior'].prms
                 for prior_prm in prior_prms:
                     assert prior_prm in self._prm_dict.keys()
-                    assert self._prm_dict[prior_prm]['role'] == "const"
 
         # check the indices of the calibration parameters; the order of how
         # these parameters appear in self._prm_dict matter! the first

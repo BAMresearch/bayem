@@ -14,10 +14,10 @@ a_true = 2.5
 b_true = 1.7
 sigma_noise = 0.5
 n_walkers = 20
-n_steps = 50
+n_steps = 500
 seed = 1
 show_data = False
-infer_noise_parameter = True
+use_prior_prior = True
 
 # data-generation process; normal noise with constant variance around each point
 np.random.seed(1)
@@ -47,18 +47,19 @@ problem.add_parameter('b', 'model', info="Intersection of graph with y-axis",
                       tex='$b$', prior=('normal', {'loc': 1.0, 'scale': 1.0}))
 problem.add_parameter('sigma', 'noise', tex=r"$\sigma$",
                       info="Standard deviation of zero-mean noise model",
-                      prior=('uniform', {'loc': 0.1, 'scale': 1.9}))
+                      prior=('uniform', {'low': 0.1, 'high': 0.6}))
+
+#
+if use_prior_prior:
+    problem.change_parameter_role('loc_a',
+                                  prior=('uniform', {'low': 2.0, 'high': 3.0}))
 
 # overwrite default info-strings for a's prior parameters
-problem.change_parameter_info("loc_a", "Mean of normal prior for 'a'")
+problem.change_parameter_info("loc_a", "Mean of normal prior for 'a'",
+                              new_tex=r"$\mu_a^\mathrm{prior}$")
 problem.change_parameter_info("scale_a",
                               "Standard deviation of normal prior for 'a'")
 
-# in case the 'prec' should not be inferred, change it to a constant
-if not infer_noise_parameter:
-    problem.change_parameter_role('prec', const=1.0)
-    problem.change_parameter_role('b', const=1.7)
-    # problem.change_parameter_role('b', prior=('normal', {'loc': 2.0, 'scale': 1.0}))
 
 # define the forward model
 class LinearModel(ModelTemplate):
@@ -81,16 +82,14 @@ for i in range(n_tests):
 # add the noise model to the problem
 problem.add_noise_model('y-Sensor', NormalNoise, ['sigma'])
 
-problem.theta_explanation()
-
 print(problem)
 
 init_array = np.zeros((n_walkers, problem.n_calibration_prms))
 init_array[:, 0] = a_true + np.random.randn(n_walkers)
-#if problem.n_calibration_prms == 2:
 init_array[:, 1] = b_true + np.random.randn(n_walkers)
-init_array[:, 2] = np.random.uniform(0.1, 2.0, n_walkers)
-print(init_array[:, 2])
+init_array[:, 2] = np.random.uniform(0.1, 0.5, n_walkers)
+if use_prior_prior:
+    init_array[:, 3] = np.random.uniform(2.1, 2.9, n_walkers)
 
 emcee_model = EmceeParameterEstimator(
     log_likelihood=problem.loglike,
