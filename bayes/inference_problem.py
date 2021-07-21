@@ -4,13 +4,14 @@ from .latent import LatentParameters
 from collections import OrderedDict
 from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
 from .jacobian import jacobian
-from typing import Hashable
+from typing import Hashable, Dict
+
 
 
 class ModelErrorInterface:
     def __call__(
         self, latent_parameter_list: ParameterList
-    ) -> dict[Hashable : np.ndarray]:
+    ) -> Dict[Hashable, np.ndarray]:
         """
         Evaluate the model error based on the `latent_parameter_list`.
         """

@@ -1,6 +1,6 @@
 import copy
 import collections
-from typing import Hashable
+from typing import Hashable, Dict
 import logging
 
 import numpy as np
@@ -27,7 +27,7 @@ class LatentParameters(collections.OrderedDict):
         # This member is just for convenience/performance such that the
         # `updated_parameters` do not have to build it again and can
         # just copy it.
-        self._empty_parameter_lists: dict[Hashable, ParameterList] = {}
+        self._empty_parameter_lists: Dict[Hashable, ParameterList] = {}
 
     def add(
         self, global_name: str, local_name: str, model_error_key: Hashable, N: int = 1
@@ -50,7 +50,7 @@ class LatentParameters(collections.OrderedDict):
 
     def updated_parameters(
         self, number_vector: np.ndarray
-    ) -> dict[Hashable, ParameterList]:
+    ) -> Dict[Hashable, ParameterList]:
 
         # maybe make that a member?
         current_length = sum(l.N for l in self.values())
