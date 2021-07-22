@@ -2,13 +2,17 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
+from bayes.inference_problem import (
+    VariationalBayesSolver,
+    ModelErrorInterface,
+    InferenceProblem,
+)
 from bayes.noise import UncorrelatedSingleNoise
 
 np.random.seed(6174)
 
 A1, B1, A2, B2 = 100.0, 200.0, 300.0, 400.0
-noise_sd = 12.
+noise_sd = 12.0
 
 N = 2000
 xs = np.linspace(0, 1, N)
@@ -91,20 +95,20 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        problem = VariationalBayesProblem()
-        problem.add_model_error(me1)
-        problem.add_model_error(me2)
+        problem = InferenceProblem()
+        key1 = problem.add_model_error(me1)
+        key2 = problem.add_model_error(me2)
 
         problem.latent["B1"].add(me1, "B")
         problem.latent["B2"].add(me2, "B")
         problem.latent["A"].add_shared()
-        noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
 
         parameter_vec = np.array([1, 2, 4])
-        error_list = problem(parameter_vec)
+        error_list = problem.evaluate_model_errors(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
-        np.testing.assert_almost_equal(error_list[noise_key], error_multi)
+        error_concatentated = np.concatenate([error_list[key1]["dummy_sensor"], error_list[key2]["dummy_sensor"]])
+        np.testing.assert_almost_equal(error_concatentated, error_multi)
 
     def test_joint(self):
         # Define two ModelErrors, but note that both use the same model.
@@ -113,7 +117,7 @@ class Test_VB(unittest.TestCase):
 
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
-        problem = VariationalBayesProblem()
+        problem = InferenceProblem()
         problem.add_model_error(me1)
         problem.add_model_error(me2)
 
@@ -122,16 +126,17 @@ class Test_VB(unittest.TestCase):
         problem.latent["A2"].add(me2, "A")
         problem.latent["B2"].add(me2, "B")
 
-        problem.set_normal_prior("A1", A1 + 0.5, 2)
-        problem.set_normal_prior("B1", B1 + 0.5, 2)
-        problem.set_normal_prior("A2", A2 + 0.5, 2)
-        problem.set_normal_prior("B2", B2 + 0.5, 2)
+        problem.latent["A1"].prior = A1 + 0.5, 2
+        problem.latent["B1"].prior = B1 + 0.5, 2
+        problem.latent["A2"].prior = A2 + 0.5, 2
+        problem.latent["B2"].prior = B2 + 0.5, 2
 
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
         problem.latent_noise[noise_key].add(noise_key, "precision")
         problem.latent_noise[noise_key].prior = Gamma.Noninformative()
 
-        info = problem.run()
+        vbs = VariationalBayesSolver(problem)
+        info = vbs.estimate_parameters()
         print(info)
         self.check_posterior(info, noise_key)
 

@@ -2,8 +2,12 @@ import unittest
 import numpy as np
 
 from bayes.parameters import ParameterList
-from bayes.inference_problem import VariationalBayesProblem, ModelErrorInterface
-from bayes.noise import UncorrelatedNoiseModel
+from bayes.inference_problem import (
+    VariationalBayesSolver,
+    InferenceProblem,
+)
+from bayes.noise import UncorrelatedSensorNoise
+import bayes.vb
 
 """
 Not really a test yet.
@@ -14,36 +18,27 @@ with pymc3.
 """
 
 
-class Sensor:
-    def __init__(self, name, shape=(1, 1)):
-        self.name = name
-        self.shape = shape
-
-    def __repr__(self):
-        return f"{self.name} {self.shape}"
-
-
-class MySensor(Sensor):
+class MySensor:
     def __init__(self, name, position):
-        super().__init__(name, shape=(1, 1))
+        self.name = name
         self.position = position
 
 
 def my_forward_model(parameter_list, sensors, time_steps):
-        """
+    """
         evaluates 
             fw(x, t) = A * x + B * t
         """
-        A = parameter_list["A"]
-        B = parameter_list["B"]
+    A = parameter_list["A"]
+    B = parameter_list["B"]
 
-        result = {}
-        for sensor in sensors:
-            result[sensor] = A * sensor.position + B * time_steps
-        return result
+    result = {}
+    for sensor in sensors:
+        result[sensor] = A * sensor.position + B * time_steps
+    return result
 
 
-class MyModelError(ModelErrorInterface):
+class MyModelError:
     def __init__(self, fw, data):
         self._fw = fw
         self._ts, self._sensor_data = data
@@ -77,71 +72,51 @@ if __name__ == "__main__":
     prm.define("A", A_correct)
     prm.define("B", B_correct)
 
+    noise_sds = {s1: 0.2, s2: 0.4, s3: 0.6}
     np.random.seed(6174)
-    noise_sd1 = 0.2
-    noise_sd2 = 0.4
 
-    def generate_data(N_time_steps, noise_sd):
+    def generate_data(N_time_steps):
         time_steps = np.linspace(0, 1, N_time_steps)
         model_response = my_forward_model(prm, [s1, s2, s3], time_steps)
+
         sensor_data = {}
         for sensor, perfect_data in model_response.items():
             sensor_data[sensor] = perfect_data + np.random.normal(
-                0.0, noise_sd, N_time_steps
+                0.0, noise_sds[sensor], N_time_steps
             )
         return time_steps, sensor_data
 
-    data1 = generate_data(101, noise_sd1)
-    data2 = generate_data(51, noise_sd2)
+    data1 = generate_data(101)
+    data2 = generate_data(51)
 
     me1 = MyModelError(my_forward_model, data1)
     me2 = MyModelError(my_forward_model, data2)
 
-    problem = VariationalBayesProblem()
-    key1 = problem.add_model_error(me1)
-    key2 = problem.add_model_error(me2)
+    problem = InferenceProblem()
+    problem.add_model_error(me1)
+    problem.add_model_error(me2)
 
-    problem.set_latent_individually("A", key1, "A")
-    problem.set_latent_individually("A", key2, "A")
-    # or simply
-    problem.set_latent("B")
+    problem.latent["A"].add(me1, "A")
+    problem.latent["A"].add(me2, "A")
+    # or alternatively for "B"
+    problem.latent["B"].add_shared()
 
-    problem.set_normal_prior("A", 40.0, 5.0)
-    problem.set_normal_prior("B", 6000.0, 300.0)
+    problem.latent["A"].prior = 40.0, 5.0
+    problem.latent["B"].prior = 6000.0, 300.0
 
-    noise1 = UncorrelatedNoiseModel()
-    noise1.add(key1, s1)
-    noise1.add(key1, s2)
-    noise1.add(key1, s3)
-
-    noise2 = UncorrelatedNoiseModel()
-    noise2.add(key2, s1)
-    noise2.add(key2, s2)
-    noise2.add(key2, s3)
-
-    noise_key1 = problem.add_noise_model(noise1)
-    noise_key2 = problem.add_noise_model(noise2)
-
-    problem.set_noise_prior(noise_key1, 3 * noise_sd1, sd_shape=0.5)
-    problem.set_noise_prior(noise_key2, 3 * noise_sd2, sd_shape=0.5)
-
-    info = problem.run()
+    for sensor in [s1, s2, s3]:
+        noise_model = UncorrelatedSensorNoise([sensor])
+        noise_key = problem.add_noise_model(noise_model)
+        problem.latent_noise[noise_key].add(noise_model, "precision")
+        problem.latent_noise[noise_key].prior = bayes.vb.Gamma.FromSD(noise_sds[sensor])
+    
+    info = VariationalBayesSolver(problem).estimate_parameters()
     print(info)
 
     """
     We now transform the vb problem into a sampling problem. 
 
-
-    1)  Set the parameters of the noise models latent. For convenience (since
-        there is only one parameter per noise model), we define the global 
-        name of the latent parameter to be the noise_key.
-    """
-    for noise_key in problem.noise_prior:
-        noise_parameters = problem.noise_models[noise_key].parameter_list
-        problem.set_latent_individually(noise_key, noise_key, "precision")
-
-    """
-    2)  Wrap problem.loglike for a tool of your choice
+    1)  Wrap problem.loglike for a tool of your choice
     """
     import theano.tensor as tt
 
@@ -160,27 +135,25 @@ if __name__ == "__main__":
     pymc3_log_like = LogLike(problem.loglike)
 
     """
-    3)  Define prior distributions in a tool of your choice!
+    2)  Define prior distributions in a tool of your choice!
     """
     import pymc3 as pm
 
-    pymc3_prior = [None] * len(problem.latent)
+    pymc3_prior = []
 
     model = pm.Model()
     with model:
-        for name, (mean, sd) in problem.prm_prior.items():
-            idx = problem.latent[name].start_idx
-            assert problem.latent[name].N == 1  # vector parameters not yet supported!
-            pymc3_prior[idx] = pm.Normal(name, mu=mean, sigma=sd)
+        for name, latent in problem.latent.items():
+            mean, sd = latent.prior
+            pymc3_prior.append(pm.Normal(name, mu=mean, sigma=sd))
 
-        for name, gamma in problem.noise_prior.items():
-            idx = problem.latent[name].start_idx
-            shape, scale = gamma.shape, gamma.scale
+        for name, latent in problem.latent_noise.items():
+            shape, scale = latent.prior.shape, latent.prior.scale
             alpha, beta = shape, 1.0 / scale
-            pymc3_prior[idx] = pm.Gamma(name, alpha=alpha, beta=beta)
+            pymc3_prior.append(pm.Gamma(name, alpha=alpha, beta=beta))
 
     """
-    4)  Go!
+    3)  Go!
     """
     with model:
         theta = tt.as_tensor_variable(pymc3_prior)
@@ -196,8 +169,8 @@ if __name__ == "__main__":
 
     summary = pm.summary(trace)
     print(summary)
-
-    print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
-
     means = summary["mean"]
-    print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)
+
+    for noise_key in problem.latent_noise:
+        print(f"{noise_key}: vb    = ", 1.0 / info.noise[noise_key].mean ** 0.5)
+        print(f"{noise_key}: pymc3 = ", 1.0 / means[noise_key] ** 0.5)

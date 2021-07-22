@@ -62,6 +62,9 @@ class InferenceProblem:
         return key
 
     def add_noise_model(self, noise_model, key=None):
+        """
+        Adds a `{key, noise_model}` entry to the inference problem. 
+        """
 
         key = key or f"noise{len(self._noise_models)}"
 
@@ -97,38 +100,34 @@ class InferenceProblem:
         return log_like
 
 
-class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
-    def set_normal_prior(self, latent_name, mean, sd):
-        if latent_name not in self.latent:
-            raise RuntimeError(
-                f"{latent_name} is not defined as a latent parameter. "
-                f"Call InferenceProblem.latent[{latent_name}].add(...) first."
-            )
-        self.latent[latent_name].prior = (mean, sd)
+class VariationalBayesSolver(VariationalBayesInterface):
+    def __init__(self, problem):
+        self.problem = problem
 
-    def set_noise_prior(self, name, gamma):
-        if name not in self.latent_noise:
-            raise RuntimeError(
-                f"{name} is not defined as a latent noise parameter. "
-                f"Call InferenceProblem.latent_noise[{name}].add(...) first."
-            )
-        self.latent_noise[name].prior = gamma
+    def __call__(self, number_vector, concatenate=True):
+        """
+        overwrites VariationalBayesInterface.__call__
+        """
+        me = self.problem.evaluate_model_errors(number_vector)
 
-    def run(self, **kwargs):
-        MVN = self.prior_MVN()
-        noise_prior = {}
-        for noise_prm_name, latent in self.latent_noise.items():
-            noise_prior[noise_prm_name] = latent.prior
-        info = variational_bayes(self, MVN, noise_prior, **kwargs)
-        return info
+        errors_by_noise = {}
+        for key, noise in self.problem.noise_models.items():
+            terms = noise.model_error_terms(me)
+            if concatenate:
+                terms = np.concatenate(terms)
+            errors_by_noise[key] = terms
+
+        return errors_by_noise
 
     def jacobian(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.jacobian
         """
-        updated_latent_parameters = self.latent.updated_parameters(number_vector)
+        updated_latent_parameters = self.problem.latent.updated_parameters(
+            number_vector
+        )
         jac = {}
-        for me_key, me in self.model_errors.items():
+        for me_key, me in self.problem.model_errors.items():
             me_parameter_list = updated_latent_parameters[me_key]
 
             if hasattr(me, "jacobian"):
@@ -158,8 +157,8 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 stacked_jac = np.zeros((N, len(number_vector)))
 
                 for local_name in me_parameter_list.names:
-                    global_name = self.latent.global_name(me_key, local_name)
-                    indices = self.latent.global_indices(global_name)
+                    global_name = self.problem.latent.global_name(me_key, local_name)
+                    indices = self.problem.latent.global_indices(global_name)
 
                     J = parameter_jac[local_name]
                     # If it is a scalar parameter, the user may have
@@ -174,7 +173,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             jac[me_key] = sensor_jac
 
         jacs_by_noise = {}
-        for key, noise in self.noise_models.items():
+        for key, noise in self.problem.noise_models.items():
             terms = noise.jacobian_terms(jac)
             if concatenate:
                 terms = np.concatenate(terms)
@@ -182,27 +181,14 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
         return jacs_by_noise
 
-    def __call__(self, number_vector, concatenate=True):
-        """
-        overwrites VariationalBayesInterface.__call__
-        """
-        me = super().evaluate_model_errors(number_vector)
+    def prior_mvn(self):
+        latent_prms = self.problem.latent
 
-        errors_by_noise = {}
-        for key, noise in self.noise_models.items():
-            terms = noise.model_error_terms(me)
-            if concatenate:
-                terms = np.concatenate(terms)
-            errors_by_noise[key] = terms
-
-        return errors_by_noise
-
-    def prior_MVN(self):
-        self.latent.check_priors()
+        latent_prms.check_priors()
         means = []
         precs = []
 
-        for name, latent in self.latent.items():
+        for name, latent in latent_prms.items():
             mean, sd = latent.prior
             for _ in range(latent.N):
                 means.append(mean)
@@ -212,5 +198,17 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             means,
             np.diag(precs),
             name="MVN prior",
-            parameter_names=list(self.latent.keys()),
+            parameter_names=list(latent_prms.keys()),
         )
+
+    def prior_noise(self):
+        latent_noise = self.problem.latent_noise
+        noise_prior = {}
+        for noise_prm_name, latent in latent_noise.items():
+            noise_prior[noise_prm_name] = latent.prior
+        return noise_prior
+
+    def estimate_parameters(self, **kwargs):
+        param0 = self.prior_mvn()
+        noise0 = self.prior_noise()
+        return variational_bayes(self, param0, noise0, **kwargs)

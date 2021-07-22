@@ -5,7 +5,7 @@ import scipy.optimize
 from bayes.vb import Gamma
 from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
-from bayes.inference_problem import VariationalBayesProblem, InferenceProblem
+from bayes.inference_problem import VariationalBayesSolver, InferenceProblem
 
 
 def dummy_model_error(prms):
@@ -57,25 +57,24 @@ class TestProblem(unittest.TestCase):
 
 
 
-class TestVBProblem(unittest.TestCase):
+class TestVBSolver(unittest.TestCase):
     def test_prior(self):
-        p = VariationalBayesProblem()
+        p = InferenceProblem()
         p.add_model_error(dummy_model_error)
         p.latent["B"].add_shared()
-        p.set_normal_prior("B", 0.0, 1.0)
-        self.assertRaises(Exception, p.set_normal_prior, "not B", 0.0, 1.0)
+        p.latent["B"].prior = (0.0, 1.0)
 
-        self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
         p.latent_noise["noise"].add("noise")
 
-        p.set_noise_prior("noise", Gamma.Noninformative())
+        p.latent_noise["noise"].prior = Gamma.Noninformative()
 
-        result = p([0.1])
+        vbs = VariationalBayesSolver(p)
+        result = vbs([0.1])
         self.assertEqual(len(result), 1)  # one noise group
         self.assertEqual(len(result["noise"]), 2)
 
-        jac = p.jacobian([0.1])
+        jac = vbs.jacobian([0.1])
 
 
 if __name__ == "__main__":
