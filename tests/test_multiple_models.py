@@ -130,8 +130,6 @@ class Test_VB(unittest.TestCase):
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
         problem.set_noise_prior(noise_key, Gamma.Noninformative())
 
-        print(problem.prm_prior)
-
         info = problem.run()
         print(info)
         self.check_posterior(info, noise_key)

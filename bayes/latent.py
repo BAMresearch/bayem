@@ -69,6 +69,22 @@ class LatentParameters(collections.OrderedDict):
         """
         super().__init__()
         self._models = models
+    
+    def __missing__(self, global_name):
+        """
+        This method is called, whenever a `global_name` is accessed that is 
+        not yet part of the `LatentParameters`. This is the bit of magic that
+        allows us to call
+
+          > latent_parameters["A"].add(...) # __missing__("A") is called!
+          > latent_parameters["A"].add(...) # __getitem__("A") is called.
+
+        As the `ParameterListReferences.add` needs to know the `models` (to 
+        get the parameter length and perform checks) and the `global_name`
+        (for more meaningful debug messages), we pass it.
+        """
+        self[global_name] = ParameterListReferences(self._models, global_name)
+        return self[global_name]
 
     def updated_parameters(
         self, number_vector: np.ndarray
@@ -144,21 +160,17 @@ class LatentParameters(collections.OrderedDict):
             to_print, headers=["global name", "length", "model model_key", "local name"]
         )
 
-    def __missing__(self, global_name):
-        """
-        This method is called, whenever a `global_name` is accessed that is 
-        not yet part of the `LatentParameters`. This is the bit of magic that
-        allows us to call
 
-          > latent_parameters["A"].add(...) # __missing__("A") is called!
-          > latent_parameters["A"].add(...) # __getitem__("A") is called.
-
-        As the `ParameterListReferences.add` needs to know the `models` (to 
-        get the parameter length and perform checks) and the `global_name`
-        (for more meaningful debug messages), we pass it.
+    def check_priors(self):
         """
-        self[global_name] = ParameterListReferences(self._models, global_name)
-        return self[global_name]
+        Checks, if there is a prior assigned to each latent parameter, aka 
+        `global_name`.
+        """
+        for global_name, latent in self.items():
+            if latent.prior is None:
+                raise RuntimeError(
+                    f"You defined {global_name} as latent but did not provide a prior distribution!."
+                )
 
 
 class InconsistentLengthException(Exception):

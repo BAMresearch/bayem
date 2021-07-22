@@ -107,7 +107,6 @@ class InferenceProblem:
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def __init__(self):
         super().__init__()
-        self.prm_prior = {}
         self.noise_prior = {}
 
     def set_normal_prior(self, latent_name, mean, sd):
@@ -116,7 +115,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 f"{latent_name} is not defined as a latent parameter. "
                 f"Call InferenceProblem.latent[{latent_name}].add(...) first."
             )
-        self.prm_prior[latent_name] = (mean, sd)
+        self.latent[latent_name].prior = (mean, sd)
 
     def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
         if isinstance(gamma_or_sd_mean, Gamma):
@@ -216,16 +215,12 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         return errors_by_noise
 
     def prior_MVN(self):
-
+        self.latent.check_priors()
         means = []
         precs = []
 
         for name, latent in self.latent.items():
-            if name not in self.prm_prior:
-                raise RuntimeError(
-                    f"You defined {name} as latent but did not provide a prior distribution!."
-                )
-            mean, sd = self.prm_prior[name]
+            mean, sd = latent.prior
             for _ in range(latent.N):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)
