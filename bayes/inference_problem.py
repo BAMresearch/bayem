@@ -40,9 +40,9 @@ class ModelErrorInterface:
 
 class InferenceProblem:
     def __init__(self):
-        self.latent = LatentParameters()
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
+        self.latent = LatentParameters(self.model_errors)
 
     @property
     def noise_models(self):
@@ -176,7 +176,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 stacked_jac = np.zeros((N, len(number_vector)))
 
                 for local_name in me_parameter_list.names:
-                    global_name = self.latent.global_name(local_name)
+                    global_name = self.latent.global_name(me_key, local_name)
                     indices = self.latent.global_indices(global_name)
 
                     J = parameter_jac[local_name]

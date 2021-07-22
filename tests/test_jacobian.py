@@ -123,9 +123,9 @@ class TestJacobianJointGlobal(unittest.TestCase):
         me = OddEvenME()
         p = VariationalBayesProblem()
         me_key = p.add_model_error(me)
-        p.set_latent_individually("E", me_key, "E_odd")
-        p.set_latent_individually("E", me_key, "E_even")
-        p.set_latent_individually("E", me_key, "E_all")
+        p.latent["E"].add(me, "E_odd")
+        p.latent["E"].add(me, "E_even")
+        p.latent["E"].add(me, "E_all")
 
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
@@ -142,9 +142,9 @@ class TestJacobianJointGlobal(unittest.TestCase):
         """
         me = OddEvenME()
         p = VariationalBayesProblem()
-        me_key = p.add_model_error(me)
-        p.set_latent_individually("E", me_key, "E_odd")
-        p.set_latent_individually("E", me_key, "E_even")
+        p.add_model_error(me)
+        p.latent["E"].add(me, "E_odd")
+        p.latent["E"].add(me, "E_even")
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
         J = p.jacobian([42.0])[noise_key]

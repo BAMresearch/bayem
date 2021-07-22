@@ -23,9 +23,7 @@ class TestProblem(unittest.TestCase):
     def test_latent_parameters(self):
         p = InferenceProblem()
         me_key = p.add_model_error(dummy_model_error)
-        p.set_latent_individually("B", me_key, "B")
-        # or
-        p.set_latent_individually("B", me_key)
+        p.latent["B"].add_shared()
 
         me = p.evaluate_model_errors([42])
         self.assertListEqual([22, 64], list(me[me_key]["dummy_sensor"]))
@@ -35,7 +33,7 @@ class TestProblem(unittest.TestCase):
         N = 3
         for _ in range(N):
             p.add_model_error(dummy_model_error)
-        p.set_latent("B")
+        p.latent["B"].add_shared()
         self.assertEqual(len(p.latent["B"]), N)
 
         result = p.evaluate_model_errors([42])
@@ -45,7 +43,7 @@ class TestProblem(unittest.TestCase):
     def test_maximum_likelihood(self):
         p = InferenceProblem()
         p.add_model_error(dummy_model_error)
-        p.set_latent("B")
+        p.latent["B"].add_shared()
         noise = UncorrelatedSingleNoise()
         noise.parameter_list["precision"] = 1.
         p.add_noise_model(noise)
@@ -63,7 +61,7 @@ class TestVBProblem(unittest.TestCase):
     def test_prior(self):
         p = VariationalBayesProblem()
         p.add_model_error(dummy_model_error)
-        p.set_latent("B")
+        p.latent["B"].add_shared()
         p.set_normal_prior("B", 0.0, 1.0)
         self.assertRaises(Exception, p.set_normal_prior, "not B", 0.0, 1.0)
 
