@@ -1,41 +1,34 @@
-from collections import OrderedDict
-from typing import Dict, Hashable
-
 import numpy as np
-
-from .jacobian import jacobian
-from .latent import LatentParameters
 from .parameters import ParameterList
-from .vb import MVN, Gamma, VariationalBayesInterface, variational_bayes
+from .latent import LatentParameters
+from collections import OrderedDict
+from .vb import MVN, Gamma, variational_bayes, VariationalBayesInterface
+from .jacobian import d_model_error_d_named_parameter
 
 
 class ModelErrorInterface:
-    def __call__(
-        self, latent_parameter_list: ParameterList
-    ) -> Dict[Hashable, np.ndarray]:
+    def __init__(self):
+        self.parameter_list = ParameterList()
+
+    def __call__(self):
         """
-        Evaluate the model error based on the `latent_parameter_list`.
+        Evaluate the model error based on `self.parameter_list` as a dict of
+        {some_key: numpy.array}.
         """
         raise NotImplementedError("Override this!")
 
-    def jacobian(self, latent_parameter_list, w_r_t_what=None):
-        return jacobian(self, latent_parameter_list, w_r_t_what)
+    def jacobian(self, latent_names=None):
+        jac = dict()
+        latent_names = latent_names or self.parameter_list.names
+        for prm_name in latent_names:
+            prm_jac = d_model_error_d_named_parameter(self, prm_name)
+            for key in prm_jac:
+                if key not in jac:
+                    jac[key] = dict()
 
-    def get_length(self, parameter_name):
-        """
-        Overwrite for more complex behaviours, e.g. to
+                jac[key][prm_name] = prm_jac[key]
 
-        ~~~py
-            if parameter_name == "displacement_field":
-                return len(self.u)
-            if parameter_name == "force_vector":
-                return 3
-            raise UnknownParameter()
-            # or
-            return 1
-        ~~~
-        """
-        return 1
+        return jac
 
 
 class InferenceProblem:
@@ -68,38 +61,34 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-    def evaluate_model_errors(self, number_vector):
-        updated_latent_parameters = self.latent.updated_parameters(number_vector)
+    def __call__(self, number_vector):
+        self.latent.update(number_vector)
         result = {}
-        for me_key, prms in updated_latent_parameters.items():
-            result[me_key] = self.model_errors[me_key](prms)
+        for key, me in self.model_errors.items():
+            result[key] = me()
         return result
 
-    def set_latent(self, global_and_local_name):
-        """
-        There is no way to check if a model error actually has a
-        `global_and_local_name` parameter, so we pass it to all of them.
-        """
-        for me_key in self.model_errors:
-            self.set_latent_individually(global_and_local_name, me_key)
+    def define_shared_latent_parameter_by_name(self, name):
+        for model_error in self.model_errors.values():
+            try:
+                prm = model_error.parameter_list
+            except AttributeError:
+                raise AttributeError(
+                    "This method requires the `model_error` to have a `parameter_list` attribute!"
+                )
 
-    def set_latent_individually(self, global_name, model_error_key, local_name=None):
-        local_name = global_name if local_name is None else local_name
-        model_error = self.model_errors[model_error_key]
-
-        try:
-            N = model_error.get_shape(local_name)
-        except AttributeError:
-            N = 1
-
-        self.latent.add(global_name, local_name, model_error_key, N)
+            if name in model_error.parameter_list:
+                self.latent[name].add(model_error.parameter_list, name)
 
     def loglike(self, number_vector):
-        model_errors = self.evaluate_model_errors(number_vector)
+        self.latent.update(number_vector)
+        raw_me = {}
+        for key, me in self.model_errors.items():
+            raw_me[key] = me()
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
-            log_like += noise_term.loglike_contribution(model_errors)
+            log_like += noise_term.loglike_contribution(raw_me)
 
         return log_like
 
@@ -142,44 +131,58 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         """
         overwrites VariationalBayesInterface.jacobian
         """
-        updated_latent_parameters = self.latent.updated_parameters(number_vector)
+        self.latent.update(number_vector)
         jac = {}
-        for me_key, me in self.model_errors.items():
-            me_parameter_list = updated_latent_parameters[me_key]
-            sensor_parameter_jac = me.jacobian(me_parameter_list)
-            
+        for key, me in self.model_errors.items():
+
+            # For each global latent parameter, we now need to find its
+            # _local_ name, so the name in the parameter_list of the
+            # model_error ...
+            latent_names = self.latent.latent_names(me.parameter_list)
+            local_latent_names = [n[0] for n in latent_names]
+            # ... and only request the jacobian for the latent parameters.
+            sensor_parameter_jac = me.jacobian(local_latent_names)
             """
             sensor_parameter_jac contains a 
                 dict (sensor) of 
                 dict (parameter)
             
-            We now "flatten" the last dict (parameter) in the order of the 
-            latent parameters for a valid VB input. 
+            We now flatten the last dict (parameter) in the order of the 
+            latent parameters for a valid VB input.
+
+            This is challenging/ugly because:
+                * The "parameter" in sensor_parameter_jac is not the same
+                  as the corresponding _global_ parameter in the latent
+                  parameters.
+                * Some of the latent parameters may not be part of 
+                  sensor_parameter_jac, because it only is a parameter of a 
+                  different model error. We have to fill it with zeros of the
+                  right dimension
 
             """
-            
             sensor_jac = {}
             for sensor, parameter_jac in sensor_parameter_jac.items():
                 first_jac = list(parameter_jac.values())[0]
                 N = len(first_jac)
-                
+
+                # We allocate "stacked_jac" where each column corresponds
+                # to a number in the "number_vector".
                 stacked_jac = np.zeros((N, len(number_vector)))
 
-                for local_name in me_parameter_list.names:
-                    global_name = self.latent.global_name(local_name)
-                    indices = self.latent.global_indices(global_name)
-
+                for (local_name, global_name) in latent_names:
                     J = parameter_jac[local_name]
+
                     # If it is a scalar parameter, the user may have
                     # defined as a vector of length N. We need to
                     # transform it to a matrix Nx1.
                     if len(J.shape) == 1:
                         J = np.atleast_2d(J).T
-                    
-                    stacked_jac[:, indices] += J
+
+                    stacked_jac[:, self.latent[global_name].global_index_range()] += J
+
                 sensor_jac[sensor] = stacked_jac
 
-            jac[me_key] = sensor_jac
+            jac[key] = sensor_jac
 
         jacs_by_noise = {}
         for key, noise in self.noise_models.items():
@@ -194,7 +197,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         """
         overwrites VariationalBayesInterface.__call__
         """
-        me = super().evaluate_model_errors(number_vector)
+        me = super().__call__(number_vector)
 
         errors_by_noise = {}
         for key, noise in self.noise_models.items():
@@ -220,9 +223,4 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)
 
-        return MVN(
-            means,
-            np.diag(precs),
-            name="MVN prior",
-            parameter_names=list(self.latent.keys()),
-        )
+        return MVN(means, np.diag(precs), name="MVN prior", parameter_names=list(self.latent.keys()))

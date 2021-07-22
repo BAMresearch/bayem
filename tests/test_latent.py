@@ -1,50 +1,96 @@
 import unittest
-from bayes.latent import LatentParameters, InconsistentLengthException
+from bayes.parameters import ParameterList
+from bayes.latent import LatentParameters
 
 
 class TestLatentParameters(unittest.TestCase):
-    def test_update(self):
-        l = LatentParameters()
+    def setUp(self):
+        self.pA = ParameterList()
+        self.pA.define("A", 0)
+        self.pA.define("shared", 2)
 
-        l.add("shared", "A1", "model1")
-        l.add("shared", "A2", "model2")
-        l.add("B", "B", "model1", 2)
+        self.pB = ParameterList()
+        self.pB.define("B", 1)
+        self.pB.define("shared", 2)
+        self.pB.define("list", [3, 4])
 
-        new = l.updated_parameters([42, 6174, 84])
+    def test_add(self):
+        latent = LatentParameters()
+        latent["latentA"].add(self.pA, "A")
 
-        self.assertEqual(new["model1"]["A1"], 42)
-        self.assertEqual(new["model2"]["A2"], 42)
-        self.assertEqual(new["model1"]["B"], [6174, 84])
+    def test_add_twice(self):
+        latent = LatentParameters()
+        latent["latentA"].add(self.pA, "A")
 
-    def test_inconsistent_length(self):
-        l = LatentParameters()
-        l.add("GlobalName", "A", "model", N=42)
-        with self.assertRaises(InconsistentLengthException) as e:
-            l.add("GlobalName", "who", "cares", N=6174)
+        another_pA = ParameterList()
+        another_pA.define("A", 0)
+        another_pA.define("shared", 2)
+        latent["latentA"].add(another_pA, "A")
 
-        # TODO?
-        # msg = str(e.exception)
-        # print(msg)
-        # self.assertIn("42", msg)
-        # self.assertIn("6174", msg)
-        # self.assertIn("GlobalName", msg)
+    def test_shared(self):
+        latent = LatentParameters()
+        latent["shared"].add(self.pA, "shared")
+        latent["shared"].add(self.pB, "shared")
 
-        with self.assertRaises(InconsistentLengthException) as e:
-            some_vector_with_not_length_42 = [1, 2, 3]
-            l.updated_parameters(some_vector_with_not_length_42)
+        self.assertTrue(latent["shared"].has(self.pA, "shared"))
 
-        msg = str(e.exception)
-        print(msg)
-        self.assertIn("42", msg)
-        self.assertIn("3", msg)
+        self.assertListEqual(latent["shared"].global_index_range(), [0])
+        latent.update([42])
+        self.assertEqual(self.pA["shared"], 42)
+        self.assertEqual(self.pB["shared"], 42)
 
-    def test_pretty_print(self):
-        l = LatentParameters()
-        l.add("shared", "A1", "model1")
-        l.add("shared", "A2", "model2")
-        l.add("B", "B", "model1", 2)
+        with self.assertRaises(Exception) as e:
+            latent.update([42, 42])
+        print("Expected exception: \n", e.exception)
 
-        print(l)
+    def test_set_value(self):
+        latent = LatentParameters()
+        latent["shared"].add(self.pA, "shared")
+        latent["shared"].add(self.pB, "shared")
+        latent["shared"].set_value(42)
+
+        self.assertEqual(self.pA["shared"], 42)
+        self.assertEqual(self.pA["shared"], 42)
+
+        with self.assertRaises(Exception) as e:
+            latent["shared"].set_value([1, 2, 3])
+        print("Expected exception: \n", e.exception)
+
+    def test_start_vector(self):
+        latent = LatentParameters()
+        latent["A"].add(self.pA, "A")
+        latent["B"].add(self.pB, "B")
+        latent["shared"].add(self.pA, "shared")
+        latent["shared"].add(self.pB, "shared")
+        latent["list"].add(self.pB, "list")
+
+        v = latent.get_vector()
+        self.assertListEqual(v, [0, 1, 2, 3, 4])
+
+        v = latent.get_vector({"A": 42, "list": [61, 74]})
+        self.assertListEqual(v, [42, 1, 2, 61, 74])
+
+        # check for dimensions errors
+        with self.assertRaises(Exception) as e:
+            v = latent.get_vector({"A": [1, 2, 3]})
+        print("Expected exception: \n", e.exception)
+
+        with self.assertRaises(Exception) as e:
+            v = latent.get_vector({"list": [1, 2, 3]})
+        print("Expected exception: \n", e.exception)
+
+        # We expect an exception, if a shared parameter is not defined
+        # unambiguously
+        self.pA["shared"] = 20
+        with self.assertRaises(RuntimeError) as e:
+            v = latent.get_vector()
+        print("Expected exception: \n", e.exception)
+
+        # Provinding a default value for that case is fine though:
+        v = latent.get_vector({"shared": 42})
+
+        self.assertEqual(len(v), 5)
+        self.assertEqual(latent.vector_length, 5)
 
 
 if __name__ == "__main__":

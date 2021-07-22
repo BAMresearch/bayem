@@ -38,24 +38,6 @@ class TestParameters(unittest.TestCase):
         for p in self.p.names:
             print(p)
 
-    def test_overwrite(self):
-        other = ParameterList()
-        other.define("pA", 42)
-
-        p_new = self.p.overwrite_with(other)
-        self.assertEqual(p_new["pA"], 42)
-        self.assertEqual(p_new["pB"], 0)
-
-        other2 = ParameterList()
-        other2.define("pC", 42)
-        with self.assertRaises(Exception):
-            p_new = self.p.overwrite_with(other2)
-
-    def test_overwrite_one(self):
-        p_new = self.p.with_value("pA", 42)
-        self.assertEqual(p_new["pA"], 42)
-        self.assertEqual(p_new["pB"], 0)
-
 
 if __name__ == "__main__":
     unittest.main()
