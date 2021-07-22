@@ -11,14 +11,14 @@ def delta_x(x0, delta=None):
     return x0 * 1.0e-6  # approx x0 * sqrt(machine precision)
 
 
-def jacobian(f, latent_parameter_list, w_r_t_what=None):
+def jacobian_cdf(f, latent_parameter_list, w_r_t_what=None):
     jac = dict()
     w_r_t_what = w_r_t_what or latent_parameter_list.names
     for prm_name in w_r_t_what:
         if hasattr(latent_parameter_list[prm_name], "__len__"):
-            prm_jac = _vector_jac(f, latent_parameter_list, prm_name)
+            prm_jac = _vector_cdf(f, latent_parameter_list, prm_name)
         else:
-            prm_jac = _scalar_jac(f, latent_parameter_list, prm_name)
+            prm_jac = _scalar_cdf(f, latent_parameter_list, prm_name)
 
         for sensor_key, sensor_jac in prm_jac.items():
             if sensor_key not in jac:
@@ -28,7 +28,7 @@ def jacobian(f, latent_parameter_list, w_r_t_what=None):
     return jac
 
 
-def _vector_jac(f, latent_parameter_list, prm_name):
+def _vector_cdf(f, latent_parameter_list, prm_name):
     jac = None
     value = latent_parameter_list[prm_name]
     N = len(value)
@@ -56,7 +56,7 @@ def _vector_jac(f, latent_parameter_list, prm_name):
     return jac
 
 
-def _scalar_jac(f, latent_parameter_list, prm_name):
+def _scalar_cdf(f, latent_parameter_list, prm_name):
     jac = dict()
     value = latent_parameter_list[prm_name]
 

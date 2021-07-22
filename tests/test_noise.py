@@ -1,6 +1,7 @@
 import numpy as np
 import unittest
 import bayes.noise
+import bayes.parameters
 from copy import deepcopy
 import scipy.stats
 
@@ -141,11 +142,13 @@ at your own risk
 class TestNoiseLoglike(unittest.TestCase):
     def test_loglike(self):
         n = bayes.noise.UncorrelatedSingleNoise()
+        p = bayes.parameters.ParameterList()
+        p.define("precision")
 
         for precision in np.geomspace(1e-4, 1e4, 10):
-            n.parameter_list["precision"] = precision
+            p["precision"] = precision
 
-            ll_ours = n.loglike_contribution(model_error_dict)
+            ll_ours = n.loglike_contribution(model_error_dict, p)
 
             ll_scipy = 0.
             terms = n.model_error_terms(model_error_dict)

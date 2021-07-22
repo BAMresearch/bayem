@@ -3,7 +3,7 @@ from typing import Dict, Hashable
 
 import numpy as np
 
-from .jacobian import jacobian
+from .jacobian import jacobian_cdf
 from .latent import LatentParameters
 from .parameters import ParameterList
 from .vb import MVN, Gamma, VariationalBayesInterface, variational_bayes
@@ -19,7 +19,7 @@ class ModelErrorInterface:
         raise NotImplementedError("Override this!")
 
     def jacobian(self, latent_parameter_list, w_r_t_what=None):
-        return jacobian(self, latent_parameter_list, w_r_t_what)
+        return jacobian_cdf(self, latent_parameter_list, w_r_t_what)
 
     def get_length(self, parameter_name):
         """
@@ -137,7 +137,7 @@ class VariationalBayesSolver(VariationalBayesInterface):
                 # AttributeError, but an attribute error may also occur
                 # _within_ the jacobian evaluation. So we explicitly
                 # check for the "jacobian" attribute.
-                sensor_parameter_jac = jacobian(me, me_parameter_list)
+                sensor_parameter_jac = jacobian_cdf(me, me_parameter_list)
 
             """
             sensor_parameter_jac contains a 

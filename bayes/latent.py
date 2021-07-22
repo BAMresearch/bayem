@@ -208,6 +208,7 @@ class ParameterListReferences(list):
             msg = f"Prior for {self._global_name} was already set to '{self.prior}' "
             msg += f"and is now overwritten with '{new_prior}'."
             raise RuntimeError(msg)
+
         self.__prior = new_prior
 
     def add_shared(self, prior=None):

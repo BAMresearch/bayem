@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from bayes.jacobian import jacobian
-from bayes.inference_problem import ModelErrorInterface, VariationalBayesProblem
+from bayes.jacobian import jacobian_cdf
+from bayes.inference_problem import *
 from bayes.parameters import ParameterList
 from bayes.noise import UncorrelatedSingleNoise
 
@@ -53,7 +53,7 @@ class TestJacobian(unittest.TestCase):
         prm = ParameterList()
         prm.define("A", A)
         prm.define("B", B)
-        jac = jacobian(me, prm)
+        jac = jacobian_cdf(me, prm)
         CHECK(jac["out1"]["A"], me.xs)
         CHECK(jac["out1"]["B"], 2 * B * np.ones_like(me.xs))
         CHECK(jac["out2"]["A"], me.xs * 2 * A)
@@ -63,7 +63,7 @@ class TestJacobian(unittest.TestCase):
         x = np.r_[1, 2, 3]
         prm = ParameterList()
         prm.define("X", x)
-        jac = jacobian(dummy_me_vector_prm, prm)
+        jac = jacobian_cdf(dummy_me_vector_prm, prm)
 
         jac_correct = np.concatenate([np.diag(2 * x), np.diag(3 * x ** 2)])
         CHECK(jac["out"]["X"], jac_correct)
@@ -71,7 +71,7 @@ class TestJacobian(unittest.TestCase):
     def test_vector_prm2(self):
         prm = ParameterList()
         prm.define("X", [0.0, 42.0])
-        jac = jacobian(dummy_me_vector_prm2, prm)
+        jac = jacobian_cdf(dummy_me_vector_prm2, prm)
 
         jac_correct = np.array([[1, 1]])
         CHECK(jac["out"]["X"], jac_correct)
@@ -121,7 +121,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
 
     def test_three_joints(self):
         me = OddEvenME()
-        p = VariationalBayesProblem()
+        p = InferenceProblem()
         me_key = p.add_model_error(me)
         p.latent["E"].add(me, "E_odd")
         p.latent["E"].add(me, "E_even")
@@ -129,7 +129,7 @@ class TestJacobianJointGlobal(unittest.TestCase):
 
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
-        J = p.jacobian([42.0])[noise_key]
+        J = VariationalBayesSolver(p).jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
         CHECK(J[:, 0], me.x_odd + me.x_even + me.x_all)
 
@@ -141,13 +141,13 @@ class TestJacobianJointGlobal(unittest.TestCase):
         two of the three parameters are defined latent.
         """
         me = OddEvenME()
-        p = VariationalBayesProblem()
+        p = InferenceProblem()
         p.add_model_error(me)
         p.latent["E"].add(me, "E_odd")
         p.latent["E"].add(me, "E_even")
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
 
-        J = p.jacobian([42.0])[noise_key]
+        J = VariationalBayesSolver(p).jacobian([42.0])[noise_key]
         CHECK(J[:, 0], me.x_odd + me.x_even)
 
 
