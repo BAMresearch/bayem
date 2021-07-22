@@ -86,6 +86,11 @@ class LatentParameters(collections.OrderedDict):
         self[global_name] = ParameterListReferences(self._models, global_name)
         return self[global_name]
 
+    @property
+    def vector_length(self):
+        return sum(l.N for l in self.values())
+
+
     def updated_parameters(
         self, number_vector: np.ndarray
     ) -> Dict[Hashable, ParameterList]:
@@ -94,12 +99,10 @@ class LatentParameters(collections.OrderedDict):
         `number_vector`. See the example above for details.
         """
 
-        # maybe make that a member?
-        current_length = sum(l.N for l in self.values())
 
-        if current_length != len(number_vector):
+        if self.vector_length != len(number_vector):
             msg = f"These latent parameters have a total length of "
-            msg += f"{current_length}, you provided a vector of length "
+            msg += f"{self.vector_length}, you provided a vector of length "
             msg += f"{len(number_vector)}"
             raise InconsistentLengthException(msg)
 

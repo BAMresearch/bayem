@@ -79,12 +79,12 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
         """
         return self._by_noise(jacobian_dict)
 
-    def loglike_contribution(self, model_error_dict):
+    def loglike_contribution(self, model_error_dict, noise_prm):
         """
         overwritten
         """
+        prec = self.parameter_list.overwrite_with(noise_prm)["precision"]
         terms = self.model_error_terms(model_error_dict)
-        prec = self.parameter_list["precision"]
         ll = 0.0
         for error in terms:
             ll -= len(error)/2 * math.log(2*math.pi/prec)

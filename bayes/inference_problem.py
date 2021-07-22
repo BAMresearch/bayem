@@ -43,7 +43,7 @@ class InferenceProblem:
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
         self.latent = LatentParameters(self.model_errors)
-        self.latent_noise = LatentParameters(self._noise_models) 
+        self.latent_noise = LatentParameters(self._noise_models)
 
     @property
     def noise_models(self):
@@ -69,43 +69,35 @@ class InferenceProblem:
         self._noise_models[key] = noise_model
         return key
 
-    def evaluate_model_errors(self, number_vector):
-        updated_latent_parameters = self.latent.updated_parameters(number_vector)
+    def evaluate_model_errors(self, model_error_number_vector):
+        updated_latent_parameters = self.latent.updated_parameters(
+            model_error_number_vector
+        )
         result = {}
         for me_key, prms in updated_latent_parameters.items():
             result[me_key] = self.model_errors[me_key](prms)
         return result
 
-    def set_latent(self, global_and_local_name):
-        """
-        There is no way to check if a model error actually has a
-        `global_and_local_name` parameter, so we pass it to all of them.
-        """
-        for me_key in self.model_errors:
-            self.set_latent_individually(global_and_local_name, me_key)
-
-    def set_latent_individually(self, global_name, model_error_key, local_name=None):
-        local_name = global_name if local_name is None else local_name
-        model_error = self.model_errors[model_error_key]
-
-        try:
-            N = model_error.get_shape(local_name)
-        except AttributeError:
-            N = 1
-
-        self.latent.add(global_name, local_name, model_error_key, N)
-
     def loglike(self, number_vector):
-        model_errors = self.evaluate_model_errors(number_vector)
+        model_error_number_vector = number_vector[: self.latent.vector_length]
+        noise_number_vector = number_vector[self.latent.vector_length :]
+
+        model_errors = self.evaluate_model_errors(model_error_number_vector)
+        noise_prms = self.latent_noise.updated_parameters(noise_number_vector)
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
-            log_like += noise_term.loglike_contribution(model_errors)
+            try:
+                noise_prm = noise_prms[noise_key]
+            except KeyError:
+                noise_prm = ParameterList()
+
+            log_like += noise_term.loglike_contribution(model_errors, noise_prm)
 
         return log_like
 
-class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
 
+class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def set_normal_prior(self, latent_name, mean, sd):
         if latent_name not in self.latent:
             raise RuntimeError(
@@ -148,8 +140,6 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                 # check for the "jacobian" attribute.
                 sensor_parameter_jac = jacobian(me, me_parameter_list)
 
-
-            
             """
             sensor_parameter_jac contains a 
                 dict (sensor) of 
@@ -159,12 +149,12 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             latent parameters for a valid VB input. 
 
             """
-            
+
             sensor_jac = {}
             for sensor, parameter_jac in sensor_parameter_jac.items():
                 first_jac = list(parameter_jac.values())[0]
                 N = len(first_jac)
-                
+
                 stacked_jac = np.zeros((N, len(number_vector)))
 
                 for local_name in me_parameter_list.names:
@@ -177,7 +167,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
                     # transform it to a matrix Nx1.
                     if len(J.shape) == 1:
                         J = np.atleast_2d(J).T
-                    
+
                     stacked_jac[:, indices] += J
                 sensor_jac[sensor] = stacked_jac
 
