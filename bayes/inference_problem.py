@@ -43,6 +43,7 @@ class InferenceProblem:
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
         self.latent = LatentParameters(self.model_errors)
+        self.latent_noise = LatentParameters(self._noise_models) 
 
     @property
     def noise_models(self):
@@ -103,11 +104,7 @@ class InferenceProblem:
 
         return log_like
 
-
 class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
-    def __init__(self):
-        super().__init__()
-        self.noise_prior = {}
 
     def set_normal_prior(self, latent_name, mean, sd):
         if latent_name not in self.latent:
@@ -117,24 +114,20 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             )
         self.latent[latent_name].prior = (mean, sd)
 
-    def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
-        if isinstance(gamma_or_sd_mean, Gamma):
-            gamma = gamma_or_sd_mean
-            assert sd_shape is None
-        else:
-            sd_shape = sd_shape or 1.0
-            gamma = Gamma.FromSD(gamma_or_sd_mean, sd_shape)
-
-        if name not in self.noise_models:
+    def set_noise_prior(self, name, gamma):
+        if name not in self.latent_noise:
             raise RuntimeError(
-                f"{name} is not associated with noise model.. "
-                f"Call InferenceProblem.add_noise_model({name}, ...) first."
+                f"{name} is not defined as a latent noise parameter. "
+                f"Call InferenceProblem.latent_noise[{name}].add(...) first."
             )
-        self.noise_prior[name] = gamma
+        self.latent_noise[name].prior = gamma
 
     def run(self, **kwargs):
         MVN = self.prior_MVN()
-        info = variational_bayes(self, MVN, self.noise_prior, **kwargs)
+        noise_prior = {}
+        for noise_prm_name, latent in self.latent_noise.items():
+            noise_prior[noise_prm_name] = latent.prior
+        info = variational_bayes(self, MVN, noise_prior, **kwargs)
         return info
 
     def jacobian(self, number_vector, concatenate=True):

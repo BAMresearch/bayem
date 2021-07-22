@@ -67,7 +67,8 @@ class TestVBProblem(unittest.TestCase):
 
         self.assertRaises(Exception, p.set_noise_prior, "noise", 1.0, 1.0)
         p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
-        p.set_noise_prior("noise", 1.0, 1.0)
+        p.latent_noise["noise"].add("noise")
+
         p.set_noise_prior("noise", Gamma.Noninformative())
 
         result = p([0.1])
