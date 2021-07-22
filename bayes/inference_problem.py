@@ -146,7 +146,17 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
         jac = {}
         for me_key, me in self.model_errors.items():
             me_parameter_list = updated_latent_parameters[me_key]
-            sensor_parameter_jac = me.jacobian(me_parameter_list)
+
+            if hasattr(me, "jacobian"):
+                sensor_parameter_jac = me.jacobian(me_parameter_list)
+            else:
+                # The alternative would be a try/except block catching
+                # AttributeError, but an attribute error may also occur
+                # _within_ the jacobian evaluation. So we explicitly
+                # check for the "jacobian" attribute.
+                sensor_parameter_jac = jacobian(me, me_parameter_list)
+
+
             
             """
             sensor_parameter_jac contains a 

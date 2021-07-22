@@ -76,6 +76,8 @@ class TestVBProblem(unittest.TestCase):
         self.assertEqual(len(result), 1)  # one noise group
         self.assertEqual(len(result["noise"]), 2)
 
+        jac = p.jacobian([0.1])
+
 
 if __name__ == "__main__":
     unittest.main()
