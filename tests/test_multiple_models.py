@@ -50,12 +50,9 @@ def model(prm):
 class ModelError(ModelErrorInterface):
     def __init__(self, fw, data):
         self.fw, self.data = fw, data
-        self.parameter_list = ParameterList()
-        self.parameter_list.define("A")
-        self.parameter_list.define("B")
 
-    def __call__(self):
-        return {"dummy_sensor": self.fw(self.parameter_list) - self.data}
+    def __call__(self, latent_prm):
+        return {"dummy_sensor": self.fw(latent_prm) - self.data}
 
 
 class Test_VB(unittest.TestCase):
@@ -95,12 +92,12 @@ class Test_VB(unittest.TestCase):
         # For the inference, we combine them and use a 'key' to distinguish
         # e.g. "A" from the one model to "A" from the other one.
         problem = VariationalBayesProblem()
-        problem.add_model_error(me1)
-        problem.add_model_error(me2)
+        me_key1 = problem.add_model_error(me1)
+        me_key2 = problem.add_model_error(me2)
 
-        problem.latent["B1"].add(me1.parameter_list, "B")
-        problem.latent["B2"].add(me2.parameter_list, "B")
-        problem.define_shared_latent_parameter_by_name("A")
+        problem.set_latent_individually("B1", me_key1, "B")
+        problem.set_latent_individually("B2", me_key2, "B")
+        problem.set_latent("A")
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
 
         parameter_vec = np.array([1, 2, 4])
@@ -121,10 +118,10 @@ class Test_VB(unittest.TestCase):
         key2 = problem.add_model_error(me2)
         print(key1, key2)
 
-        problem.latent["A1"].add(me1.parameter_list, "A")
-        problem.latent["B1"].add(me1.parameter_list, "B")
-        problem.latent["A2"].add(me2.parameter_list, "A")
-        problem.latent["B2"].add(me2.parameter_list, "B")
+        problem.set_latent_individually("A1", key1, "A")
+        problem.set_latent_individually("B1", key1, "B")
+        problem.set_latent_individually("A2", key2, "A")
+        problem.set_latent_individually("B2", key2, "B")
 
         problem.set_normal_prior("A1", A1 + 0.5, 2)
         problem.set_normal_prior("B1", B1 + 0.5, 2)

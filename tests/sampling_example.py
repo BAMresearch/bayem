@@ -29,8 +29,7 @@ class MySensor(Sensor):
         self.position = position
 
 
-class MyForwardModel:
-    def __call__(self, parameter_list, sensors, time_steps):
+def my_forward_model(parameter_list, sensors, time_steps):
         """
         evaluates 
             fw(x, t) = A * x + B * t
@@ -43,22 +42,15 @@ class MyForwardModel:
             result[sensor] = A * sensor.position + B * time_steps
         return result
 
-    def parameter_list(self):
-        p = ParameterList()
-        p.define("A", None)
-        p.define("B", None)
-        return p
-
 
 class MyModelError(ModelErrorInterface):
     def __init__(self, fw, data):
         self._fw = fw
         self._ts, self._sensor_data = data
-        self.parameter_list = fw.parameter_list()
 
-    def __call__(self):
+    def __call__(self, parameter_list):
         sensors = list(self._sensor_data.keys())
-        model_response = self._fw(self.parameter_list, sensors, self._ts)
+        model_response = self._fw(parameter_list, sensors, self._ts)
         error = {}
         for sensor in sensors:
             error[sensor] = model_response[sensor] - self._sensor_data[sensor]
@@ -77,14 +69,13 @@ if __name__ == "__main__":
     # Define the sensor
     s1, s2, s3 = MySensor("S1", 0.2), MySensor("S2", 0.5), MySensor("S3", 42.0)
 
-    fw = MyForwardModel()
-    prm = fw.parameter_list()
+    prm = ParameterList()
 
     # set the correct values
     A_correct = 42.0
     B_correct = 6174.0
-    prm["A"] = A_correct
-    prm["B"] = B_correct
+    prm.define("A", A_correct)
+    prm.define("B", B_correct)
 
     np.random.seed(6174)
     noise_sd1 = 0.2
@@ -92,7 +83,7 @@ if __name__ == "__main__":
 
     def generate_data(N_time_steps, noise_sd):
         time_steps = np.linspace(0, 1, N_time_steps)
-        model_response = fw(prm, [s1, s2, s3], time_steps)
+        model_response = my_forward_model(prm, [s1, s2, s3], time_steps)
         sensor_data = {}
         for sensor, perfect_data in model_response.items():
             sensor_data[sensor] = perfect_data + np.random.normal(
@@ -103,17 +94,17 @@ if __name__ == "__main__":
     data1 = generate_data(101, noise_sd1)
     data2 = generate_data(51, noise_sd2)
 
-    me1 = MyModelError(fw, data1)
-    me2 = MyModelError(fw, data2)
+    me1 = MyModelError(my_forward_model, data1)
+    me2 = MyModelError(my_forward_model, data2)
 
     problem = VariationalBayesProblem()
     key1 = problem.add_model_error(me1)
     key2 = problem.add_model_error(me2)
 
-    problem.latent["A"].add(me1.parameter_list, "A")
-    problem.latent["A"].add(me2.parameter_list, "A")
+    problem.set_latent_individually("A", key1, "A")
+    problem.set_latent_individually("A", key2, "A")
     # or simply
-    problem.define_shared_latent_parameter_by_name("B")
+    problem.set_latent("B")
 
     problem.set_normal_prior("A", 40.0, 5.0)
     problem.set_normal_prior("B", 6000.0, 300.0)
@@ -147,7 +138,7 @@ if __name__ == "__main__":
     """
     for noise_key in problem.noise_prior:
         noise_parameters = problem.noise_models[noise_key].parameter_list
-        problem.latent[noise_key].add(noise_parameters, "precision")
+        problem.set_latent_individually(noise_key, noise_key, "precision")
 
     """
     2)  Wrap problem.loglike for a tool of your choice

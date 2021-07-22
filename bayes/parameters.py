@@ -1,6 +1,13 @@
+import copy
+from typing import Union, List
+from numpy import typing as ndt
+
+ParameterValue = Union[float, ndt.ArrayLike]
+
+
 class ParameterList:
     """
-    The ParameterList serves as an input to the user-defined models. It is 
+    The ParameterList serves as an input to the user-defined models. It is
     basically a name:value-dict that allows the user to access the parameters
     by name instead of some vector index, which could read:
 
@@ -9,19 +16,19 @@ class ParameterList:
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.p = {}
 
-    def define(self, name, value=None):
+    def define(self, name: str, value: ParameterValue = None) -> None:
         self.p[name] = value
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> ParameterValue:
         return self.p[name]
 
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
         return name in self.p
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: ParameterValue) -> None:
         """
         Calling parameter_list["A"]=0. when there is no parameter "A" defined
         may hide some bugs in the user code. Thus, we force parameters to be
@@ -31,12 +38,12 @@ class ParameterList:
             raise Exception("Call .define to define new parameters.")
         self.define(name, value)
 
-    def __add__(self, other):
+    def __add__(self, other: "ParameterList") -> "ParameterList":
         """
-        Adding two ParameterLists can be convenient of nested models. An 
+        Adding two ParameterLists can be convenient of nested models. An
         example could be a model error that combines a forward_model and
         a sensor_data_model like:
-            
+
             class MyModelError:
                 def __init__(self, forward_model, sensor_data_model):
                     self.fw = forward_model
@@ -45,19 +52,31 @@ class ParameterList:
                                                                  ^
                                     this "+" is defined here ----|
         """
-        concat = ParameterList()
-        for name, value in self.p.items():
-            concat.define(name, value)
+        concat = copy.deepcopy(self)
         for name, value in other.p.items():
             concat.define(name, value)
         return concat
-    
-    def __str__(self):
+
+    def overwrite_with(self, other: "ParameterList") -> "ParameterList":
+        """ """
+        concat = copy.deepcopy(self)
+        for name, value in other.p.items():
+            assert name in concat
+            concat.define(name, value)
+        return concat
+
+    def with_value(self, name: str, value: ParameterValue) -> "ParameterList":
+        """ """
+        new = copy.deepcopy(self)
+        new[name] = value
+        return new
+
+    def __str__(self) -> str:
         s = ""
         for name, value in self.p.items():
             s += f"{name:20s} {value}\n"
         return s
 
     @property
-    def names(self):
+    def names(self) -> List[str]:
         return list(self.p.keys())
