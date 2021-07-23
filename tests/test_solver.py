@@ -5,7 +5,9 @@ from bayes.parameters import ParameterList
 from bayes.vb import Gamma
 from bayes.noise import UncorrelatedSingleNoise
 from bayes.inference_problem import InferenceProblem, ModelErrorInterface
-from bayes.solver import VariationalBayesSolver
+from bayes.solver import *
+
+import scipy.stats
 
 CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
 
@@ -13,25 +15,40 @@ def dummy_model_error(prms):
     x = np.r_[1, 2]
     return {"dummy_sensor": x * prms["B"] - 20}
 
+def define_test_problem():
+    p = InferenceProblem()
+    p.add_model_error(dummy_model_error)
+    p.latent["B"].add_shared()
+    p.latent["B"].prior = scipy.stats.norm(loc=10.0, scale=10.0)
 
-class TestVBSolver(unittest.TestCase):
-    def test_prior(self):
-        p = InferenceProblem()
-        p.add_model_error(dummy_model_error)
-        p.latent["B"].add_shared()
-        p.latent["B"].prior = (0.0, 1.0)
+    p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
+    p.latent_noise["noise"].add("noise", "precision")
 
-        p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
-        p.latent_noise["noise"].add("noise")
+    p.latent_noise["noise"].prior = scipy.stats.gamma(1, 1)
+    return p
 
-        p.latent_noise["noise"].prior = Gamma.Noninformative()
 
+class TestSolver(unittest.TestCase):
+    def test_vb(self):
+        p = define_test_problem()
         vbs = VariationalBayesSolver(p)
-        result = vbs([0.1])
-        self.assertEqual(len(result), 1)  # one noise group
-        self.assertEqual(len(result["noise"]), 2)
+        result = vbs.estimate_parameters()
+        print(result)
+    
+    def test_taralli_nested(self):
+        p = define_test_problem()
+        solver = TaralliSolver(p)
+        model = solver.nestle_model()
+        model.estimate_parameters()
+        model.summary()
+    
+    def test_taralli_emcee(self):
+        p = define_test_problem()
+        solver = TaralliSolver(p)
+        model = solver.emcee_model()
+        model.estimate_parameters()
+        model.summary()
 
-        jac = vbs.jacobian([0.1])
 
 class OddEvenME(ModelErrorInterface):
     def __init__(self):

@@ -1,17 +1,35 @@
 import numpy as np
+from time import perf_counter
+import collections
 
 from .jacobian import jacobian_cdf
 from .vb import MVN, Gamma, VariationalBayesInterface, variational_bayes
 
 
-class VariationalBayesSolver(VariationalBayesInterface):
+class SolverInterface:
     def __init__(self, problem):
+        self.ts = []
         self.problem = problem
 
+    def time_summary(self, printer=None):
+        if printer is None:
+            printer = print
+
+        ts = self.ts
+        # metaprogramming ftw
+        s = ""
+        for method in ["len", "np.sum", "np.mean", "np.median"]:
+            s += f"{method}(ts)={eval(method)(ts):6.3e}s | "
+
+        printer(s + "\n")
+
+
+class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
     def __call__(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.__call__
         """
+        t0 = perf_counter()
         me = self.problem.evaluate_model_errors(number_vector)
 
         errors_by_noise = {}
@@ -21,6 +39,7 @@ class VariationalBayesSolver(VariationalBayesInterface):
                 terms = np.concatenate(terms)
             errors_by_noise[key] = terms
 
+        self.ts.append(perf_counter() - t0)
         return errors_by_noise
 
     def jacobian(self, number_vector, concatenate=True):
@@ -93,7 +112,8 @@ class VariationalBayesSolver(VariationalBayesInterface):
         precs = []
 
         for name, latent in latent_prms.items():
-            mean, sd = latent.prior
+            assert latent.prior.dist.name == "norm"
+            mean, sd = latent.prior.mean(), latent.prior.std()
             for _ in range(latent.N):
                 means.append(mean)
                 precs.append(1.0 / sd ** 2)
@@ -109,10 +129,130 @@ class VariationalBayesSolver(VariationalBayesInterface):
         latent_noise = self.problem.latent_noise
         noise_prior = {}
         for noise_prm_name, latent in latent_noise.items():
-            noise_prior[noise_prm_name] = latent.prior
+            assert latent.prior.dist.name == "gamma"
+            mean, var = latent.prior.mean(), latent.prior.var()
+            scale = var / mean
+            shape = mean / scale
+            noise_prior[noise_prm_name] = Gamma(scale=scale, shape=shape)
         return noise_prior
 
     def estimate_parameters(self, **kwargs):
         param0 = self.prior_mvn()
         noise0 = self.prior_noise()
         return variational_bayes(self, param0, noise0, **kwargs)
+
+
+class TaralliSolver(SolverInterface):
+    def prior_transform(self, number_vector):
+        ppf = []
+
+        start_idx = 0
+        for name, latent in self.problem.latent.items():
+            theta = number_vector[start_idx : start_idx + latent.N]
+            if len(theta) == 1:
+                theta = theta[0]
+            ppf.append(latent.prior.ppf(theta))
+            start_idx += latent.N
+
+        for name, latent in self.problem.latent_noise.items():
+            theta = number_vector[start_idx : start_idx + latent.N]
+            if len(theta) == 1:
+                theta = theta[0]
+            ppf.append(latent.prior.ppf(theta))
+            start_idx += latent.N
+
+        return np.array(ppf)
+
+    def logprior(self, number_vector):
+        """
+        For taralli, number_vector has shape [n_processes x n_param] and must
+        output a vector of length [n_processes] logpriors
+        """
+        number_vector2d = np.atleast_2d(number_vector)
+        p = np.zeros(number_vector2d.shape[0])
+        for i, serial_number_vector in enumerate(number_vector2d):
+            start_idx = 0
+            for name, latent in self.problem.latent.items():
+                theta = number_vector[start_idx : start_idx + latent.N]
+                if len(theta) == 1:
+                    theta = theta[0]
+                p[i] += latent.prior.logpdf(theta)
+                start_idx += latent.N
+
+            for name, latent in self.problem.latent_noise.items():
+                theta = number_vector[start_idx : start_idx + latent.N]
+                if len(theta) == 1:
+                    theta = theta[0]
+                p[i] += latent.prior.logpdf(theta)
+                start_idx += latent.N
+        return p
+
+    def loglike(self, number_vector):
+        """
+        For taralli, number_vector has shape [n_processes x n_param] and must
+        output a vector of length [n_processes] loglikes
+        """
+        t0 = perf_counter()
+        number_vector2d = np.atleast_2d(number_vector)
+        ll = np.zeros(number_vector2d.shape[0])
+        for i, serial_number_vector in enumerate(number_vector2d):
+            try:
+                ll[i] = self.problem.loglike(serial_number_vector)
+            except ValueError as e:
+                ll[i] = -np.inf
+        self.ts.append(perf_counter() - t0)
+        return ll
+
+    def initial_samples(self, n):
+        """
+        Takes n samples from the prior and arranges them in a [n x n_prior] 
+        matrix. 
+        """
+        init = np.empty((n, self._ndim()))
+                
+        for i, latent in enumerate(self.problem.latent.values()):
+            init[:, i] = latent.prior.rvs(n)
+       
+        idx = self.problem.latent.vector_length
+        for i, latent in enumerate(self.problem.latent_noise.values()):
+            init[:, i+idx] = latent.prior.rvs(n)
+
+        return init
+
+    def _ndim(self):
+        return (
+            self.problem.latent.vector_length + self.problem.latent_noise.vector_length
+        )
+
+    def nestle_model(self, **kwargs):
+        from taralli.parameter_estimation.base import NestleParameterEstimator
+
+        return NestleParameterEstimator(
+            ndim=self._ndim(),
+            log_likelihood=self.loglike,
+            prior_transform=self.prior_transform,
+            **kwargs,
+        )
+
+    def dynesty_model(self, **kwargs):
+        from taralli.parameter_estimation.base import DynestyParameterEstimator
+
+        return DynestyParameterEstimator(
+            ndim=self._ndim(),
+            log_likelihood=self.loglike,
+            prior_transform=self.prior_transform,
+            **kwargs,
+        )
+
+    def emcee_model(self, nwalkers=20, **kwargs):
+        from taralli.parameter_estimation.base import EmceeParameterEstimator
+
+        init = self.initial_samples(nwalkers)
+        return EmceeParameterEstimator(
+            nwalkers=init.shape[0],
+            ndim=init.shape[1],
+            sampling_initial_positions=init,
+            log_likelihood=self.loglike,
+            log_prior=self.logprior,
+            **kwargs,
+        )

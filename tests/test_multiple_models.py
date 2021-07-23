@@ -1,8 +1,12 @@
 import numpy as np
 import unittest
+import scipy.stats
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.inference_problem import ( ModelErrorInterface, InferenceProblem,)
+from bayes.inference_problem import (
+    ModelErrorInterface,
+    InferenceProblem,
+)
 from bayes.solver import VariationalBayesSolver
 from bayes.noise import UncorrelatedSingleNoise
 
@@ -104,7 +108,9 @@ class Test_VB(unittest.TestCase):
         error_list = problem.evaluate_model_errors(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
-        error_concatentated = np.concatenate([error_list[key1]["dummy_sensor"], error_list[key2]["dummy_sensor"]])
+        error_concatentated = np.concatenate(
+            [error_list[key1]["dummy_sensor"], error_list[key2]["dummy_sensor"]]
+        )
         np.testing.assert_almost_equal(error_concatentated, error_multi)
 
     def test_joint(self):
@@ -123,14 +129,14 @@ class Test_VB(unittest.TestCase):
         problem.latent["A2"].add(me2, "A")
         problem.latent["B2"].add(me2, "B")
 
-        problem.latent["A1"].prior = A1 + 0.5, 2
-        problem.latent["B1"].prior = B1 + 0.5, 2
-        problem.latent["A2"].prior = A2 + 0.5, 2
-        problem.latent["B2"].prior = B2 + 0.5, 2
+        problem.latent["A1"].prior = scipy.stats.norm(loc=A1 + 0.5, scale=2)
+        problem.latent["B1"].prior = scipy.stats.norm(loc=B1 + 0.5, scale=2)
+        problem.latent["A2"].prior = scipy.stats.norm(loc=A2 + 0.5, scale=2)
+        problem.latent["B2"].prior = scipy.stats.norm(loc=B2 + 0.5, scale=2)
 
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
         problem.latent_noise[noise_key].add(noise_key, "precision")
-        problem.latent_noise[noise_key].prior = Gamma.Noninformative()
+        problem.latent_noise[noise_key].prior = scipy.stats.gamma(1, 1)
 
         vbs = VariationalBayesSolver(problem)
         info = vbs.estimate_parameters()
