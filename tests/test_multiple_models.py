@@ -2,11 +2,8 @@ import numpy as np
 import unittest
 from bayes.vb import *
 from bayes.parameters import ParameterList
-from bayes.inference_problem import (
-    VariationalBayesSolver,
-    ModelErrorInterface,
-    InferenceProblem,
-)
+from bayes.inference_problem import ( ModelErrorInterface, InferenceProblem,)
+from bayes.solver import VariationalBayesSolver
 from bayes.noise import UncorrelatedSingleNoise
 
 np.random.seed(6174)
