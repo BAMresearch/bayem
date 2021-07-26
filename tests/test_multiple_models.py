@@ -105,7 +105,7 @@ class Test_VB(unittest.TestCase):
         problem.latent["A"].add_shared()
 
         parameter_vec = np.array([1, 2, 4])
-        error_list = problem.evaluate_model_errors(parameter_vec)
+        error_list = problem(parameter_vec)
         error_multi = multi_me([4, 1, 4, 2])
 
         error_concatentated = np.concatenate(
@@ -135,8 +135,8 @@ class Test_VB(unittest.TestCase):
         problem.latent["B2"].prior = scipy.stats.norm(loc=B2 + 0.5, scale=2)
 
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-        problem.latent_noise[noise_key].add(noise_key, "precision")
-        problem.latent_noise[noise_key].prior = scipy.stats.gamma(1, 1)
+        problem.latent[noise_key].add(noise_key, "precision")
+        problem.latent[noise_key].prior = scipy.stats.gamma(1, 1)
 
         vbs = VariationalBayesSolver(problem)
         info = vbs.estimate_parameters()

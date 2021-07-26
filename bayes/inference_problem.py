@@ -42,8 +42,7 @@ class InferenceProblem:
     def __init__(self):
         self.model_errors = OrderedDict()  # key : model_error
         self._noise_models = OrderedDict()  # key : noise_model
-        self.latent = LatentParameters(self.model_errors)
-        self.latent_noise = LatentParameters(self._noise_models)
+        self.latent = LatentParameters()
 
     @property
     def noise_models(self):
@@ -59,6 +58,7 @@ class InferenceProblem:
         assert key not in self.model_errors
 
         self.model_errors[key] = model_error
+        self.latent.add_model(key, model_error)
         return key
 
     def add_noise_model(self, noise_model, key=None):
@@ -70,31 +70,35 @@ class InferenceProblem:
 
         assert key not in self._noise_models
         self._noise_models[key] = noise_model
+        self.latent.add_model(key, noise_model)
         return key
-
-    def evaluate_model_errors(self, model_error_number_vector):
+    
+    def __call__(self, number_vector):
         updated_latent_parameters = self.latent.updated_parameters(
-            model_error_number_vector
+            number_vector
         )
+        return self.evaluate_model_errors(updated_latent_parameters)
+
+    def evaluate_model_errors(self, updated_latent_parameters):
         result = {}
-        for me_key, prms in updated_latent_parameters.items():
-            result[me_key] = self.model_errors[me_key](prms)
+        for me_key, me in self.model_errors.items():
+            result[me_key] = me(updated_latent_parameters[me_key])
         return result
 
     def loglike(self, number_vector):
-        model_error_number_vector = number_vector[: self.latent.vector_length]
-        noise_number_vector = number_vector[self.latent.vector_length :]
-
-        model_errors = self.evaluate_model_errors(model_error_number_vector)
-        noise_prms = self.latent_noise.updated_parameters(noise_number_vector)
+        updated_latent_parameters = self.latent.updated_parameters(
+            number_vector
+        )
+        model_errors = self.evaluate_model_errors(updated_latent_parameters)
 
         log_like = 0.0
         for noise_key, noise_term in self.noise_models.items():
             try:
-                noise_prm = noise_prms[noise_key]
+                noise_prm = updated_latent_parameters[noise_key]
             except KeyError:
                 noise_prm = ParameterList()
 
             log_like += noise_term.loglike_contribution(model_errors, noise_prm)
 
         return log_like
+

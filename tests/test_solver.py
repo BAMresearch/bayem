@@ -22,9 +22,9 @@ def define_test_problem():
     p.latent["B"].prior = scipy.stats.norm(loc=10.0, scale=10.0)
 
     p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
-    p.latent_noise["noise"].add("noise", "precision")
+    p.latent["noise"].add("noise", "precision")
 
-    p.latent_noise["noise"].prior = scipy.stats.gamma(1, 1)
+    p.latent["noise"].prior = scipy.stats.gamma(1, 1)
     return p
 
 
@@ -88,7 +88,6 @@ class TestJacobianJointGlobal(unittest.TestCase):
         p.latent["E"].add(me, "E_all")
 
         noise_key = p.add_noise_model(UncorrelatedSingleNoise())
-
         J = VariationalBayesSolver(p).jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
         CHECK(J[:, 0], me.x_odd + me.x_even + me.x_all)

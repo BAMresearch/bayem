@@ -25,7 +25,7 @@ class TestProblem(unittest.TestCase):
         me_key = p.add_model_error(dummy_model_error)
         p.latent["B"].add_shared()
 
-        me = p.evaluate_model_errors([42])
+        me = p([42])
         self.assertListEqual([22, 64], list(me[me_key]["dummy_sensor"]))
 
     def test_shared_latent_evaluate(self):
@@ -36,7 +36,7 @@ class TestProblem(unittest.TestCase):
         p.latent["B"].add_shared()
         self.assertEqual(len(p.latent["B"]), N)
 
-        result = p.evaluate_model_errors([42])
+        result = p([42])
         for key, me in p.model_errors.items():
             self.assertListEqual(list(result[key]), list(dummy_model_error({"B": 42})))
 

@@ -60,7 +60,7 @@ class LatentParameters(collections.OrderedDict):
     that can then be passed to the models for their evaluation.
     """
 
-    def __init__(self, models):
+    def __init__(self):
         """
         We have to keep track of the `self._models` to check, if the model
         the user is referring to actually exists. Also the model may have
@@ -68,8 +68,8 @@ class LatentParameters(collections.OrderedDict):
         vector valued parameters.
         """
         super().__init__()
-        self._models = models
-    
+        self._models = {}
+
     def __missing__(self, global_name):
         """
         This method is called, whenever a `global_name` is accessed that is 
@@ -86,10 +86,12 @@ class LatentParameters(collections.OrderedDict):
         self[global_name] = ParameterListReferences(self._models, global_name)
         return self[global_name]
 
+    def add_model(self, model_key, model):
+        self._models[model_key] = model
+
     @property
     def vector_length(self):
         return sum(l.N for l in self.values())
-
 
     def updated_parameters(
         self, number_vector: np.ndarray
@@ -98,7 +100,6 @@ class LatentParameters(collections.OrderedDict):
         Returns a dict {model_key: ParameterList} with the values from 
         `number_vector`. See the example above for details.
         """
-
 
         if self.vector_length != len(number_vector):
             msg = f"These latent parameters have a total length of "
@@ -162,7 +163,6 @@ class LatentParameters(collections.OrderedDict):
         return tabulate(
             to_print, headers=["global name", "length", "model model_key", "local name"]
         )
-
 
     def check_priors(self):
         """

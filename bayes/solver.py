@@ -2,6 +2,7 @@ import numpy as np
 from time import perf_counter
 import collections
 
+from .latent import LatentParameters
 from .jacobian import jacobian_cdf
 from .vb import MVN, Gamma, VariationalBayesInterface, variational_bayes
 
@@ -25,12 +26,37 @@ class SolverInterface:
 
 
 class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
+    def __init__(self, *args, **kwargs):
+        """
+        The VariationalBayesSolver needs to separate model parameters
+        and noise parameters. Thus, it needs to adapt the underlying
+        inference problem such that the noise parameters are removed
+        from the latent parameters.
+
+        Additionally, we have the following restrictions:
+            * The prior distribtions of the model parameters must be normals
+            * There is exactly one noise precision parameter per noise model
+            * The name of the noise precision parameter must match the
+              noise model key.
+        """
+        super().__init__(*args, **kwargs)
+        
+        self._vb_latent = LatentParameters()
+        for me_key, me in self.problem.model_errors.items():
+            self._vb_latent.add_model(me_key, me)
+
+        for global_name, latent in self.problem.latent.items():
+            if global_name in self.problem.noise_models:
+                continue
+            self._vb_latent[global_name] = self.problem.latent[global_name]
+
     def __call__(self, number_vector, concatenate=True):
         """
         overwrites VariationalBayesInterface.__call__
         """
         t0 = perf_counter()
-        me = self.problem.evaluate_model_errors(number_vector)
+        updated_model_parameters = self._vb_latent.updated_parameters(number_vector)
+        me = self.problem.evaluate_model_errors(updated_model_parameters)
 
         errors_by_noise = {}
         for key, noise in self.problem.noise_models.items():
@@ -46,7 +72,7 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
         """
         overwrites VariationalBayesInterface.jacobian
         """
-        updated_latent_parameters = self.problem.latent.updated_parameters(
+        updated_latent_parameters = self._vb_latent.updated_parameters(
             number_vector
         )
         jac = {}
@@ -105,7 +131,7 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
         return jacs_by_noise
 
     def prior_mvn(self):
-        latent_prms = self.problem.latent
+        latent_prms = self._vb_latent
 
         latent_prms.check_priors()
         means = []
@@ -126,15 +152,20 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
         )
 
     def prior_noise(self):
-        latent_noise = self.problem.latent_noise
         noise_prior = {}
-        for noise_prm_name, latent in latent_noise.items():
+        for noise_key, noise_model in self.problem.noise_models.items():
+            latent = self.problem.latent[noise_key]
+            assert len(latent) == 1
+            assert latent[0][0] == noise_key
+            assert latent[0][1] == "precision"
             assert latent.prior.dist.name == "gamma"
+
             mean, var = latent.prior.mean(), latent.prior.var()
             scale = var / mean
             shape = mean / scale
-            noise_prior[noise_prm_name] = Gamma(scale=scale, shape=shape)
+            noise_prior[noise_key] = Gamma(scale=scale, shape=shape)
         return noise_prior
+
 
     def estimate_parameters(self, **kwargs):
         param0 = self.prior_mvn()
@@ -154,13 +185,6 @@ class TaralliSolver(SolverInterface):
             ppf.append(latent.prior.ppf(theta))
             start_idx += latent.N
 
-        for name, latent in self.problem.latent_noise.items():
-            theta = number_vector[start_idx : start_idx + latent.N]
-            if len(theta) == 1:
-                theta = theta[0]
-            ppf.append(latent.prior.ppf(theta))
-            start_idx += latent.N
-
         return np.array(ppf)
 
     def logprior(self, number_vector):
@@ -173,13 +197,6 @@ class TaralliSolver(SolverInterface):
         for i, serial_number_vector in enumerate(number_vector2d):
             start_idx = 0
             for name, latent in self.problem.latent.items():
-                theta = number_vector[start_idx : start_idx + latent.N]
-                if len(theta) == 1:
-                    theta = theta[0]
-                p[i] += latent.prior.logpdf(theta)
-                start_idx += latent.N
-
-            for name, latent in self.problem.latent_noise.items():
                 theta = number_vector[start_idx : start_idx + latent.N]
                 if len(theta) == 1:
                     theta = theta[0]
@@ -212,17 +229,10 @@ class TaralliSolver(SolverInterface):
                 
         for i, latent in enumerate(self.problem.latent.values()):
             init[:, i] = latent.prior.rvs(n)
-       
-        idx = self.problem.latent.vector_length
-        for i, latent in enumerate(self.problem.latent_noise.values()):
-            init[:, i+idx] = latent.prior.rvs(n)
-
         return init
 
     def _ndim(self):
-        return (
-            self.problem.latent.vector_length + self.problem.latent_noise.vector_length
-        )
+        return self.problem.latent.vector_length
 
     def nestle_model(self, **kwargs):
         from taralli.parameter_estimation.base import NestleParameterEstimator
