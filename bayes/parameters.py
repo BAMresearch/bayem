@@ -1,4 +1,3 @@
-import copy
 from typing import Union, List
 from numpy import typing as ndt
 
@@ -52,14 +51,20 @@ class ParameterList:
                                                                  ^
                                     this "+" is defined here ----|
         """
-        concat = copy.deepcopy(self)
+        concat = self._copy()
         for name, value in other.p.items():
             concat.define(name, value)
         return concat
 
+    def _copy(self):
+        new = ParameterList()
+        for name, value in self.p.items():
+            new.define(name, value)
+        return new
+
     def overwrite_with(self, other: "ParameterList") -> "ParameterList":
         """ """
-        concat = copy.deepcopy(self)
+        concat = self._copy()
         for name, value in other.p.items():
             assert name in concat
             concat.define(name, value)
@@ -67,7 +72,7 @@ class ParameterList:
 
     def with_value(self, name: str, value: ParameterValue) -> "ParameterList":
         """ """
-        new = copy.deepcopy(self)
+        new = self._copy()
         new[name] = value
         return new
 

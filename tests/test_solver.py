@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import unittest
 
 from bayes.parameters import ParameterList
@@ -11,20 +12,41 @@ import scipy.stats
 
 CHECK = np.testing.assert_array_almost_equal  # just to make it shorter
 
+
+def get_fast_norm(loc, scale):
+    dist = scipy.stats.norm(loc=loc, scale=scale)
+    prec = 1/scale**2 
+    def logpdf(theta):
+        return -0.5 * math.log(2 * math.pi / prec) - 0.5 * prec * (theta - loc)**2
+
+    dist.logpdf=logpdf
+    return dist
+
+def get_fast_gamma(a, scale):
+    dist = scipy.stats.gamma(a=a, scale=scale)
+
+    def logpdf(theta):
+        pdf = 1/(math.gamma(a) * scale**a)*theta**(a-1)*math.exp(-theta/scale)
+        return math.log(pdf)
+    dist.logpdf=logpdf
+    return dist
+
+
+x = np.r_[1, 2]
 def dummy_model_error(prms):
-    x = np.r_[1, 2]
-    return {"dummy_sensor": x * prms["B"] - 20}
+    return {"dummy_sensor": prms["B"] * x - 20}
+
 
 def define_test_problem():
     p = InferenceProblem()
     p.add_model_error(dummy_model_error)
     p.latent["B"].add_shared()
-    p.latent["B"].prior = scipy.stats.norm(loc=10.0, scale=10.0)
+    p.latent["B"].prior = get_fast_norm(loc=10.0, scale=10.0)
 
     p.add_noise_model(UncorrelatedSingleNoise(), key="noise")
     p.latent["noise"].add("noise", "precision")
 
-    p.latent["noise"].prior = scipy.stats.gamma(1, 1)
+    p.latent["noise"].prior = get_fast_gamma(1, 1)
     return p
 
 
@@ -34,14 +56,14 @@ class TestSolver(unittest.TestCase):
         vbs = VariationalBayesSolver(p)
         result = vbs.estimate_parameters()
         print(result)
-    
+
     def test_taralli_nested(self):
         p = define_test_problem()
         solver = TaralliSolver(p)
         model = solver.nestle_model()
         model.estimate_parameters()
         model.summary()
-    
+
     def test_taralli_emcee(self):
         p = define_test_problem()
         solver = TaralliSolver(p)
@@ -49,6 +71,16 @@ class TestSolver(unittest.TestCase):
         model.estimate_parameters()
         model.summary()
 
+    def test_my_prior(self):
+        ref = scipy.stats.norm(loc=20, scale=10)
+        my = get_fast_norm(loc=20, scale=10)
+
+        self.assertAlmostEqual(ref.logpdf(10), my.logpdf(10))
+
+        ref = scipy.stats.gamma(a=20, scale=10)
+        my = get_fast_gamma(a=20, scale=10)
+
+        self.assertAlmostEqual(ref.logpdf(10), my.logpdf(10))
 
 class OddEvenME(ModelErrorInterface):
     def __init__(self):
@@ -91,8 +123,6 @@ class TestJacobianJointGlobal(unittest.TestCase):
         J = VariationalBayesSolver(p).jacobian([42.0])[noise_key]
         self.assertEqual(J.shape, (6, 1))
         CHECK(J[:, 0], me.x_odd + me.x_even + me.x_all)
-
-
 
     def test_two_joints(self):
         """
