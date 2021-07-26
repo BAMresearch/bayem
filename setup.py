@@ -21,7 +21,12 @@ setuptools.setup(
     install_requires=["numpy", "scipy", "tabulate"],
     extras_require={  # Optional
         "dev": ["black"],
-        "test": ["coverage", "pytest", "flake8"],
+        "test": [
+            "coverage",
+            "pytest",
+            "flake8",
+            "taralli @ git+https://gitlab.com/tno-bim/taralli.git@master",
+        ],
         "doc": ["sphinx", "sphinx_rtd_theme", "doit"],
     },
 )
