@@ -85,10 +85,12 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
         """
         terms = self.model_error_terms(model_error_dict)
         prec = self.parameter_list["precision"]
-        ll = 0.0
-        for error in terms:
-            ll -= len(error)/2 * math.log(2*math.pi/prec)
-            ll -= 0.5 * prec * np.sum(np.square(error))
+
+        # Minimizing the individual numpy calls by concateniating
+        theta = np.concatenate(terms)
+
+        ll = len(theta)/2 * math.log(2*math.pi/prec)
+        ll -= 0.5 * prec * np.sum(np.square(theta))
         return ll
 
     def _by_noise(self, dict_of_dicts):
