@@ -1,11 +1,12 @@
 import unittest
 import numpy as np
+import scipy.stats
 
 from bayes.parameters import ParameterList
 from bayes.inference_problem import (
-    VariationalBayesSolver,
     InferenceProblem,
 )
+from bayes.solver import VariationalBayesSolver, TaralliSolver
 from bayes.noise import UncorrelatedSensorNoise
 import bayes.vb
 
@@ -101,76 +102,36 @@ if __name__ == "__main__":
     # or alternatively for "B"
     problem.latent["B"].add_shared()
 
-    problem.latent["A"].prior = 40.0, 5.0
-    problem.latent["B"].prior = 6000.0, 300.0
+    problem.latent["A"].prior = scipy.stats.norm(loc=40.0, scale= 5.0)
+    problem.latent["B"].prior = scipy.stats.norm(loc=6000.0,scale=300.0)
 
     for sensor in [s1, s2, s3]:
         noise_model = UncorrelatedSensorNoise([sensor])
         noise_key = problem.add_noise_model(noise_model)
-        problem.latent_noise[noise_key].add(noise_model, "precision")
-        problem.latent_noise[noise_key].prior = bayes.vb.Gamma.FromSD(noise_sds[sensor])
-    
+        problem.latent[noise_key].add(noise_model, "precision")
+        problem.latent[noise_key].prior = scipy.stats.gamma(a=1, scale=1/noise_sds[sensor]**2)
+   
+
+    """
+    Now solve with VB ...
+    """
     info = VariationalBayesSolver(problem).estimate_parameters()
     print(info)
 
     """
-    We now transform the vb problem into a sampling problem. 
-
-    1)  Wrap problem.loglike for a tool of your choice
+    ... or emcee ...
     """
-    import theano.tensor as tt
 
-    class LogLike(tt.Op):
-        itypes = [tt.dvector]  # expects a vector of parameter values when called
-        otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
-
-        def __init__(self, loglike):
-            self.likelihood = loglike
-
-        def perform(self, node, inputs, outputs):
-            (theta,) = inputs  # this will contain my variables
-            result = self.likelihood(theta)
-            outputs[0][0] = np.array(result)  # output the log-likelihood
-
-    pymc3_log_like = LogLike(problem.loglike)
+    taralli_solver = TaralliSolver(problem)
+    emcee_model = taralli_solver.emcee_model()
+    emcee_model.estimate_parameters()
+    emcee_model.summary()
 
     """
-    2)  Define prior distributions in a tool of your choice!
+    ... or nestle ...
     """
-    import pymc3 as pm
+    
+    nestle_model = taralli_solver.nestle_model()
+    nestle_model.estimate_parameters()
+    nestle_model.summary()
 
-    pymc3_prior = []
-
-    model = pm.Model()
-    with model:
-        for name, latent in problem.latent.items():
-            mean, sd = latent.prior
-            pymc3_prior.append(pm.Normal(name, mu=mean, sigma=sd))
-
-        for name, latent in problem.latent_noise.items():
-            shape, scale = latent.prior.shape, latent.prior.scale
-            alpha, beta = shape, 1.0 / scale
-            pymc3_prior.append(pm.Gamma(name, alpha=alpha, beta=beta))
-
-    """
-    3)  Go!
-    """
-    with model:
-        theta = tt.as_tensor_variable(pymc3_prior)
-        pm.Potential("likelihood", pymc3_log_like(theta))
-
-        trace = pm.sample(
-            draws=1000,
-            step=pm.Metropolis(),
-            chains=4,
-            tune=100,
-            discard_tuned_samples=True,
-        )
-
-    summary = pm.summary(trace)
-    print(summary)
-    means = summary["mean"]
-
-    for noise_key in problem.latent_noise:
-        print(f"{noise_key}: vb    = ", 1.0 / info.noise[noise_key].mean ** 0.5)
-        print(f"{noise_key}: pymc3 = ", 1.0 / means[noise_key] ** 0.5)

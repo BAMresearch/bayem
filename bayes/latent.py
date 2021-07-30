@@ -1,7 +1,7 @@
 import collections
 import copy
 import logging
-from typing import Dict, Hashable, List, Tuple, NamedTuple
+from typing import Dict, Hashable, List, NamedTuple, Tuple
 
 import numpy as np  # type: ignore
 from tabulate import tabulate
@@ -13,18 +13,18 @@ logger = logging.getLogger(__name__)
 
 class LatentParameters(collections.OrderedDict):
     """
-    The models (can be forward models, noise models) each require a named 
+    The models (can be forward models, noise models) each require a named
     `ParameterList` as input, where some of those named parameters have:
-        1) different names 
+        1) different names
                 (e.g. "Young's modulus" in model1 and "E" in model2)
-           but should be infered simultaneously.  
-        2) same names 
+           but should be infered simultaneously.
+        2) same names
                 (e.g. "T" for time in model1 and "T" for temperature in model2)
-            but should be infered seperately. 
+            but should be infered seperately.
 
     Thus, we refer to the parameters in the individual models as `local_name`
     and the latent variable to be infered as `global_name`. The `LatentParameters`
-    class maps between those. In the example above, we could have the 
+    class maps between those. In the example above, we could have the
     following mapping:
 
             global name      length  model model_key    local name
@@ -37,12 +37,14 @@ class LatentParameters(collections.OrderedDict):
     Basically for checking if a model or a model model_key exists, we need to pass
     the available `models` to the `LatentParameters`.
 
-        > l = LatentParameters(models={"model1": model1, "model2":model2})
+        > l = LatentParameters()
+        > l.add_model("model1", model1)
+        > l.add_model("model2", model2)
 
-    The indented use to generate these mappings is now to access the 
+    The indented use to generate these mappings is now to access the
     `global_name` from the `LatentParameters` via dict-access and call the
     `add` method with the model model_key or the model itself and the local name.
-    
+
         > l["E"].add(model1, "Young's modulus")
         > l["E"].add(model2, "E")
         > l["time"].add(model1, "T")
@@ -72,14 +74,14 @@ class LatentParameters(collections.OrderedDict):
 
     def __missing__(self, global_name):
         """
-        This method is called, whenever a `global_name` is accessed that is 
+        This method is called, whenever a `global_name` is accessed that is
         not yet part of the `LatentParameters`. This is the bit of magic that
         allows us to call
 
           > latent_parameters["A"].add(...) # __missing__("A") is called!
           > latent_parameters["A"].add(...) # __getitem__("A") is called.
 
-        As the `ParameterListReferences.add` needs to know the `models` (to 
+        As the `ParameterListReferences.add` needs to know the `models` (to
         get the parameter length and perform checks) and the `global_name`
         (for more meaningful debug messages), we pass it.
         """
@@ -97,7 +99,7 @@ class LatentParameters(collections.OrderedDict):
         self, number_vector: np.ndarray
     ) -> Dict[Hashable, ParameterList]:
         """
-        Returns a dict {model_key: ParameterList} with the values from 
+        Returns a dict {model_key: ParameterList} with the values from
         `number_vector`. See the example above for details.
         """
 
@@ -139,8 +141,8 @@ class LatentParameters(collections.OrderedDict):
 
     def global_indices(self, global_name):
         """
-        Returns a list of indices associated to the `global_name`. In case of 
-        only scalar parameters, the ith latent parameters has 
+        Returns a list of indices associated to the `global_name`. In case of
+        only scalar parameters, the ith latent parameters has
             global_indices = [i]
         but vector valued parameters may have more.
         """
@@ -166,7 +168,7 @@ class LatentParameters(collections.OrderedDict):
 
     def check_priors(self):
         """
-        Checks, if there is a prior assigned to each latent parameter, aka 
+        Checks, if there is a prior assigned to each latent parameter, aka
         `global_name`.
         """
         for global_name, latent in self.items():
@@ -181,16 +183,23 @@ class InconsistentLengthException(Exception):
 
 
 class ParameterListReferences(list):
-    """
-    A combination of ``
-
-    """
-
     def __init__(self, models, global_name):
+        # length of the parameter, 1 for a scalar
         self.N = None
+
+        # reference to the models such that a `get_length` can be called to
+        # find out self.N automatically
         self._models = models
+
+        # Global name for better debug messages.
+        #   LatentParameters[self._global_name] == self
         self._global_name = global_name
+
+        # Information of the prior
         self.__prior = None
+
+        # self == list contains tuples of (model_key, local_name) to reference
+        # the `local_name` parameter of the parameter list of `model_key`.
 
     def _find_model(self, model_or_key):
         for known_key, known_model in self._models.items():
@@ -220,6 +229,13 @@ class ParameterListReferences(list):
         self.prior = prior
 
     def add(self, model_or_key, local_name=None):
+        """
+        Adds a local parameter to the global parameter `self._global_name`.
+
+        The `model` must be provided to uniquely identify the `local_name` and
+        to find out the length of the parameter. For convenience, you can also
+        provide the `key` of the model.
+        """
         local_name = local_name or self._global_name
         model_key, model = self._find_model(model_or_key)
 
@@ -246,7 +262,9 @@ if __name__ == "__main__":
     model1 = "this does not"
     model2 = "matter here."
 
-    l = LatentParameters(models={"model1": model1, "model2": model2})
+    l = LatentParameters()
+    l.add_model("model1", model1)
+    l.add_model("model2", model2)
     l["E"].add(model1, "Young's modulus")
     l["E"].add(model2, "E")
     l["time"].add(model1, "T")

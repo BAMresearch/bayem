@@ -138,7 +138,14 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
         precs = []
 
         for name, latent in latent_prms.items():
-            assert latent.prior.dist.name == "norm"
+            try:
+                dist_type = latent.prior.dist.name
+            except AttributeError as e:
+                raise AttributeError("You need to define the prior from scipy.stats.norm") from e
+
+            if dist_type != "norm":
+                raise AttributeError("You need to define the prior from scipy.stats.norm") from e
+
             mean, sd = latent.prior.mean(), latent.prior.std()
             for _ in range(latent.N):
                 means.append(mean)
@@ -158,7 +165,14 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
             assert len(latent) == 1
             assert latent[0][0] == noise_key
             assert latent[0][1] == "precision"
-            assert latent.prior.dist.name == "gamma"
+            
+            try:
+                dist_type = latent.prior.dist.name
+            except AttributeError as e:
+                raise AttributeError("You need to define the prior from scipy.stats.gamma") from e
+            
+            if dist_type != "gamma":
+                raise AttributeError("You need to define the prior from scipy.stats.gamma") from e
 
             mean, var = latent.prior.mean(), latent.prior.var()
             scale = var / mean
