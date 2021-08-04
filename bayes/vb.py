@@ -185,7 +185,7 @@ class VBModelErrorWrapper(VariationalBayesInterface):
             return k
 
 
-def variational_bayes(model_error, param0, noise0=None, noise_first=False, _LM=True, **kwargs):
+def variational_bayes(model_error, param0, noise0=None, noise_first=False, _LM=False, **kwargs):
     """
     Nonlinear variational bayes algorithm according to
     @article{chappell2008variational,
@@ -295,7 +295,7 @@ class VBResult:
 
 
 class VB:
-    def __init__(self, n_trials_max=60, iter_max=200, tolerance=0.1):
+    def __init__(self, n_trials_max=60, iter_max=100, tolerance=0.1):
         self.f_old = -np.inf
         self.param_stored = None
         self.n_trials = 0
@@ -304,7 +304,7 @@ class VB:
         self.iter_max = iter_max
         self.result = VBResult()
         self.noise_first = False # by default
-        self._LM = True
+        self._LM = False
 
     def run(self, model_error, param0, noise0=None, **kwargs):
 
@@ -366,8 +366,8 @@ class VB:
             L_inv_0 = np.linalg.inv(L0)
         
         i_iter = 0
-        alpha_0 = 1e-6
-        alpha_max = 1e10
+        alpha_0 = 1e-5
+        alpha_max = 1e5
         while True:
             i_iter += 1
             
