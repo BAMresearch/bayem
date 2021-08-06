@@ -9,9 +9,21 @@ from bayes.jacobian import delta_x
 from bayes.subroutines import len_or_one
 
 
+class OutputSensor:
+
+    def __init__(self, name):
+        """
+        Parameters
+        ----------
+        name : string
+            The name of the sensor, e.g. 'Deflection-Sensor bottom-left'.
+        """
+        self.name = name
+
+
 class ModelTemplate:
 
-    def __init__(self, prms_def):
+    def __init__(self, prms_def, output_sensors):
         """
         Parameters
         ----------
@@ -20,9 +32,12 @@ class ModelTemplate:
             the __call__ method is interpreted. E.g. prms_def = ['a', 'b']
             means that the model parameter vector has two elements, the first of
             which gives the value of 'a' and the second gives the value of 'b'.
+        output_sensors : list
+            Contains sensor-objects which must at least a 'name' attribute.
         """
         self.prms_def = prms_def
         self.prms_dim = len_or_one(prms_def)
+        self.output_sensors = output_sensors
 
     def __call__(self, x, prms):
         """
@@ -78,10 +93,10 @@ class ModelTemplate:
             jac[i] = (right - left) / (2 * h)
         return jac
 
-    def error_function(self, x, prms, ye):
+    def error_function(self, x, prms, ye, output_sensor):
         """
         Evaluates the model error for a single experiment. This function can be
-        overwritten if another definition of the model error should be appllied.
+        overwritten if another definition of the model error should be applied.
 
         Parameters
         ----------
@@ -91,15 +106,17 @@ class ModelTemplate:
             Dictionary-like object containing parameter name:value pairs.
         ye : array_like
             The measured output of the considered experiment.
+        output_sensor : string
+            The name of the sensor, the error should be evaluated for.
         """
-        ym = self(x, prms)
+        ym = self(x, prms)[output_sensor]
         error = ym - ye
         return error
 
-    def error(self, prms, experiments, key="sensor"):
+    def error(self, prms, experiments):
         """
         Computes the model error for all given experiments and returns them in
-        a dictionary that is sorted with respect to the given key.
+        a dictionary that is sorted by output sensor.
 
         Parameters
         ----------
@@ -108,44 +125,21 @@ class ModelTemplate:
         experiments : dict
             A dictionary with a structure like self._experiments in the class
             InferenceProblem.
-        key : string, optional
-            Either 'sensor' or 'experiment' defining how the model_error
-            dictionary should be sorted.
 
         Returns
         -------
         model_error : dict
-            A dictionary keys defined by the key argument of this method, and
+            A dictionary with the keys being the output sensor names, and lists
             lists of numbers representing the model errors as values.
         """
-
-        # check the input
-        if key not in ["sensor", "experiment"]:
-            raise RuntimeError(
-                f"This method requires key='sensor' or key='experiment' as " +
-                f"argument. You defined key='{key}'"
-            )
-
-        # fill the model_error dictionary in a structure defined by the given
-        # 'key'-argument (either by experiment or sensor)
         model_error = {}
-        if key == "experiment":
-            # the keys of model_error will be the experiment names
-            for experiment_name, experiment_dict in experiments.items():
-                x = experiment_dict['input']['value']
-                ye = experiment_dict['output']['value']
-                model_error[experiment_name] = self.error_function(x, prms, ye)
-        elif key == "sensor":
-            # the keys of model_error will be the sensor types
-            for experiment_name, experiment_dict in experiments.items():
-                output_sensor = experiment_dict['output']['sensor']
-                x = experiment_dict['input']['value']
-                ye = experiment_dict['output']['value']
-                me = self.error_function(x, prms, ye)
+        for exp_dict in experiments.values():
+            inp = exp_dict['input']
+            output_sensors = exp_dict['output']
+            for output_sensor, ye in output_sensors.items():
+                me = self.error_function(inp, prms, ye, output_sensor)
                 if output_sensor not in model_error.keys():
                     model_error[output_sensor] = [me]
                 else:
                     model_error[output_sensor].append(me)
-
         return model_error
-

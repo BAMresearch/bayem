@@ -323,7 +323,8 @@ class InferenceProblem:
                     idx += 1
             self.n_calibration_prms -= 1
 
-    def change_parameter_role(self, prm_name, const=None, prior=None):
+    def change_parameter_role(self, prm_name, const=None, prior=None,
+                              new_info=None, new_tex=None):
         """
         Performs the necessary tasks to change a parameter's role in the problem
         definition. A parameter's role can either be changes from 'const' to
@@ -343,6 +344,10 @@ class InferenceProblem:
             self._logprior_classes); the second element must be a dictionary
             stating the prior parameters; its definition is identical to the
             one of prm_dict in the self._add_prior method.
+        new_info : string or None
+            The new string for the explanation of parameter prm_name
+        new_tex : string or None
+            The new string for the parameter's tex-representation
         """
         # check if the given parameter exists
         if prm_name not in self._alias_dict.keys():
@@ -365,8 +370,14 @@ class InferenceProblem:
         # then adding it again in its new role
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
         prm_type = self._prm_dict[prm_name_ori]['type']
-        prm_info = self._prm_dict[prm_name_ori]['info']
-        prm_tex = self._prm_dict[prm_name_ori]['tex']
+        if new_tex is None:
+            prm_info = self._prm_dict[prm_name_ori]['info']
+        else:
+            prm_info = new_info
+        if new_tex is None:
+            prm_tex = self._prm_dict[prm_name_ori]['tex']
+        else:
+            prm_tex = new_tex
         aliases = self._prm_dict[prm_name_ori]['alias']
         self.remove_parameter(prm_name_ori, remove_aliases=False)
         self.add_parameter(prm_name_ori, prm_type, const=const, prior=prior,
@@ -579,26 +590,42 @@ class InferenceProblem:
         # assigned to a noise model
         assert set(self._noise_models.keys()) == self._output_sensors
 
-    def add_experiment(self, exp_name, exp_input, exp_output, fwd_model_name):
+    def add_experiment(self, exp_name, exp_input=None, exp_output=None,
+                       fwd_model_name=None):
         """
         Adds a single experiment to the inference problem. Here, an experiment
-        is defined by having an input sensor and an output sensor, each with a
-        specific value corresponding to the conducted experiment.
+        is defined by having a dictionary of input sensors and a dictionary of
+        output sensor, each with one or more sensor-name : sensor-value pairs
+        according to the conducted experiment.
 
         Parameters
         ----------
         exp_name : string
             The name of the experiment, e.g. "Exp_20May.12"; if an experiment
             with a similar name has already been added, it will be overwritten.
-        exp_input : tuple with two elements
-            The 1st element is a string specifying the input sensor, while the
-            2nd element is the corresponding value, e.g. ("ForceSensor", 1.2)
-        exp_output : tuple with two elements
-            The 1st element is a string specifying the output sensor, while the
-            2nd element is the corresponding value, e.g. ("LengthSensor", 0.02)
+        exp_input : dict
+            The keys are the names of sensors that are considered input, while
+            the values are the measured values.
+        exp_output : dict
+            The keys are the names of sensors that are considered output, while
+            the values are the measured values.
         fwd_model_name : string
             Name of the forward model this experiment refers to
         """
+
+        # check all keyword arguments are given
+        if exp_input is None:
+            raise RuntimeError(
+                f"No input-dictionary given!"
+            )
+        if exp_output is None:
+            raise RuntimeError(
+                f"No output-dictionary given!"
+            )
+        if fwd_model_name is None:
+            raise RuntimeError(
+                f"No forward-model name given!"
+            )
 
         # check if the given forward model exists
         if fwd_model_name not in self._forward_models.keys():
@@ -612,15 +639,15 @@ class InferenceProblem:
                   f" and will be overwritten!")
 
         # add the experiment to the central dictionary
-        self._experiments[exp_name] = {'input': {'sensor': exp_input[0],
-                                                 'value': exp_input[1]},
-                                       'output': {'sensor': exp_output[0],
-                                                  'value': exp_output[1]},
+        self._experiments[exp_name] = {'input': exp_input,
+                                       'output': exp_output,
                                        'forward_model': fwd_model_name}
 
         # bookkeeping of the used sensors; note that these are sets, not lists
-        self._input_sensors.add(exp_input[0])
-        self._output_sensors.add(exp_output[0])
+        for sensor_name in exp_input.keys():
+            self._input_sensors.add(sensor_name)
+        for sensor_name in exp_output.keys():
+            self._output_sensors.add(sensor_name)
 
     def get_parameters_old(self, theta, prm_names_):
         """
@@ -794,7 +821,7 @@ class InferenceProblem:
         else:
             return s
 
-    def add_forward_model(self, name, forward_model_class, prms_def):
+    def add_forward_model(self, name, forward_model):
         """
         Adds a forward model to the inference problem.
 
@@ -802,20 +829,14 @@ class InferenceProblem:
         ----------
         name : string
             The name of the model to be added
-        forward_model_class : class
-            The class defining the forward model; check out forward_model.py to
-            see a template for the forward model definition.
-        prms_def : list
-            The names (strings) of the forward model's parameters; note that
-            these parameters need to be added to the problem before adding the
-            forward model. The order reflected in prms_def defines how numeric
-            values for these parameters will be given to the '__call__' method
-            of the forward model.
+        forward_model : object
+            Defines the forward model; check out forward_model.py to see a
+            template for the forward model definition.
         """
 
         # check if all given model parameters have already been added to the
         # inference problem
-        for prm_name in prms_def:
+        for prm_name in forward_model.prms_def:
             if prm_name not in self._alias_dict.keys():
                 raise RuntimeError(
                     f"The model parameter '{prm_name}' has not been defined " +
@@ -826,7 +847,7 @@ class InferenceProblem:
 
         # instantiate an object of the given class and define it as the
         # inference problem's forward model
-        self._forward_models[name] = forward_model_class(prms_def)
+        self._forward_models[name] = forward_model
 
     def evaluate_model_error(self, theta, experiments=None, key="sensor"):
         """
@@ -876,11 +897,11 @@ class InferenceProblem:
             # extract the experiments relevant for this model
             rel_exp = self.get_experiments(fwd_name, experiments=experiments)
             model_error_dict[fwd_name] = forward_model.error(prms_model,
-                                                             rel_exp, key=key)
+                                                             rel_exp)
 
         return model_error_dict
 
-    def add_noise_model(self, sensor, noise_model_class, prms_def):
+    def add_noise_model(self, sensor, noise_model):
         """
         Adds a sensor-specific noise model to the inference problem.
 
@@ -890,20 +911,14 @@ class InferenceProblem:
             The sensor type the noise model refers to, e.g. "ForceSensor". Note
             that this sensor type must appear as output sensor in the problem's
             experiments for the noise model to be used.
-        noise_model_class : class
-            The noise model's class, e.g. NormalNoise; check out noise.py to
-            see some noise model classes
-        prms_def : list
-            The names (strings) of the noise model's parameters; note that these
-            parameters need to be added to the problem before adding the noise
-            model. The order reflected in prms_def defines how numeric values
-            for these parameters will be given to the 'loglike_contribution'
-            method of the noise model.
+        noise_model : class
+            The noise model object, e.g. NormalNoise; check out noise.py to see
+            some noise model classes
         """
 
         # check if all given noise model parameters have already been added to
         # the inference problem
-        for prm_name in prms_def:
+        for prm_name in noise_model.prms_def:
             if prm_name not in self._alias_dict.keys():
                 raise RuntimeError(
                     f"The noise model parameter '{prm_name}' has not been " +
@@ -915,7 +930,7 @@ class InferenceProblem:
 
         # instantiate an object of the given class and define it the
         # inference problem's noise model for the given sensor type
-        self._noise_models[sensor] = noise_model_class(prms_def)
+        self._noise_models[sensor] = noise_model
 
     def logprior(self, theta):
         """

@@ -46,10 +46,21 @@ class NoiseTemplate:
         )
 
 
-class NormalNoise(NoiseTemplate):
+class NormalNoiseZeroMean(NoiseTemplate):
     """
-    A simple Gaussian (normal) noise model without any correlations.
+    A simple Gaussian (normal) zero-mean noise model without any correlations.
     """
+    def __init__(self, prms_def):
+        super().__init__(prms_def)
+        if type(prms_def) != list or len(prms_def) > 1:
+            raise RuntimeError(
+                f"NormalNoise allows to define exactly one parameter (the"
+                f"standard deviation), which must be given as a list with one"
+                f"element. However, you provided: '{prms_def}'"
+            )
+        # the one parameter name that is given refers to the std. deviation
+        self.sigma_name = prms_def[0]
+
     def loglike_contribution(self, model_error_vector, prms):
         """
         This method overwrites the corresponding method of the parent class.
@@ -57,7 +68,7 @@ class NormalNoise(NoiseTemplate):
         """
         # the precision 'prec' is defined as the inverse of the variance, hence
         # prec = 1 / sigma**2 where sigma denotes the standard deviation
-        sigma = prms['sigma']
+        sigma = prms[self.sigma_name]
         prec = 1.0 / sigma**2-0
         ll = 0.0
         # evaluate the Gaussian log-PDF with zero mean and a variance of
