@@ -91,6 +91,15 @@ class InferenceProblem:
         self._input_sensors = set()
         self._output_sensors = set()
 
+        # this dictionary contains information on those sensors, measurement
+        # errors have been defined for; the keys are the sensor names, while the
+        # values are dictionaries like {'rel': <boolean>, 'prm': <string>} where
+        # 'rel' is True when the error is relative (multiplicative) and False if
+        # the error is additive; 'prm' gives the calibration parameter name that
+        # defines the measurement error; this dict is managed internally and
+        # should not be edited directly
+        self._se_dict = {}
+
     def __str__(self):
         """
         Allows to print relevant problem information by calling print(problem)
@@ -821,6 +830,62 @@ class InferenceProblem:
         else:
             return s
 
+    def add_sensor_error(self, sensor_names, name=None, tex=None,
+                         info="No explanation provided", plusminus=None,
+                         error_type="absolute"):
+        """
+        Adds a sensor error to one or more input and/or output sensors.
+
+        Parameters
+        ----------
+        sensor_names : list
+            Contains the names of sensors that should be associated with the
+            specified sensor error.
+        name : string
+            The name of the calibration parameter that will be created to model
+            the sensor error.
+        tex : string, optional
+            The TeX version of the parameter's name of the calibration parameter
+            that will be created to model the sensor error.
+        info : string, optional
+            Short description of the sensor error.
+        plusminus : float
+            Defines the error bound of the uniform prior of the calibration
+            parameter that will be created to model the sensor error. For
+            example when plusminus=0.1 then the created prior will range from
+            -0.1 to +0.1.
+        error_type : string
+            Either 'absolute' for an additive sensor error or 'relative' for a
+            multiplicative sensor error.
+        """
+
+        # check if the specified sensors exist in the problem
+        for sensor_name in sensor_names:
+            if (sensor_name not in self._input_sensors) and \
+                    (sensor_name not in self._output_sensors):
+                raise RuntimeError(
+                    f"The specified sensor '{sensor_name}' is not defined "
+                    f"within the problem so far. Sensor errors must be defined "
+                    f"after the respective sensors have been defined."
+                )
+
+        # check the given error type
+        if error_type not in ['absolute', 'relative']:
+            raise RuntimeError(
+                f"Unknown error_type '{error_type}'. Note that error_type must "
+                f"be either 'absolute' or 'relative'."
+            )
+
+        # the sensor error will appear as a calibration parameter in the problem
+        # with a uniform prior defined by plusminus
+        self.add_parameter(name, 'model', info=info, tex=tex,
+                           prior=('uniform', {'low': -plusminus,
+                                              'high': plusminus}))
+        for sensor_name in sensor_names:
+            self._se_dict[sensor_name] = {'rel': False, 'prm': name}
+            if error_type == "relative":
+                self._se_dict[sensor_name]['rel'] = True
+
     def add_forward_model(self, name, forward_model):
         """
         Adds a forward model to the inference problem.
@@ -890,14 +955,21 @@ class InferenceProblem:
         if experiments is None:
             experiments = self._experiments
 
+        # get all calibration parameter names that describe sensor errors
+        se_def = set()
+        for d in self._se_dict.values():
+            se_def.add(d['prm'])
+        se_def = list(se_def)
+
         # the model error is computed within the model
         model_error_dict = {}
         for fwd_name, forward_model in self._forward_models.items():
             prms_model = self.get_parameters(theta, forward_model.prms_def)
+            prms_se = self.get_parameters(theta, se_def)
             # extract the experiments relevant for this model
             rel_exp = self.get_experiments(fwd_name, experiments=experiments)
-            model_error_dict[fwd_name] = forward_model.error(prms_model,
-                                                             rel_exp)
+            model_error_dict[fwd_name] =\
+                forward_model.error(prms_model+prms_se, rel_exp, self._se_dict)
 
         return model_error_dict
 

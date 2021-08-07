@@ -93,6 +93,37 @@ class ModelTemplate:
             jac[i] = (right - left) / (2 * h)
         return jac
 
+    @staticmethod
+    def apply_sensor_error(sensors, prms, se_dict):
+        """
+        Accounts for additive or multiplicative sensor error by removing the
+        respective error.
+
+        Parameters
+        ----------
+        sensors : dict
+            Contains the experimental input or output sensors with values
+        prms : ParameterList-object
+            Dictionary-like object containing parameter name:value pairs.
+        se_dict : dict
+            Contains information on sensors for which errors have been defined
+
+        Returns
+        -------
+        sen_copy : dict
+            A copy of sensors with adjusted values for the respective sensors.
+        """
+        sen_copy = cp.copy(sensors)
+        for sensor_name in sen_copy.keys():
+            if sensor_name in se_dict.keys():
+                if se_dict[sensor_name]['rel']:
+                    factor = 1 + prms[se_dict[sensor_name]['prm']]
+                    sen_copy[sensor_name] /= factor
+                else:
+                    summand = prms[se_dict[sensor_name]['prm']]
+                    sen_copy[sensor_name] -= summand
+        return sen_copy
+
     def error_function(self, x, prms, ye, output_sensor):
         """
         Evaluates the model error for a single experiment. This function can be
@@ -113,7 +144,7 @@ class ModelTemplate:
         error = ym - ye
         return error
 
-    def error(self, prms, experiments):
+    def error(self, prms, experiments, se_dict):
         """
         Computes the model error for all given experiments and returns them in
         a dictionary that is sorted by output sensor.
@@ -125,6 +156,8 @@ class ModelTemplate:
         experiments : dict
             A dictionary with a structure like self._experiments in the class
             InferenceProblem.
+        se_dict : dict
+            Contains information on sensors for which errors have been defined
 
         Returns
         -------
@@ -134,8 +167,13 @@ class ModelTemplate:
         """
         model_error = {}
         for exp_dict in experiments.values():
-            inp = exp_dict['input']
-            output_sensors = exp_dict['output']
+            if not se_dict:
+                inp = exp_dict['input']
+                output_sensors = exp_dict['output']
+            else:
+                inp = self.apply_sensor_error(exp_dict['input'], prms, se_dict)
+                output_sensors = self.apply_sensor_error(exp_dict['output'],
+                                                         prms, se_dict)
             for output_sensor, ye in output_sensors.items():
                 me = self.error_function(inp, prms, ye, output_sensor)
                 if output_sensor not in model_error.keys():
