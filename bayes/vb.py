@@ -242,6 +242,12 @@ def variational_bayes_neptune(model_error, param0, noise0=None, **kwargs):
     vb = VB()
     return vb.run_neptune(model_error, param0, noise0, **kwargs)
 
+def free_energy(model_error, param0, noise0=None, **kwargs):
+
+    vb = VB()
+    return vb.free_energy(model_error, param0, noise0, **kwargs)
+
+
 
 def variational_bayes(model_error, param0, noise0=None, **kwargs):
     """
@@ -496,15 +502,15 @@ class VB:
             # to account for the loop over all noise groups
             f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
             (sign, logdet) = np.linalg.slogdet(L)
-            f_new += 0.5 * sign * logdet
+            f_new += - 0.5 * sign * logdet
 
             for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
-                f_new += -0.5 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                f_new += -s[i] * np.log(c[i]) - special.gammaln(c[i])
-                f_new += -c[i] + (len(k[i]) / 2 + c[i] - 1) * (
+                f_new += -0.5 * s[i] * c[i] * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+                f_new +=  c[i] * np.log(s[i]) + special.gammaln(c[i])
+                f_new +=  c[i] - (c[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
                 if "index_ARD" in kwargs:
@@ -534,6 +540,88 @@ class VB:
             self.result.noise = noise
 
         return self.result
+
+    def free_energy(self, model_error, param0, noise0=None, **kwargs):
+
+        if not isinstance(model_error, VariationalBayesInterface):
+            model_error = VBModelErrorWrapper(model_error)
+
+        k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
+
+        return_single_noise = False
+
+        if noise0 is None:
+            noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
+            if len(noise0) == 1:
+                return_single_noise = True
+
+        if isinstance(noise0, Gamma):
+            # if a single Gamma is provided as prior, a single noise should
+            # be returned as posterior.
+            return_single_noise = True
+            if len(k) != 1:
+                error = "Passing a single Gamma distribution, so without the "
+                error += "dict-pattern {noise_key : Gamma}, is only valid if "
+                error += "the provided model error has a single noise group!"
+                raise ValueError(error)
+            noise_key = list(k.keys())[0]
+            noise0 = {noise_key: noise0}
+
+        for noise_key in k:
+            if noise_key not in noise0:
+                error = f"Your model error contains the noise key {noise_key},"
+                error += f"which is not given in your noise prior!"
+                raise ValueError(error)
+
+        # adapt notation
+        s, c = {}, {}
+        for n, gamma in noise0.items():
+            s[n] = gamma.scale
+            c[n] = gamma.shape
+        m = np.copy(param0.mean)
+        L = np.copy(param0.precision)
+
+        m0 = np.copy(m)
+        L0 = np.copy(L)
+        s0 = copy.copy(s)
+        c0 = copy.copy(c)
+
+        # fw model parameter update
+        L_inv = np.linalg.inv(L)
+
+        if "index_ARD" in kwargs:
+            index_ARD = kwargs["index_ARD"]
+            n_ARD_param = len(index_ARD)
+            L0[index_ARD, index_ARD] = 1 / (
+                    m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
+            )
+            r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
+            d = 0.5 * np.ones(n_ARD_param)
+
+        logger.debug(f"current mean: {m}")
+        logger.debug(f"current precision: {L}")
+
+        # free energy caluclation, formula (23) slightly rearranged
+        # to account for the loop over all noise groups
+        f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
+        (sign, logdet) = np.linalg.slogdet(L)
+        f_new += -0.5 * sign * logdet
+
+        for i in noise0:
+            f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
+            f_new += -0.5* s[i] * c[i] * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
+            f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
+            f_new += c[i] - (c[i] - 1) * (
+                    np.log(s[i]) + special.digamma(c[i])
+            )
+            if "index_ARD" in kwargs:
+                for j in range(n_ARD_param):
+                    f_new += (
+                            (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
+                            - d[j] * (1 + np.log(r[j]))
+                            - special.gammaln(d[j])
+                    )
+        return f_new
 
     def run_neptune(self, model_error, param0, noise0=None, **kwargs):
         run = kwargs["run"]
@@ -646,7 +734,7 @@ class VB:
             #     )
             f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
             (sign, logdet) = np.linalg.slogdet(L)
-            f_new += 0.5 * sign * logdet
+            f_new += - 0.5 * sign * logdet
 
             for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
@@ -697,16 +785,19 @@ class VB:
 
         # stop?
         if self.n_trials >= self.n_trials_max:
+            print("n trials")
             self.result.message = "Stopping because free energy did not "
             self.result.message += f"increase within {self.n_trials_max} iterations."
             return True
 
         if i_iter >= self.iter_max:
+            print("iter max")
             self.result.message = "Stopping because the maximum number of "
             self.result.message = "iterations is reached."
             return True
 
         if abs(f_new - self.f_old) <= self.tolerance:
+            print("tolerance")
             self.result.message = "Tolerance reached!"
             self.result.success = True
             return True

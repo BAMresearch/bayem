@@ -3,7 +3,7 @@ from .parameters import ParameterList
 from .latent import LatentParameters
 from .noise import SingleSensorNoise
 from collections import OrderedDict
-from .vb import MVN, Gamma, variational_bayes, variational_bayes_neptune, VariationalBayesInterface
+from .vb import MVN, Gamma, variational_bayes, variational_bayes_neptune, VariationalBayesInterface, free_energy
 from .jacobian import d_model_error_d_named_parameter
 
 
@@ -118,6 +118,11 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
     def run(self, **kwargs):
         MVN = self.prior_MVN()
         info = variational_bayes(self, MVN, self.noise_prior, **kwargs)
+        return info
+
+    def run_free_energy(self, **kwargs):
+        MVN = self.prior_MVN()
+        info = free_energy(self, MVN, self.noise_prior, **kwargs)
         return info
 
     def run_neptune(self, **kwargs):
