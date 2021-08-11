@@ -102,3 +102,39 @@ def tcs(string_1, string_2, sep=":", col_width=24, empty_str="-"):
     second_column = sub_when_empty(string_2, empty_str=empty_str)
     result_string = f"{first_column:{col_width}s}{second_column}\n"
     return result_string
+
+def list2dict(list_):
+    """
+    Converts a list into a specific dictionary. The list may only contain
+    strings or one-element dictionaries. For example [{'a': 'm'}, 'b'] will be
+    converted into {'a': 'm', 'b': 'b'}.
+
+    Parameters
+    ----------
+    list_ : list
+        May only contain strings or one-element dictionaries.
+
+    Returns
+    -------
+    dict_ : dict
+        Strings are mapped to themselves, while one-element dictionaries are
+        simply added to this result dictionary.
+    """
+    dict_ = {}
+    for element in list_:
+        element_type = type(element)
+        if element_type == dict:
+            if len(element) != 1:
+                raise ValueError(
+                    f"Found a dict-element, which has {len(element)} instead "
+                    f"of 1 key-value pair."
+                )
+            dict_ = {**dict_, **element}
+        elif element_type == str:
+            dict_[element] = element
+        else:
+            raise TypeError(
+                f"The elements in the given list must be either of type "
+                f"'string' or 'dict'. Found '{element_type}' however."
+            )
+    return dict_
