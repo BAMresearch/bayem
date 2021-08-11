@@ -2,7 +2,6 @@
 from copy import deepcopy as dc
 
 # local imports
-from bayes.parameters import ParameterList
 from bayes.priors import LogPriorNormal
 from bayes.priors import LogPriorLognormal
 from bayes.priors import LogPriorUniform
@@ -711,23 +710,23 @@ class InferenceProblem:
 
         Returns
         -------
-        prms : ParameterList-object
-            Dictionary-like object containing parameter name:value pairs
+        prms : dict
+            Contains <parameter name> : <parameter value> pairs.
         """
         # if prm_names_ is given as a single string, it is converted to a list
         prm_names = prm_names_ if type(prm_names_) is list else [prm_names_]
-        prms = ParameterList()
+        prms = {}
         for prm_name in prm_names:
             prm_name_ori = self._alias_dict[prm_name]  # original parameter name
             idx = self._prm_dict[prm_name_ori]['index']
             if idx is None:
                 # in this case, the parameter is a constant and hence not read
                 # from theta
-                prms.define(prm_name, self._prm_dict[prm_name_ori]['value'])
+                prms[prm_name] = self._prm_dict[prm_name_ori]['value']
             else:
                 # in this case, the parameter is a calibration parameter, and
                 # its value is read from theta
-                prms.define(prm_name, theta[idx])
+                prms[prm_name] = theta[idx]
         return prms
 
     def get_experiments(self, forward_model_name, experiments=None):
@@ -969,7 +968,8 @@ class InferenceProblem:
             # extract the experiments relevant for this model
             rel_exp = self.get_experiments(fwd_name, experiments=experiments)
             model_error_dict[fwd_name] =\
-                forward_model.error(prms_model+prms_se, rel_exp, self._se_dict)
+                forward_model.error({**prms_model, **prms_se},
+                                    rel_exp, self._se_dict)
 
         return model_error_dict
 

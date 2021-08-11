@@ -49,14 +49,11 @@ n_steps = 1000
 # ============================================================================ #
 
 class LinearModel(ModelTemplate):
-    def __call__(self, inp, prms):
+    def response(self, inp, sensor):
         x = inp['x']
-        a = prms['a']
-        b = prms['b']
-        response = {}
-        for out_sens in self.output_sensors:
-            response[out_sens.name] = a * x + b
-        return response
+        a = inp['a']
+        b = inp['b']
+        return a * x + b
 
 # ============================================================================ #
 #                         Define the Inference Problem                         #

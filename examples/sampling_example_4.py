@@ -52,14 +52,11 @@ n_steps = 1000
 # ============================================================================ #
 
 class ExponentialDecay(ModelTemplate):
-    def __call__(self, inp, prms):
+    def response(self, inp, sensor):
         t = inp['t'] + clock_error_true
         m0 = inp['m0']
-        k = prms['k']
-        response = {}
-        for out_sens in self.output_sensors:
-            response[out_sens.name] = m0 * np.exp(-k * t)
-        return response
+        k = inp['k']
+        return m0 * np.exp(-k * t)
 
 # ============================================================================ #
 #                         Define the Inference Problem                         #

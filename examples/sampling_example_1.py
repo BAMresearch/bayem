@@ -1,3 +1,12 @@
+"""
+Linear model in time and space with three different noise models
+--------------------------------------------------------------------------------
+The model equation is y = A * x + B * t with A, B being the model parameters,
+while x and t represent position and time respectively. Measurements are made
+at three different positions (x-values) each of which is associated with an own
+zero-mean, uncorrelated normal noise model with the std. deviations to infer.
+The problem is solved via sampling by means of taralli.
+"""
 # ============================================================================ #
 #                                   Imports                                    #
 # ============================================================================ #
@@ -49,7 +58,7 @@ pos_s3 = 42.0
 
 # taralli settings
 n_walkers = 20
-n_steps = 1000
+n_steps = 2000
 
 # ============================================================================ #
 #                           Define the Forward Model                           #
@@ -61,21 +70,18 @@ class PositionSensor(OutputSensor):
         self.position = position
 
 class LinearModel(ModelTemplate):
-    def __call__(self, inp, prms):
+    def response(self, inp, sensor):
         t = inp['time']
-        A = prms['A']
-        B = prms['B']
-        response = {}
-        for out in self.output_sensors:
-            response[out.name] = A * out.position + B * t
-        return response
+        A = inp['A']
+        B = inp['B']
+        return A * sensor.position + B * t
 
 # ============================================================================ #
 #                         Define the Inference Problem                         #
 # ============================================================================ #
 
 # initialize the inference problem with a useful name
-problem = InferenceProblem("Linear model with normal noise")
+problem = InferenceProblem("Linear model with three noise models")
 
 # add all parameters to the problem
 problem.add_parameter('A', 'model',
@@ -116,6 +122,7 @@ problem.add_noise_model(out_3.name, NormalNoiseZeroMean(['sigma_3']))
 # ============================================================================ #
 
 # add the experimental data
+np.random.seed(1)
 sd_dict = {out_1.name: sd_S1_true,
            out_2.name: sd_S2_true,
            out_3.name: sd_S3_true}

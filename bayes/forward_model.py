@@ -39,22 +39,41 @@ class ModelTemplate:
         self.prms_dim = len_or_one(prms_def)
         self.output_sensors = output_sensors
 
-    def __call__(self, x, prms):
+    def __call__(self, inp, prms):
         """
-        Evaluates the model at x and prms. This method has to be overwritten
-        by the user's model class.
+        Evaluates the model response for each output sensor and returns the
+        response dictionary.
 
         Parameters
         ----------
-        x : array_like
+        inp : array_like
             The input data of the model, i.e. the experimental input data.
         prms : array_like
             The parameter vector of the model.
 
         Returns
         -------
-        jac : array_like
-            The gradient of the model function at x, prms wrt prms
+        response_dict : dict
+            Contains the model response (value) for each output sensor,
+            referenced by their name (key).
+        """
+        response_dict = {}
+        for output_sensor in self.output_sensors:
+            response_dict[output_sensor.name] =\
+                self.response({**inp, **prms}, output_sensor)
+        return response_dict
+
+    def response(self, inp, sensor):
+        """
+        Evaluates the model at x and prms for the given sensor. This method has
+        to be overwritten by the user's response method.
+
+        Parameters
+        ----------
+        inp : ParameterList object
+            Both the input data and the parameters of the model.
+        sensor : object
+            The output sensor the response should be evaluated for.
         """
         raise NotImplementedError(
             "Your model does not have a __call__-method. You need to define" +

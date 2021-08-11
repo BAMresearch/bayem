@@ -50,24 +50,18 @@ n_steps = 1000
 # ============================================================================ #
 
 class LinearModel(ModelTemplate):
-    def __call__(self, inp, prms):
+    def response(self, inp, sensor):
         x = inp['x']
-        a = prms['a']
-        b = prms['b']
-        response = {}
-        for out_sens in self.output_sensors:
-            response[out_sens.name] = a * x + b
-        return response
+        a = inp['a']
+        b = inp['b']
+        return a * x + b
 
 class QuadraticModel(ModelTemplate):
-    def __call__(self, inp, prms):
+    def response(self, inp, sensor):
         x = inp['x']
-        alpha = prms['alpha']
-        beta = prms['beta']
-        response = {}
-        for out_sens in self.output_sensors:
-            response[out_sens.name] = alpha * x**2 + beta
-        return response
+        alpha = inp['alpha']
+        beta = inp['beta']
+        return alpha * x**2 + beta
 
 # ============================================================================ #
 #                         Define the Inference Problem                         #
