@@ -4,7 +4,7 @@ def len_or_one(obj):
 
     Parameters
     ----------
-    obj : object
+    obj : obj
         Most of the time this will be a list/tuple or a single scalar number.
 
     Returns
