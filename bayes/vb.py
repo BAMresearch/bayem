@@ -185,7 +185,7 @@ class VBModelErrorWrapper(VariationalBayesInterface):
             return k
 
 
-def variational_bayes(model_error, param0, noise0=None, noise_first=False, _LM=False, **kwargs):
+def variational_bayes(model_error, param0, noise0=None, update_noise=True, noise_first=False, _LM=False, **kwargs):
     """
     Nonlinear variational bayes algorithm according to
     @article{chappell2008variational,
@@ -243,7 +243,7 @@ def variational_bayes(model_error, param0, noise0=None, noise_first=False, _LM=F
     vb = VB()
     vb.noise_first = noise_first
     vb._LM = _LM
-    return vb.run(model_error, param0, noise0, **kwargs)
+    return vb.run(model_error, param0, noise0, update_noise, **kwargs)
 
 
 def variational_bayes_nonlinear(model_error, param0, noise0=None, **kwargs):
@@ -306,7 +306,7 @@ class VB:
         self.noise_first = False # by default
         self._LM = False
 
-    def run(self, model_error, param0, noise0=None, **kwargs):
+    def run(self, model_error, param0, noise0=None, update_noise=True, **kwargs):
 
         if "tolerance" in kwargs:
             self.tolerance = kwargs["tolerance"]
@@ -326,6 +326,14 @@ class VB:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
             if len(noise0) == 1:
                 return_single_noise = True
+        
+        if update_noise==True: # this is a flag and if it is True, all noises will be updated
+            update_noise = {}
+            for i in noise0:
+                update_noise[i] = True
+        else: # if not True, update_noise must have been given as a dictionary
+            assert type(update_noise)==dict
+            assert len(update_noise)==len(noise0)
 
         if isinstance(noise0, Gamma):
             # if a single Gamma is provided as prior, a single noise should
@@ -374,15 +382,16 @@ class VB:
             if self.noise_first:
                 # noise parameter update
                 for i in noise0:
-                    # formula (30)
-                    c[i] = len(k[i]) / 2 + c0[i]
-                    # formula (31)
-                    s_inv = (
-                        1 / s0[i]
-                        + 0.5 * k[i].T @ k[i]
-                        + 0.5 * np.trace(L_inv_0 @ J[i].T @ J[i])
-                    )
-                    s[i] = 1 / s_inv
+                    if update_noise[i]:
+                        # formula (30)
+                        c[i] = len(k[i]) / 2 + c0[i]
+                        # formula (31)
+                        s_inv = (
+                            1 / s0[i]
+                            + 0.5 * k[i].T @ k[i]
+                            + 0.5 * np.trace(L_inv_0 @ J[i].T @ J[i])
+                        )
+                        s[i] = 1 / s_inv
                     logger.debug(f'\n Noise update first: current s (scale) and c (shape): {s[i]}, {c[i]}')
             
             # fw model parameter update
@@ -393,7 +402,7 @@ class VB:
                 m = Lm @ L_inv
                 f_m = None
                 # k, J = model_error(m), model_error.jacobian(m)
-                # f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+                # f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0, update_noise=update_noise)
                 # print(f"Free energy after only updating the parameters (at iteration {i_iter}) is {f_m}")
             else:
                 ## L-M WAY
@@ -411,11 +420,11 @@ class VB:
                     m = m_old + _dm
                     
                     ## 1) We compute F without updating k, J
-                    f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+                    f_m = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0, update_noise=update_noise)
                     
                     ## 2) We compute F after updating k, J --------- (MORE COMPUTATION NEEDED!)
                     # k_m, J_m = model_error(m), model_error.jacobian(m)
-                    # f_m = VB.free_energy(m, L, L_inv, s, c, k_m, J_m, m0, L0, s0, c0)
+                    # f_m = VB.free_energy(m, L, L_inv, s, c, k_m, J_m, m0, L0, s0, c0, update_noise=update_noise)
                     
                     if alpha==0: # possibly needed as back-up
                         m_alpha_0 = copy.deepcopy(m)
@@ -456,15 +465,16 @@ class VB:
                 L_inv = np.linalg.inv(L)
                 
                 for i in noise0:
-                    # formula (30)
-                    c[i] = len(k[i]) / 2 + c0[i]
-                    # formula (31)
-                    s_inv = (
-                        1 / s0[i]
-                        + 0.5 * k[i].T @ k[i]
-                        + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                    )
-                    s[i] = 1 / s_inv
+                    if update_noise[i]:
+                        # formula (30)
+                        c[i] = len(k[i]) / 2 + c0[i]
+                        # formula (31)
+                        s_inv = (
+                            1 / s0[i]
+                            + 0.5 * k[i].T @ k[i]
+                            + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                        )
+                        s[i] = 1 / s_inv
                     logger.debug(f'\n Noise update second: current s (scale) and c (shape): {s[i]}, {c[i]}')
 
             if "index_ARD" in kwargs:
@@ -480,13 +490,13 @@ class VB:
             logger.debug(f"current precision: {L}")
                         
             if self.noise_first:
-                L_inv_0 = L_inv # set before re-recomputing L_inv
+                L_inv_0 = L_inv + 0.0 # set before re-recomputing L_inv
             
             # For computing free energy as well as being used in next iteration.
             L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise0]) + L0
             L_inv = np.linalg.inv(L)
             
-            f_new = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0)
+            f_new = VB.free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0, update_noise=update_noise)
             print(f"Free energy of iteration {i_iter} is {f_new}")
             
             if f_m is not None and f_new<f_m:
@@ -544,7 +554,7 @@ class VB:
         self.f_old = f_new
         return False
     
-    def free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0):
+    def free_energy(m, L, L_inv, s, c, k, J, m0, L0, s0, c0, update_noise, include_fixed_noises=False):
         ### PAPER's original
         # f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
         # (sign, logdet) = np.linalg.slogdet(L)
@@ -581,16 +591,18 @@ class VB:
         f_new -= 0.5 * sign * logdet
 
         for i in s.keys():
-            f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
-                np.log(s[i]) + special.digamma(c[i])
-            )
             f_new += (
                 -0.5
                 * s[i]
                 * c[i]
                 * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
             )
-            f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
-            f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
+            if include_fixed_noises or update_noise[i]:
+                # terms ONLY depending on Noise parameters
+                f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+                    np.log(s[i]) + special.digamma(c[i])
+                )
+                f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
+                f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
         
         return f_new
