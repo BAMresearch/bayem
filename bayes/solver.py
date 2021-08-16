@@ -144,7 +144,7 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
                 raise AttributeError("You need to define the prior from scipy.stats.norm") from e
 
             if dist_type != "norm":
-                raise AttributeError("You need to define the prior from scipy.stats.norm") from e
+                raise AttributeError("You need to define the prior from scipy.stats.norm")
 
             mean, sd = latent.prior.mean(), latent.prior.std()
             for _ in range(latent.N):
@@ -172,7 +172,7 @@ class VariationalBayesSolver(SolverInterface, VariationalBayesInterface):
                 raise AttributeError("You need to define the prior from scipy.stats.gamma") from e
             
             if dist_type != "gamma":
-                raise AttributeError("You need to define the prior from scipy.stats.gamma") from e
+                raise AttributeError("You need to define the prior from scipy.stats.gamma")
 
             mean, var = latent.prior.mean(), latent.prior.var()
             scale = var / mean
