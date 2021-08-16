@@ -110,7 +110,7 @@ class InferenceProblem:
         # should not be edited directly
         self._sensor_error_dict = {}
 
-    def info(self, print_it=True):
+    def info(self, print_it=True, include_experiments=False):
         """
         Either prints the problem definition to the console (print_it=True) or
         just returns the generated string without printing it (print_it=False).
@@ -120,6 +120,11 @@ class InferenceProblem:
         print_it : boolean, optional
             If True, the generated string is printed and not returned. If set
             to False, the generated string is not printed but returned.
+        include_experiments : boolean, optional
+            If True, information on the experiments defined within the model
+            will be included in the printout. Depending on the number of defined
+            experiments, this might result in a long additional printout, which
+            is why this is set to False (no experiment printout) by default.
 
         Returns
         -------
@@ -232,10 +237,19 @@ class InferenceProblem:
         theta_string = "\nTheta interpretation"
         theta_string += self.theta_explanation(print_it=False)
 
+        # print information on added experiments if requested
+        if include_experiments:
+            w = len(max(self._experiments.keys(), key=len)) + 2
+            exp_str = underlined_string("Added experiments", symbol="-")
+            for exp_name, exp_dict in self._experiments.items():
+                exp_str += tcs(exp_name, str(exp_dict), col_width=w)
+        else:
+            exp_str = ""
+
         # concatenate the string and return it
         full_string = title_string + fwd_string + prms_string + const_prms_str
         full_string += prms_info_str + prior_str + alias_str + inp_sensor_str
-        full_string += out_sensor_str + sens_error_str + theta_string
+        full_string += out_sensor_str + sens_error_str + theta_string + exp_str
 
         # either print or return the string
         if print_it:
