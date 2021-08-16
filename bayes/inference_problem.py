@@ -433,7 +433,8 @@ class InferenceProblem:
             # in this case prm_name refers to a calibration parameter; hence we
             # need to remove the prior-parameter and the prior-object; also, we
             # have to correct the index values of the remaining calibration prms
-            for prior_prm in self._prm_dict[prm_name_ori]['prior'].prms:
+            for prior_prm in self._prm_dict[prm_name_ori]['prior'].\
+                    prms_def_no_ref.keys():
                 self.remove_parameter(prior_prm)  # recursive call
             del self._priors[self._prm_dict[prm_name_ori]['prior'].name]
             del self._prm_dict[prm_name_ori]['prior']
