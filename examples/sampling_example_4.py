@@ -1,17 +1,26 @@
+"""
+Calibration of exponential decay model with sensor error
+--------------------------------------------------------------------------------
+The model equation is y = m0 * exp(-k * t) with k being the model parameter, m0
+is the initial measured mass, and t is the time. Experiments are conducted with
+two different mass sensors, each one associated with an own normal noise model.
+Independent of the used mass sensor, a clock is used with an unknown additive
+bias (the sensor error). This bias, called delta_t here, is inferred too. The
+problem is solved via sampling using taralli.
+"""
 # ============================================================================ #
 #                                   Imports                                    #
 # ============================================================================ #
 
 # third party imports
 import numpy as np
-import matplotlib.pyplot as plt
 
 # local imports
 from bayes.forward_model import ModelTemplate
 from bayes.forward_model import OutputSensor
-from bayes.noise_new import NormalNoiseZeroMean
-from bayes.inference_problem_new import InferenceProblem
-from taralli.parameter_estimation.base import EmceeParameterEstimator
+from bayes.noise import NormalNoiseZeroMean
+from bayes.inference_problem import InferenceProblem
+from bayes.solver import taralli_solver
 
 # ============================================================================ #
 #                              Set numeric values                              #
@@ -63,7 +72,7 @@ class ExponentialDecay(ModelTemplate):
 # ============================================================================ #
 
 # initialize the inference problem with a useful name
-problem = InferenceProblem("Linear model with normal noise and prior-prior")
+problem = InferenceProblem("Exponential decay model with sensor error")
 
 # add all parameters to the problem
 problem.add_parameter('k', 'model',
@@ -94,6 +103,10 @@ problem.add_forward_model("ExponentialDecay_MassSensor_2",
 problem.add_noise_model(ms_1.name, NormalNoiseZeroMean(['sigma_1']))
 problem.add_noise_model(ms_2.name, NormalNoiseZeroMean(['sigma_2']))
 
+# add a sensor error to the time measurement
+problem.add_sensor_error(['t'], name="delta_t", plusminus=clock_error_bound,
+                         tex=r"$\Delta_t$",  error_type="abs")
+
 # ============================================================================ #
 #                    Add test data to the Inference Problem                    #
 # ============================================================================ #
@@ -123,42 +136,12 @@ for i in range(n_m0_2):
                                exp_output={'MassSensor_2': mt},
                                fwd_model_name="ExponentialDecay_MassSensor_2")
 
-# ============================================================================ #
-#                     Add an additive sensor error for 't'                     #
-# ============================================================================ #
-
-# add a sensor error to the time measurement
-problem.add_sensor_error(['t'], name="delta_t", plusminus=clock_error_bound,
-                         tex=r"$\Delta_t$",  error_type="absolute")
-
 # give problem overview
-print(problem)
+problem.info()
 
 # ============================================================================ #
 #                          Solve problem with Taralli                          #
 # ============================================================================ #
 
-# provide initial samples
-init_array = np.zeros((n_walkers, problem.n_calibration_prms))
-init_array[:, 0] = np.random.uniform(low_k, high_k, n_walkers)
-init_array[:, 1] = np.random.uniform(low_sigma1, high_sigma1, n_walkers)
-init_array[:, 2] = np.random.uniform(low_sigma2, high_sigma2, n_walkers)
-init_array[:, 3] = np.random.uniform(-clock_error_bound, clock_error_bound,
-                                     n_walkers)
-
-# set up sampling task
-emcee_model = EmceeParameterEstimator(
-    log_likelihood=problem.loglike,
-    log_prior=problem.logprior,
-    ndim=problem.n_calibration_prms,
-    nwalkers=n_walkers,
-    sampling_initial_positions=init_array,
-    nsteps=n_steps,
-)
-
-# perform sampling
-emcee_model.estimate_parameters()
-
-# plot the results
-emcee_model.plot_posterior(dim_labels=problem.get_theta_names(tex=True))
-plt.show(block=True)
+# code is bundled in a specific solver routine
+taralli_solver(problem, n_walkers=n_walkers, n_steps=n_steps)

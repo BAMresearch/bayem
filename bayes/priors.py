@@ -27,7 +27,6 @@ class PriorTemplate:
         """
         # write arguments to attributes
         self.ref_prm = ref_prm
-        self.prms = prms_def
         self.name = name
         self.prior_type = prior_type
 
@@ -36,7 +35,7 @@ class PriorTemplate:
         # example you define a normal prior for parameter 'a' with location,
         # then 'a' is the reference variable; note that the conversion to a
         # dictionary via list2dict is due to the possibility of using local
-        # parameter names, which however is rarely used for priors
+        # parameter names, which however is not intended to be used for priors
         self.prms_def_no_ref = list2dict(prms_def)
         self.prms_def = list2dict([ref_prm] + prms_def)
 

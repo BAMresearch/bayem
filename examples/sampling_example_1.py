@@ -5,7 +5,8 @@ The model equation is y = A * x + B * t with A, B being the model parameters,
 while x and t represent position and time respectively. Measurements are made
 at three different positions (x-values) each of which is associated with an own
 zero-mean, uncorrelated normal noise model with the std. deviations to infer.
-The problem is solved via sampling by means of taralli.
+This results in five calibration parameters (parameters to infer). The problem
+is solved via sampling by means of taralli.
 """
 # ============================================================================ #
 #                                   Imports                                    #
@@ -13,14 +14,13 @@ The problem is solved via sampling by means of taralli.
 
 # third party imports
 import numpy as np
-import matplotlib.pyplot as plt
 
 # local imports
 from bayes.forward_model import ModelTemplate
 from bayes.forward_model import OutputSensor
-from bayes.inference_problem_new import InferenceProblem
-from bayes.noise_new import NormalNoiseZeroMean
-from taralli.parameter_estimation.base import EmceeParameterEstimator
+from bayes.inference_problem import InferenceProblem
+from bayes.noise import NormalNoiseZeroMean
+from bayes.solver import taralli_solver
 
 # ============================================================================ #
 #                              Set numeric values                              #
@@ -142,33 +142,11 @@ for n_exp, n_t in enumerate([101, 51]):
     generate_data(n_t, n=n_exp)
 
 # give problem overview
-print(problem)
+problem.info()
 
 # ============================================================================ #
 #                          Solve problem with Taralli                          #
 # ============================================================================ #
 
-# provide initial samples
-init_array = np.zeros((n_walkers, problem.n_calibration_prms))
-init_array[:, 0] = np.random.normal(loc_A, scale_A, n_walkers)
-init_array[:, 1] = np.random.normal(loc_B, scale_B, n_walkers)
-init_array[:, 2] = np.random.uniform(low_S1, high_S1, n_walkers)
-init_array[:, 3] = np.random.uniform(low_S2, high_S2, n_walkers)
-init_array[:, 4] = np.random.uniform(low_S3, high_S3, n_walkers)
-
-# set up sampling task
-emcee_model = EmceeParameterEstimator(
-    log_likelihood=problem.loglike,
-    log_prior=problem.logprior,
-    ndim=problem.n_calibration_prms,
-    nwalkers=n_walkers,
-    sampling_initial_positions=init_array,
-    nsteps=n_steps,
-)
-
-# perform sampling
-emcee_model.estimate_parameters()
-
-# plot the results
-emcee_model.plot_posterior(dim_labels=problem.get_theta_names(tex=True))
-plt.show(block=True)
+# code is bundled in a specific solver routine
+taralli_solver(problem, n_walkers=n_walkers, n_steps=n_steps)

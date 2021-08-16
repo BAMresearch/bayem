@@ -3,7 +3,7 @@ Simple linear regression example with two model and one noise parameter
 --------------------------------------------------------------------------------
 The model equation is y = a * x + b with a, b being the model parameters and the
 noise model is a normal zero-mean distribution with the std. deviation to infer.
-The problem is solved via sampling by means of taralli.
+The problem is solved via sampling using taralli.
 """
 # ============================================================================ #
 #                                   Imports                                    #
@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 # local imports
 from bayes.forward_model import ModelTemplate
 from bayes.forward_model import OutputSensor
-from bayes.noise_new import NormalNoiseZeroMean
-from bayes.inference_problem_new import InferenceProblem
-from taralli.parameter_estimation.base import EmceeParameterEstimator
+from bayes.noise import NormalNoiseZeroMean
+from bayes.inference_problem import InferenceProblem
+from bayes.solver import taralli_solver
 
 # ============================================================================ #
 #                              Set numeric values                              #
@@ -54,7 +54,7 @@ n_steps = 1000
 class LinearModel(ModelTemplate):
     def response(self, inp, sensor):
         x = inp['x']
-        a = inp['a']
+        a = inp['m']
         b = inp['b']
         return a * x + b
 
@@ -78,7 +78,7 @@ problem.add_parameter('sigma', 'noise',
 
 # add the forward model to the problem
 out = OutputSensor("y")
-problem.add_forward_model("LinearModel", LinearModel(['a', 'b'], [out]))
+problem.add_forward_model("LinearModel", LinearModel([{'a': 'm'}, 'b'], [out]))
 
 # add the noise model to the problem
 problem.add_noise_model(out.name, NormalNoiseZeroMean(['sigma']))
@@ -103,7 +103,7 @@ for i in range(n_tests):
                            fwd_model_name="LinearModel")
 
 # give problem overview
-print(problem)
+problem.info()
 
 # plot the true and noisy data
 plt.scatter(x_test, y_test, label='measured data', s=10, c="red", zorder=10)
@@ -118,25 +118,5 @@ plt.draw()  # does not stop execution
 #                          Solve problem with Taralli                          #
 # ============================================================================ #
 
-# provide initial samples
-init_array = np.zeros((n_walkers, problem.n_calibration_prms))
-init_array[:, 0] = np.random.normal(loc_a, scale_a, n_walkers)
-init_array[:, 1] = np.random.normal(loc_b, scale_b, n_walkers)
-init_array[:, 2] = np.random.uniform(low_sigma, high_sigma, n_walkers)
-
-# set up sampling task
-emcee_model = EmceeParameterEstimator(
-    log_likelihood=problem.loglike,
-    log_prior=problem.logprior,
-    ndim=problem.n_calibration_prms,
-    nwalkers=n_walkers,
-    sampling_initial_positions=init_array,
-    nsteps=n_steps,
-)
-
-# perform sampling
-emcee_model.estimate_parameters()
-
-# plot the results
-emcee_model.plot_posterior(dim_labels=problem.get_theta_names(tex=True))
-plt.show(block=True)
+# code is bundled in a specific solver routine
+taralli_solver(problem, n_walkers=n_walkers, n_steps=n_steps)

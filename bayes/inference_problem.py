@@ -1,15 +1,22 @@
 # standard library imports
 from copy import deepcopy as dc
 
+# third party imports
+import numpy as np
+
 # local imports
-from bayes.priors import LogPriorNormal
-from bayes.priors import LogPriorLognormal
-from bayes.priors import LogPriorUniform
-from bayes.priors import LogPriorWeibull
+from bayes.priors import PriorNormal
+from bayes.priors import PriorLognormal
+from bayes.priors import PriorUniform
+from bayes.priors import PriorWeibull
 from bayes.subroutines import underlined_string, tcs, list2dict
 
 
 class InferenceProblem:
+    """
+    This class provides a general framework for defining an inference problem.
+    Capabilities for solving the set up problem are intentionally not included.
+    """
 
     def __init__(self, name):
         """
@@ -17,7 +24,7 @@ class InferenceProblem:
         ----------
         name : string
             This is the name of the problem and has only descriptive value, for
-            example when working with several inference problems
+            example when working with several inference problems.
         """
 
         # the name of the problem
@@ -49,9 +56,11 @@ class InferenceProblem:
         self.n_calibration_prms = 0
 
         # this dictionary is for possible parameter alias defined in the
-        # problem; a parameter alias is another name for the same parameter; if
-        # possible such aliases should be avoided since they can be confusing;
-        # this dict is managed internally and should not be edited directly
+        # problem; a parameter alias is another name for the same parameter; the
+        # keys of this dictionary are the aliases, while the values are the
+        # original parameter names; if possible such aliases should be avoided
+        # since they can be confusing; this dictionary is managed internally and
+        # should not be edited directly
         self._alias_dict = {}
 
         # this dictionary is intended for storing the measured data from
@@ -60,12 +69,12 @@ class InferenceProblem:
         self._experiments = {}
 
         # here, the available prior classes are stored; additional ones can be
-        # added via self.add_prior_class; see also priors.py; this dict is
+        # added via self.add_prior_class; see also priors.py; this dictionary is
         # managed internally and should not be edited directly
-        self._logprior_classes = {'normal': LogPriorNormal,
-                                  'lognormal': LogPriorLognormal,
-                                  'uniform': LogPriorUniform,
-                                  'weibull': LogPriorWeibull}
+        self._prior_classes = {'normal': PriorNormal,
+                               'lognormal': PriorLognormal,
+                               'uniform': PriorUniform,
+                               'weibull': PriorWeibull}
 
         # dictionary of the problem's priors; the items will have the structure
         # <prior name> : <prior object>; this dict is managed internally and
@@ -73,8 +82,10 @@ class InferenceProblem:
         self._priors = {}
 
         # here, the forward models are written to; note that the problem can
-        # have multiple forward models; this dict is managed internally and
-        # should not be edited directly
+        # have multiple forward models; the keys are the forward model names,
+        # while the values are the forward model objects, see also in the script
+        # forward_model.py; this dictionary is managed internally and should not
+        # be edited directly
         self._forward_models = {}
 
         # a dictionary for the problem's noise models; note that noise models
@@ -84,11 +95,11 @@ class InferenceProblem:
         self._noise_models = {}
 
         # these sets are for collecting all names of the problem's input and
-        # output sensors; note that self._input_sensors has no use yet except
-        # for debugging purposes; these sets are managed internally and should
-        # not be edited directly
+        # output sensors; these sets are managed internally and should not be
+        # edited directly
         self._input_sensors = set()
-        self._output_sensors = set()
+        self._output_sensors_experiment = set()
+        self._output_sensors_forward_models = set()
 
         # this dictionary contains information on those sensors, measurement
         # errors have been defined for; the keys are the sensor names, while the
@@ -97,12 +108,23 @@ class InferenceProblem:
         # the error is additive; 'prm' gives the calibration parameter name that
         # defines the measurement error; this dict is managed internally and
         # should not be edited directly
-        self._se_dict = {}
+        self._sensor_error_dict = {}
 
-    def __str__(self):
+    def info(self, print_it=True):
         """
-        Allows to print relevant problem information by calling print(problem)
-        if problem is an instance of InferenceProblem.
+        Either prints the problem definition to the console (print_it=True) or
+        just returns the generated string without printing it (print_it=False).
+
+        Parameters
+        ----------
+        print_it : boolean, optional
+            If True, the generated string is printed and not returned. If set
+            to False, the generated string is not printed but returned.
+
+        Returns
+        -------
+        string or None
+            The constructed string when 'print_it' was set to False.
         """
 
         # contains the name of the inference problem
@@ -147,7 +169,7 @@ class InferenceProblem:
 
         # show aliases defined within the problem
         alias_str = underlined_string("Aliases defined", symbol="-")
-        aliases = set(self._alias_dict.keys()).\
+        aliases = set(self._alias_dict.keys()). \
             difference(set(self._alias_dict.values()))
         if len(aliases) > 0:
             w = len(max(list(aliases), key=len)) + 2
@@ -157,46 +179,109 @@ class InferenceProblem:
         else:
             alias_str += "--No aliases defined--\n"
 
+        # list all input sensors defined within the problem
+        inp_sensor_str = underlined_string("Input sensors defined", symbol="-")
+        for inp_sensor_name in self._input_sensors:
+            inp_sensor_str += inp_sensor_name
+        inp_sensor_str += "\n"
+
+        # define all output sensors defined within the problem; since an output
+        # sensor can be defined for an experiment and for a forward model, the
+        # printout distinguishes between output sensors that are defined in both
+        # against output sensors, that only appear in experiments or fwd. models
+        out_sensor_str = underlined_string("Output sensors defined", symbol="-")
+        out_union = self._output_sensors_experiment.union(
+            self._output_sensors_forward_models)
+        out_intersection = self._output_sensors_experiment.intersection(
+            self._output_sensors_forward_models)
+        out_diff_1 = self._output_sensors_experiment.difference(
+            self._output_sensors_forward_models)
+        out_diff_2 = self._output_sensors_forward_models.difference(
+            self._output_sensors_experiment)
+        w = len(max(out_union, key=len)) + 2
+        for out_sensor_name in out_intersection:
+            out_sensor_str += tcs(out_sensor_name,
+                                  "(experiments and forward models)",
+                                  col_width=w)
+        if out_union != out_intersection:
+            for out_sensor_name in out_union:
+                out_sensor_str += tcs(out_sensor_name,
+                                      "(experiments or forward models)",
+                                      col_width=w)
+            for out_sensor_name in out_diff_1:
+                out_sensor_str += tcs(out_sensor_name,
+                                      "(only experiments)", col_width=w)
+            for out_sensor_name in out_diff_2:
+                out_sensor_str += tcs(out_sensor_name,
+                                      "(only forward model)", col_width=w)
+
+        # list all sensor error defined within the problem
+        sens_error_str = underlined_string("Sensor errors defined", symbol="-")
+        if self._sensor_error_dict:
+            w = len(max(self._sensor_error_dict.keys(), key=len)) + 2
+            for sensor_name, se_dict in self._sensor_error_dict.items():
+                if se_dict['rel']:
+                    info_str = f"Relative error for sensor '{se_dict['prm']}'"
+                else:
+                    info_str = f"Absolute error for sensor '{se_dict['prm']}'"
+                sens_error_str += tcs(sensor_name, info_str, col_width=w)
+        else:
+            sens_error_str += "--No sensor errors defined--\n"
+
         # include the information on the theta interpretation
         theta_string = "\nTheta interpretation"
         theta_string += self.theta_explanation(print_it=False)
 
         # concatenate the string and return it
         full_string = title_string + fwd_string + prms_string + const_prms_str
-        full_string += prms_info_str + prior_str + alias_str + theta_string
-        return full_string
+        full_string += prms_info_str + prior_str + alias_str + inp_sensor_str
+        full_string += out_sensor_str + sens_error_str + theta_string
+
+        # either print or return the string
+        if print_it:
+            print(full_string)
+        else:
+            return full_string
+
+    def __str__(self):
+        """
+        Allows to print the problem definition via print(problem) if problem is
+        an instance of InferenceProblem. See self.info for more details.
+        """
+        return self.info(print_it=False)
 
     def add_parameter(self, prm_name, prm_type, const=None, prior=None,
-                      aliases=[], info="No explanation provided", tex=None):
+                      aliases=None, info="No explanation provided", tex=None):
         """
-        Adds a parameter to the inference problem.
+        Adds a parameter ('const' or 'calibration') to the inference problem.
 
         Parameters
         ----------
         prm_name : string
-            The name of the parameter which should be added to the problem
+            The name of the parameter which should be added to the problem.
         prm_type : string
             Either 'model' (for a model parameter), 'prior' (for a prior
-            parameter) or 'noise' (for a noise parameter); note that 'prior'
-            parameter do not have to be added by hand; they are added
-            internally when 'calibration'-parameters are added
+            parameter) or 'noise' (for a noise parameter). Note that 'prior'
+            parameter do not have to be added by hand. They are added
+            internally when 'calibration'-parameters are added.
         const : float or None, optional
             If the added parameter is a 'const'-parameter, the corresponding
-            value has to be specified by this argument
+            value has to be specified by this argument.
         prior : tuple of two elements or None, optional
             If the added parameter is a 'calibration'-parameter, this argument
             has to be given as a 2-tuple. The first element (a string) defines
-            the prior-type (must be a key of self._logprior_classes); the second
-            element must be a dictionary stating the prior's parameters; its
-            definition is identical to the one of prm_dict explained in the
-            docstring of the self._add_prior method.
-        aliases : string or list, optional
-            Other names used for this parameter
+            the prior-type (must be a key of self._prior_classes). The second
+            element must be a dictionary stating the prior's parameters as keys
+            and their numeric values as values. An example for a normal prior:
+            ('normal', {'loc': 0.0, 'scale': 1.0}). In order to define the
+            prior's parameters, check out the prior definitions in priors.py.
+        aliases : string, tuple, list, set or None, optional
+            Other names used for this parameter.
         info : string, optional
-            Short explanation on the added parameter
+            Short explanation on the added parameter.
         tex : string or None, optional
             The TeX version of the parameter's name, for example r'$\beta$'
-            for a parameter named 'beta'
+            for a parameter named 'beta'.
         """
 
         # make sure the given prm_type is valid
@@ -228,11 +313,16 @@ class InferenceProblem:
 
         # add the parameter to the central parameter dictionary
         prm_role = 'calibration' if const is None else 'const'
-        if const is None:
-            # in this case we are adding a 'calibration'-parameter
+        if const is None:  # in this case we are adding a 'calibration'-param.
+            # first, define the index of this parameter in the numeric vector
+            # theta, which is given to self.loglike and self.logprior
             prm_index = self.n_calibration_prms
             self.n_calibration_prms += 1
+            # the prm_value is reserved for 'const'-parameter; hence, it is set
+            # to None in this case, where we are adding a 'calibration'-param.
             prm_value = None
+            # the remaining code in this if-branch defines the prior that is
+            # associated with this 'calibration'-parameter
             prior_type = prior[0]  # e.g. 'normal', 'lognormal', etc.
             prior_dict = prior[1]  # dictionary with parameter-value pairs
             prior_parameter_names = []
@@ -240,27 +330,34 @@ class InferenceProblem:
                 # create unique name for this prior parameter
                 new_name = f"{prior_parameter_name}_{prm_name}"
                 prior_parameter_names.append(new_name)
-                # the prior parameter is considered a constant parameter
+                # the prior parameter is considered a 'const'-parameter and
+                # added to the problem accordingly here
                 default_info = f"{prior_type.capitalize()} prior's parameter "
                 default_info += f"for calibration-parameter '{prm_name}'"
                 self.add_parameter(new_name, 'prior', const=value,
-                                   info=default_info)
+                                   info=default_info)  # recursive call
             prior_name = f"{prm_name}_{prior_type}"  # unique name of this prior
-            prm_prior = self._add_prior(prior_name, prior_type, prm_name,
-                                        prior_parameter_names)
+            prm_prior = self._add_prior(prior_name, prior_type,
+                                        prior_parameter_names, prm_name)
         else:
-            # in this case we are adding a 'const'-parameter
+            # in this case we are adding a 'const'-parameter, which means that
+            # the prm_index and prm_prior values are not used here
             prm_index = None
             prm_prior = None
             prm_value = const
+
         # add aliases to the alias dictionary when given; note that every
         # parameter name is its own alias by default
         self._alias_dict[prm_name] = prm_name
-        aliases = [aliases] if (type(aliases) == str) else aliases
-        if len(aliases) > 0:
-            for alias in aliases:
-                self._alias_dict[alias] = prm_name
-        aliases = set(aliases)
+        if aliases is not None:
+            aliases = [aliases] if (type(aliases) == str) else aliases
+            if len(aliases) > 0:
+                for alias in aliases:
+                    self._alias_dict[alias] = prm_name
+            aliases = set(aliases)
+        else:
+            aliases = set()
+
         # add the parameter to the central parameter dictionary
         self._prm_dict[prm_name] = {'index': prm_index,
                                     'type': prm_type,
@@ -271,26 +368,38 @@ class InferenceProblem:
                                     'info': info,
                                     'tex': tex}
 
-    def remove_parameter(self, prm_name, remove_aliases=True):
+    def check_if_parameter_exists(self, prm_name):
         """
-        Removes a parameter from the inference problem.
+        Checks if a parameter, given by its name, exists within the problem.
 
         Parameters
         ----------
         prm_name : string
-            The name of the parameter to be removed
-        remove_aliases : boolean, optional
-            If True, all aliases of the given parameter will be removed too.
-            This option is useful to set False, when only the parameter's role
-            is changed (i.e. the parameter is removed and immediately added
-            again with another role - in this case the aliases should be kept)
+            A global parameter name.
         """
         # check if the given parameter exists
         if prm_name not in self._alias_dict.keys():
             raise RuntimeError(
                 f"A parameter or parameter-alias with name '{prm_name}' " +
-                f"has not been defined yet."
-            )
+                f"has not been defined yet.")
+
+    def remove_parameter(self, prm_name, remove_aliases=True):
+        """
+        Removes a parameter ('const' or 'calibration') from inference problem.
+
+        Parameters
+        ----------
+        prm_name : string
+            The name of the parameter to be removed.
+        remove_aliases : boolean, optional
+            If True, all aliases of the given parameter will be removed too.
+            This option is useful to set False, when only the parameter's role
+            is changed (i.e. the parameter is removed and immediately added
+            again with another role - in this case the aliases should be kept).
+        """
+        # check if the given parameter exists
+        self.check_if_parameter_exists(prm_name)
+
         # different steps must be taken depending on whether the parameter which
         # should be removed is a 'const'- or a 'calibration'-parameter
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
@@ -311,7 +420,7 @@ class InferenceProblem:
             # need to remove the prior-parameter and the prior-object; also, we
             # have to correct the index values of the remaining calibration prms
             for prior_prm in self._prm_dict[prm_name_ori]['prior'].prms:
-                self.remove_parameter(prior_prm)
+                self.remove_parameter(prior_prm)  # recursive call
             del self._priors[self._prm_dict[prm_name_ori]['prior'].name]
             del self._prm_dict[prm_name_ori]['prior']
             del self._prm_dict[prm_name_ori]
@@ -335,34 +444,33 @@ class InferenceProblem:
                               new_info=None, new_tex=None):
         """
         Performs the necessary tasks to change a parameter's role in the problem
-        definition. A parameter's role can either be changes from 'const' to
+        definition. A parameter's role can either be changed from 'const' to
         'calibration' or from 'calibration' to 'const'.
 
         Parameters
         ----------
         prm_name : string
-            The name of the parameter whose role should be changed
+            The name of the parameter whose role should be changed.
         const : float or None, optional
             If the new role is 'const', the corresponding value has to be
-            specified by this argument
+            specified by this argument.
         prior : tuple of two elements or None, optional
             If a 'const'-parameter should be changed to a 'calibration'
             parameter, this argument has to be given as a 2-tuple. The first
             element (a string) defines the prior-type (must be a key of
-            self._logprior_classes); the second element must be a dictionary
-            stating the prior parameters; its definition is identical to the
-            one of prm_dict in the self._add_prior method.
-        new_info : string or None
-            The new string for the explanation of parameter prm_name
-        new_tex : string or None
-            The new string for the parameter's tex-representation
+            self._prior_classes). The second element must be a dictionary
+            stating the prior's parameters as keys and their values as values.
+            For example: ('normal', {'loc': 0.0, 'scale': 1.0}). In order to
+            define the prior's parameters, check out the prior definitions in
+            the script priors.py.
+        new_info : string or None, optional
+            The new string for the explanation of parameter prm_name.
+        new_tex : string or None, optional
+            The new string for the parameter's tex-representation.
         """
         # check if the given parameter exists
-        if prm_name not in self._alias_dict.keys():
-            raise RuntimeError(
-                f"A parameter or parameter-alias with name '{prm_name}' " +
-                f"has not been defined yet."
-            )
+        self.check_if_parameter_exists(prm_name)
+
         # exactly one of the const and prior key word arguments must be given
         if const is not None and prior is not None:
             raise RuntimeError(
@@ -374,11 +482,13 @@ class InferenceProblem:
                 f"You must specify either the 'const' or the 'prior' key " +
                 f"argument. You have specified none."
             )
-        # change the parameter's role by first removing it from the problem, and
-        # then adding it again in its new role
+        # the parameter's role is changed by first removing it from the problem
+        # without removing its aliases, and then adding it again in its new role
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
+        # the role-change does not impact the type ('model', 'prior' or 'noise')
         prm_type = self._prm_dict[prm_name_ori]['type']
-        if new_tex is None:
+        # if no new_info/new_tex was specified, use the old ones
+        if new_info is None:
             prm_info = self._prm_dict[prm_name_ori]['info']
         else:
             prm_info = new_info
@@ -386,30 +496,29 @@ class InferenceProblem:
             prm_tex = self._prm_dict[prm_name_ori]['tex']
         else:
             prm_tex = new_tex
+        # the parameter's aliases should be kept
         aliases = self._prm_dict[prm_name_ori]['alias']
+        # now we can finally change the role
         self.remove_parameter(prm_name_ori, remove_aliases=False)
         self.add_parameter(prm_name_ori, prm_type, const=const, prior=prior,
                            info=prm_info, aliases=aliases, tex=prm_tex)
 
     def change_parameter_info(self, prm_name, new_info, new_tex=None):
         """
-        Changes the info-string and/or the tex-string of a given parameter
+        Changes the info-string and/or the tex-string of a given parameter.
 
         Parameters
         ----------
         prm_name : string
-            The name of the parameter whose info-string should be changed
+            The name of the parameter whose info-string should be changed.
         new_info : string
-            The new string for the explanation of parameter prm_name
+            The new string for the explanation of parameter prm_name.
         new_tex : string or None
-            The new string for the parameter's tex-representation
+            The new string for the parameter's tex-representation.
         """
         # check if the given parameter exists
-        if prm_name not in self._alias_dict.keys():
-            raise RuntimeError(
-                f"A parameter or parameter-alias with name '{prm_name}' " +
-                f"has not been defined yet."
-            )
+        self.check_if_parameter_exists(prm_name)
+
         # change the info/tex-string
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
         self._prm_dict[prm_name_ori]['info'] = new_info
@@ -424,16 +533,13 @@ class InferenceProblem:
         Parameters
         ----------
         prm_name : string
-            The name of the 'const'-parameter whose value should be changed
+            The name of the 'const'-parameter whose value should be changed.
         new_value : float
-            The new value that prm_name should assume
+            The new value that prm_name should assume.
         """
         # check if the given parameter exists
-        if prm_name not in self._alias_dict.keys():
-            raise RuntimeError(
-                f"A parameter or parameter-alias with name '{prm_name}' " +
-                f"has not been defined yet."
-            )
+        self.check_if_parameter_exists(prm_name)
+
         # check if the given parameter is a constant
         prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
         if self._prm_dict[prm_name_ori]['role'] != "const":
@@ -445,19 +551,30 @@ class InferenceProblem:
 
     def add_parameter_alias(self, prm_name, aliases):
         """
-        Adds an alias for a parameter of the problem.
+        Adds an alias for a parameter of the problem. An alias is another name
+        for a global parameter name defined within the problem. By default, each
+        parameter name is its own alias.
 
         Parameters
         ----------
         prm_name : string
-            The name of an original parameter defined in the problem
-        aliases : string or set
-            The alias to be used for prm_name
+            The name of a global parameter defined within the problem.
+        aliases : string, list, tuple or set
+            One or more aliases to be used for prm_name.
         """
 
         # convert to set if string is given
-        if type(aliases) == str:
-            aliases = set({aliases})
+        type_aliases = type(aliases)
+        if type_aliases != set:
+            if type_aliases == str:
+                aliases = {aliases}
+            elif type_aliases in [list, tuple]:
+                aliases = set(aliases)
+            else:
+                raise ValueError(
+                    f"The 'aliases' input argument must be of type string, "
+                    f"list, tuple or set. However, '{type_aliases}' was given."
+                )
 
         # throw warning if the alias has already been defined
         for alias in aliases:
@@ -466,12 +583,14 @@ class InferenceProblem:
                       f"before and will now be overwritten!")
 
         # add the alias to the central dictionary
-        self._prm_dict[prm_name]['alias'] =\
+        self._prm_dict[prm_name]['alias'] = \
             self._prm_dict[prm_name]['alias'].union(aliases)
+
+        # write the 'alias -> parameter name' mapping into self._alias_dict
         for alias in aliases:
             self._alias_dict[alias] = prm_name
 
-    def _add_prior(self, name, prior_type, prm_dict, ref_prm):
+    def _add_prior(self, name, prior_type, prms_def, ref_prm):
         """
         Adds a prior-object of a calibration parameter to the internal prior
         dictionary.
@@ -479,28 +598,25 @@ class InferenceProblem:
         Parameters
         ----------
         name : string
-            Unique name of the prior; usually this name has the structure
-            <ref_prm>_<prior_type>
+            Unique name of the prior. Usually this name has the structure
+            <ref_prm>_<prior_type>.
         prior_type : string
-            Defines the prior type; must be one of the keys in the internal
-            dictionary self._logprior_classes.
-        prm_dict : dict
-            States the prior's parameters as 'name : value' items; the order
-            of these items is important (!); they must correspond to the order
-            of how the prior's __call__ method interprets its 'prms' argument;
-            check out the classes in priors.py for a better understanding
+            Defines the prior type. Must appear in the keys of the internal
+            dictionary self._prior_classes.
+        prms_def : list[str]
+            States the prior's parameter names.
         ref_prm : string
             The name of the problem's calibration parameter the prior refers to
-            (a prior is always defined for a specific calibration parameter)
+            (a prior is always defined for a specific calibration parameter).
 
         Returns
         -------
-        object
-            The prior-object which is also written to the internal prior
-            dictionary self._priors
+        obj[PriorTemplate]
+            The instantiated prior-object which is also written to the internal
+            prior dictionary self._priors.
         """
-        logprior_class = self._logprior_classes[prior_type]
-        self._priors[name] = dc(logprior_class(prm_dict, ref_prm, name))
+        prior_class = self._prior_classes[prior_type]
+        self._priors[name] = dc(prior_class(ref_prm, prms_def, name))
         return self._priors[name]
 
     def add_prior_class(self, name, prior_class):
@@ -511,18 +627,18 @@ class InferenceProblem:
         Parameters
         ----------
         name : string
-            Name of the prior class to be added
+            Name of the prior class to be added.
         prior_class : class
-            The user-defined prior-class; see priors.py for examples.
+            The user-defined prior-class. See priors.py for examples.
         """
         # add the class to the internal prior-class dictionary if the given
         # name has not been used for one of the existing classes
-        if name in self._logprior_classes.keys():
+        if name in self._prior_classes.keys():
             raise RuntimeError(
                 f"A prior class with name '{name}' already exists. " +
                 f"Please choose another name."
             )
-        self._logprior_classes[name] = prior_class
+        self._prior_classes[name] = prior_class
 
     def check_problem_consistency(self):
         """
@@ -545,10 +661,10 @@ class InferenceProblem:
             if prm_dict['role'] == 'const':
                 assert prm_dict['value'] is not None
 
-        # check if all parameters of the forward model appear in self._prm_dict
-        # and if they have the correct type
+        # check if all parameters of the forward model(s) appear in
+        # self._prm_dict and if they have the correct type
         for forward_model in self._forward_models.values():
-            for model_prm in forward_model.prms_def:
+            for model_prm in forward_model.prms_def.keys():
                 assert model_prm in self._alias_dict.keys()
                 model_prm_ori = self._alias_dict[model_prm]
                 assert model_prm_ori in self._prm_dict.keys()
@@ -557,46 +673,60 @@ class InferenceProblem:
         # check if all parameters of the noise model appear in self._prm_dict
         # and if they have the correct type
         for noise_model in self._noise_models.values():
-            for noise_prm in noise_model.prms_def:
-                assert noise_prm in self._prm_dict.keys()
-                assert self._prm_dict[noise_prm]['type'] == "noise"
+            for noise_prm in noise_model.prms_def.keys():
+                assert noise_prm in self._alias_dict.keys()
+                noise_prm_ori = self._alias_dict[noise_prm]
+                assert noise_prm_ori in self._prm_dict.keys()
+                assert self._prm_dict[noise_prm_ori]['type'] == "noise"
 
         # check if all prior objects in self._priors are consistent in terms of
         # their parameters; each one of them must appear in self._prm_dict
         assert len(self._priors) == self.n_calibration_prms
         for prior_obj in self._priors.values():
-            prior_prms = prior_obj.prms
-            for prior_prm in prior_prms:
-                assert prior_prm in self._prm_dict.keys()
-                assert self._prm_dict[prior_prm]['type'] == 'prior'
+            for prior_prm in prior_obj.prms_def_no_ref.keys():
+                assert prior_prm in self._alias_dict.keys()
+                prior_prm_ori = self._alias_dict[prior_prm]
+                assert prior_prm_ori in self._prm_dict.keys()
+                assert self._prm_dict[prior_prm_ori]['type'] == 'prior'
 
         # check if the prior-parameters of each calibration parameter exist in
         # the problem's parameter dictionary
         for prm_name, prm_dict in self._prm_dict.items():
             if prm_dict['role'] == 'calibration':
-                prior_prms = prm_dict['prior'].prms
-                for prior_prm in prior_prms:
-                    assert prior_prm in self._prm_dict.keys()
+                for prior_prm in prm_dict['prior'].prms_def_no_ref.keys():
+                    assert prior_prm in self._alias_dict.keys()
+                    prior_prm_ori = self._alias_dict[prior_prm]
+                    assert prior_prm_ori in self._prm_dict.keys()
+                    assert self._prm_dict[prior_prm_ori]['type'] == 'prior'
 
-        # check the indices of the calibration parameters; the order of how
-        # these parameters appear in self._prm_dict matter! the first
-        # calibration parameter must have index 0, while the following one must
-        # have index 1 and so forth; the total number of calibration indices
-        # must be identical to self.n_calibration_prms
+        # check the indices of the calibration parameters
         idx_list = []
         for prm_name, prm_dict in self._prm_dict.items():
             if prm_dict['role'] == 'calibration':
                 idx_list.append(prm_dict['index'])
         assert len(idx_list) == self.n_calibration_prms
-        assert idx_list[0] == 0  # first index must be zero
-        if self.n_calibration_prms > 1:
-            diff_list = [x - idx_list[i - 1] for i, x in enumerate(idx_list)][
-                        1:]
-            assert max(diff_list) == 1  # no index can be skipped
+        assert sorted(idx_list) == list(range(len(idx_list)))
 
-        # check if all output sensors defined in the experiments have been
+        # check if all output sensors defined in the forward models have been
         # assigned to a noise model
-        assert set(self._noise_models.keys()) == self._output_sensors
+        assert self._output_sensors_forward_models == \
+               set(self._noise_models.keys())
+
+        # check if all output sensors defined in the forward models have a
+        # counterpart in the experimental output sensors
+        assert self._output_sensors_forward_models.issubset(
+            self._output_sensors_experiment)
+
+        # check if all sensors for which sensor errors have been defined exist
+        for sensor_name in self._sensor_error_dict.keys():
+            if (sensor_name not in self._input_sensors) and \
+                    (sensor_name not in self._output_sensors_forward_models):
+                raise RuntimeError(
+                    f"A sensor error was defined for sensor '{sensor_name}', "
+                    f"but this sensor is not defined within the problem's "
+                    f"input sensors or the in one of the forward model's "
+                    f"output sensors."
+                )
 
     def add_experiment(self, exp_name, exp_input=None, exp_output=None,
                        fwd_model_name=None):
@@ -609,16 +739,17 @@ class InferenceProblem:
         Parameters
         ----------
         exp_name : string
-            The name of the experiment, e.g. "Exp_20May.12"; if an experiment
-            with a similar name has already been added, it will be overwritten.
+            The name of the experiment, e.g. "Exp_20May.12". If an experiment
+            with a similar name has already been added, it will be overwritten
+            and a warning will be thrown.
         exp_input : dict
-            The keys are the names of sensors that are considered input, while
-            the values are the measured values.
+            The keys are the names of sensors that are considered as input of
+            the experiment, while the values are the measured values.
         exp_output : dict
-            The keys are the names of sensors that are considered output, while
-            the values are the measured values.
+            The keys are the names of sensors that are considered as output of
+            the experiment, while the values are the measured values.
         fwd_model_name : string
-            Name of the forward model this experiment refers to
+            Name of the forward model this experiment refers to.
         """
 
         # check all keyword arguments are given
@@ -638,7 +769,8 @@ class InferenceProblem:
         # check if the given forward model exists
         if fwd_model_name not in self._forward_models.keys():
             raise RuntimeError(
-                f"The forward model '{fwd_model_name}' does not exist!"
+                f"The forward model '{fwd_model_name}' does not exist! You "
+                f"need to define it before adding experiments that refer to it."
             )
 
         # throw warning when the experiment name was defined before
@@ -652,51 +784,16 @@ class InferenceProblem:
                                        'forward_model': fwd_model_name}
 
         # bookkeeping of the used sensors; note that these are sets, not lists
+        # to avoid appending duplicates
         for sensor_name in exp_input.keys():
             self._input_sensors.add(sensor_name)
         for sensor_name in exp_output.keys():
-            self._output_sensors.add(sensor_name)
-
-    def get_parameters_old(self, theta, prm_names_):
-        """
-        Extracts the numeric values for a given list of parameters from the
-        parameter vector and the constant parameters of the problem.
-
-        Parameters
-        ----------
-        theta : array_like
-            A numeric parameter vector passed to the loglike and logprior
-            method. Which parameters these numbers refer to can be checked
-            by calling self.theta_explanation() once the problem is set up.
-        prm_names_ : string or list of strings
-            The names of the parameters whose values should be returned. The
-            returned values will be in the same order as given in prm_names_.
-
-        Returns
-        -------
-        prms : list
-            Numeric values for the parameters stated in prm_names_
-        """
-        # if prm_names_ is given as a single string, it is converted to a list
-        prm_names = prm_names_ if type(prm_names_) is list else [prm_names_]
-        prms = []
-        for prm_name in prm_names:
-            prm_name_ori = self._alias_dict[prm_name]  # original parameter name
-            idx = self._prm_dict[prm_name_ori]['index']
-            if idx is None:
-                # in this case, the parameter is a constant and hence not read
-                # from theta
-                prms.append(self._prm_dict[prm_name_ori]['value'])
-            else:
-                # in this case, the parameter is a calibration parameter, and
-                # its value is read from theta
-                prms.append(theta[idx])
-        return prms
+            self._output_sensors_experiment.add(sensor_name)
 
     def get_parameters(self, theta, prm_def):
         """
         Extracts the numeric values for given parameters from the parameter
-        vector and the constant parameters of the problem.
+        vector theta and the constant parameters of the problem.
 
         Parameters
         ----------
@@ -723,7 +820,7 @@ class InferenceProblem:
             idx = self._prm_dict[prm_name_ori]['index']
             if idx is None:
                 # in this case, the parameter is a constant and hence not read
-                # from theta
+                # from theta, but from the internal library
                 prms[local_name] = self._prm_dict[prm_name_ori]['value']
             else:
                 # in this case, the parameter is a calibration parameter, and
@@ -733,20 +830,22 @@ class InferenceProblem:
 
     def get_experiments(self, forward_model_name, experiments=None):
         """
-        Extracts all experiments which refer to a given forward model from
-        a given dictionary of experiments.
+        Extracts all experiments which refer to a given forward model from a
+        given dictionary of experiments.
 
         Parameters
         ----------
         forward_model_name : string
-            The name of the forward model the experiments should refer to
+            The name of the forward model the experiments should refer to.
         experiments : dict or None, optional
-            The experiments to search in; similar structure as self._experiments
+            The experiments to search in. If None, all experiments defined
+            within the problem will be searched. If a dictionary is given, it
+            must have a similar structure as self._experiments.
 
         Returns
         -------
         relevant_experiments : dict
-            Similar structure as self._experiments
+            Similar structure as self._experiments.
         """
 
         # if experiments is not further specified it is assumed that all given
@@ -769,7 +868,7 @@ class InferenceProblem:
 
         Parameters
         ----------
-        tex : boolean
+        tex : boolean, optional
             If True, the TeX-names of the parameters will be returned,
             otherwise the names as they are used in the code will be returned.
 
@@ -778,36 +877,40 @@ class InferenceProblem:
         theta_names : list
             List of strings with the parameter names appearing in theta.
         """
-
         # assemble the parameter's names in the order as they appear in theta
-        # from the index information in self._prm_dict
         theta_names = []
+        indices = []
         for prm_name, prm_dict in self._prm_dict.items():
             if prm_dict['index'] is not None:
+                indices.append(prm_dict['index'])
                 if tex and prm_dict['tex'] is not None:
                     theta_names.append(prm_dict['tex'])
                 else:
                     theta_names.append(prm_name)
+        # order the theta_names according to their index-values; note that this
+        # step is not necessary for insertion ordered dicts (Python 3.6+), since
+        # in this case theta_names will already be in the right order
+        theta_names = [name for _, name in sorted(zip(indices, theta_names))]
         return theta_names
 
     def theta_explanation(self, print_it=True):
         """
         Prints out or returns a string on how the theta-vector, which is the
         numeric parameter vector that is given to the self.loglike and
-        self.logprior methods, is interpreted with respect to the problems
+        self.logprior methods, is interpreted with respect to the problem's
         parameters. The printout will tell you which parameter is connected to
         which index of theta.
 
         Parameters
         ----------
-        print_it : boolean
-            If True, the explanation string is printed and not returned; if set
-            to False, the info-string is not printed but returned
+        print_it : boolean, optional
+            If True, the explanation string is printed and not returned. If set
+            to False, the info-string is not printed but returned.
 
         Returns
         -------
         s : string or None
-            The constructed string when 'print_it' was set to False
+            The constructed string when 'print_it' was set to False.
         """
 
         # an explanation is not printed if the problem is inconsistent
@@ -833,15 +936,18 @@ class InferenceProblem:
 
     def add_sensor_error(self, sensor_names, name=None, tex=None,
                          info="No explanation provided", plusminus=None,
-                         error_type="absolute"):
+                         error_type="abs"):
         """
-        Adds a sensor error to one or more input and/or output sensors.
+        Adds a sensor error to one or more input and/or output sensors. Such a
+        sensor error is understood here as an unknown sensor bias which is
+        modelled by a dedicated calibration parameter with a uniform prior. So,
+        adding a sensor error adds a calibration parameter to the problem.
 
         Parameters
         ----------
         sensor_names : list
-            Contains the names of sensors that should be associated with the
-            specified sensor error.
+            Contains the names of (input and/or output) sensors that should be
+            associated with the specified sensor error.
         name : string
             The name of the calibration parameter that will be created to model
             the sensor error.
@@ -856,25 +962,15 @@ class InferenceProblem:
             example when plusminus=0.1 then the created prior will range from
             -0.1 to +0.1.
         error_type : string
-            Either 'absolute' for an additive sensor error or 'relative' for a
+            Either 'abs' for an additive sensor error or 'rel' for a
             multiplicative sensor error.
         """
 
-        # check if the specified sensors exist in the problem
-        for sensor_name in sensor_names:
-            if (sensor_name not in self._input_sensors) and \
-                    (sensor_name not in self._output_sensors):
-                raise RuntimeError(
-                    f"The specified sensor '{sensor_name}' is not defined "
-                    f"within the problem so far. Sensor errors must be defined "
-                    f"after the respective sensors have been defined."
-                )
-
         # check the given error type
-        if error_type not in ['absolute', 'relative']:
+        if error_type not in ['abs', 'rel']:
             raise RuntimeError(
                 f"Unknown error_type '{error_type}'. Note that error_type must "
-                f"be either 'absolute' or 'relative'."
+                f"be either 'abs' or 'rel'."
             )
 
         # the sensor error will appear as a calibration parameter in the problem
@@ -882,26 +978,32 @@ class InferenceProblem:
         self.add_parameter(name, 'model', info=info, tex=tex,
                            prior=('uniform', {'low': -plusminus,
                                               'high': plusminus}))
+
+        # add the sensor names which are associated with this sensor error to
+        # the internal sensor error dictionary
         for sensor_name in sensor_names:
-            self._se_dict[sensor_name] = {'rel': False, 'prm': name}
+            self._sensor_error_dict[sensor_name] = {'rel': False, 'prm': name}
             if error_type == "relative":
-                self._se_dict[sensor_name]['rel'] = True
+                self._sensor_error_dict[sensor_name]['rel'] = True
 
     def add_forward_model(self, name, forward_model):
         """
-        Adds a forward model to the inference problem.
+        Adds a forward model to the inference problem. Note that multiple
+        forward models can be added to one problem.
 
         Parameters
         ----------
         name : string
-            The name of the model to be added
-        forward_model : object
-            Defines the forward model; check out forward_model.py to see a
-            template for the forward model definition.
+            The name of the forward model to be added.
+        forward_model : obj[ModelTemplate]
+            Defines the forward model. Check out forward_model.py to see a
+            template for the forward model definition. The user will then have
+            to derive his own forward model from that base class.
         """
 
         # check if all given model parameters have already been added to the
-        # inference problem
+        # inference problem; note that the forward model can only be added to
+        # the problem after the corresponding parameters were defined
         for prm_name in forward_model.prms_def:
             if prm_name not in self._alias_dict.keys():
                 raise RuntimeError(
@@ -911,11 +1013,16 @@ class InferenceProblem:
                     f"'add_parameter' method for this purpose."
                 )
 
-        # instantiate an object of the given class and define it as the
-        # inference problem's forward model
+        # add the given forward model to the internal forward model dictionary
+        # under the given forward model name
         self._forward_models[name] = forward_model
 
-    def evaluate_model_error(self, theta, experiments=None, key="sensor"):
+        # add all of the forward model's output sensor names to the collecting
+        # dictionary of the problem
+        for output_sensor in forward_model.output_sensors:
+            self._output_sensors_forward_models.add(output_sensor.name)
+
+    def evaluate_model_error(self, theta, experiments=None):
         """
         Evaluates the model error for the given parameter vector and the given
         experiments.
@@ -929,27 +1036,17 @@ class InferenceProblem:
         experiments : dict or None, optional
             Contains all or some of the experiments added to the inference
             problem. Check out the self.add_experiment method to see how this
-            dictionary must be structured. If this argument is None then all
-            experiments defined in the problem (self.experiments) are used.
-        key : string, optional
-            Either 'sensor' or 'experiment' defining if the returned model error
-            dictionary will have the problem's sensors or experiments as keys
+            dictionary must be structured. If this argument is None (which is
+            the common use case) then all experiments defined in the problem
+            (self.experiments) are used.
 
         Returns
         -------
         model_error_dict : dict
-            The first key is the name of the corresponding forward model; the
-            values are dictionaries which contain either the problem's sensors
-            or experiments as keys, and states the corresponding model errors
-            as values.
+            The first key is the name of the corresponding forward model. The
+            values are dictionaries which contain the problem's output sensor
+            names as keys, and have the corresponding model errors as values.
         """
-
-        # check the input
-        if key not in ["sensor", "experiment"]:
-            raise RuntimeError(
-                f"This method requires key='sensor' or key='experiment' as " +
-                f"argument. You defined key='{key}'"
-            )
 
         # if experiments is not further specified all experiments added to the
         # problem will be accounted for when computing the model error
@@ -957,37 +1054,41 @@ class InferenceProblem:
             experiments = self._experiments
 
         # get all calibration parameter names that describe sensor errors
-        se_def = set()
-        for d in self._se_dict.values():
-            se_def.add(d['prm'])
-        se_def = list2dict(list(se_def))
+        sensor_error_prms = set()  # we take a set to avoid appending duplicates
+        for d in self._sensor_error_dict.values():
+            sensor_error_prms.add(d['prm'])
+        # the following conversion is necessary to satisfy the input requirement
+        # of self.get_parameters; it does not add any information
+        sensor_error_dict = list2dict(list(sensor_error_prms))
 
         # the model error is computed within the model
         model_error_dict = {}
         for fwd_name, forward_model in self._forward_models.items():
             prms_model = self.get_parameters(theta, forward_model.prms_def)
-            prms_se = self.get_parameters(theta, se_def)
+            prms_sensor_error = self.get_parameters(theta, sensor_error_dict)
             # extract the experiments relevant for this model
-            rel_exp = self.get_experiments(fwd_name, experiments=experiments)
-            model_error_dict[fwd_name] =\
-                forward_model.error({**prms_model, **prms_se},
-                                    rel_exp, self._se_dict)
+            relevant_experiments = self.get_experiments(
+                fwd_name, experiments=experiments)
+            # note that {**d1, **d2} adds the two dictionaries d1 and d2
+            model_error_dict[fwd_name] = \
+                forward_model.error({**prms_model, **prms_sensor_error},
+                                    relevant_experiments,
+                                    self._sensor_error_dict)
 
         return model_error_dict
 
-    def add_noise_model(self, sensor, noise_model):
+    def add_noise_model(self, output_sensor_name, noise_model):
         """
-        Adds a sensor-specific noise model to the inference problem.
+        Adds an output-sensor-specific noise model to the inference problem.
 
         Parameters
         ----------
-        sensor : string
-            The sensor type the noise model refers to, e.g. "ForceSensor". Note
-            that this sensor type must appear as output sensor in the problem's
-            experiments for the noise model to be used.
-        noise_model : class
-            The noise model object, e.g. NormalNoise; check out noise.py to see
-            some noise model classes
+        output_sensor_name : string
+            The name of the output sensor(s) the noise model refers to, for
+            example 'ForceSensor' or 'Clock_1'.
+        noise_model : obj[NoiseTemplate]
+            The noise model object, e.g. from NormalNoise. Check out noise.py to
+            see some noise model classes.
         """
 
         # check if all given noise model parameters have already been added to
@@ -1002,9 +1103,9 @@ class InferenceProblem:
                     f"this purpose."
                 )
 
-        # instantiate an object of the given class and define it the
-        # inference problem's noise model for the given sensor type
-        self._noise_models[sensor] = noise_model
+        # add the given noise model to the internal noise model dictionary under
+        # the given name of the output sensor(s)
+        self._noise_models[output_sensor_name] = noise_model
 
     def logprior(self, theta):
         """
@@ -1028,6 +1129,40 @@ class InferenceProblem:
             lp += prior(prms, 'logpdf')
         return lp
 
+    def sample_from_prior(self, prm_name, size):
+        """
+        Generates random samples from a parameter's prior distribution and
+        returns the generated samples.
+
+        Parameters
+        ----------
+        prm_name : string
+            The name of the parameter the prior is associated with.
+        size : int
+            The number of random samples to be drawn.
+
+        Returns
+        -------
+        numpy.ndarray
+            The generated samples.
+        """
+        prm_name_ori = self._alias_dict[prm_name]
+        prior = self._priors[self._prm_dict[prm_name_ori]['prior'].name]
+        # check for prior-priors; if a prior parameter is a calibration
+        # parameter and not a constant, one first samples from the prior
+        # parameter's prior distribution, and then takes the mean of those
+        # samples to sample from the first prior distribution; this procedure
+        # is recursive, so that (in principle) one could also define priors of
+        # the prior's prior parameters and so forth
+        theta_aux = [0] * self.n_calibration_prms
+        for prior_prm_name in prior.prms_def_no_ref.keys():
+            if self._prm_dict[prior_prm_name]['role'] == 'calibration':
+                samples = self.sample_from_prior(prior_prm_name, size)
+                theta_aux[self._prm_dict[prior_prm_name]['index']] =\
+                    np.mean(samples)
+        prms = self.get_parameters(theta_aux, prior.prms_def_no_ref)
+        return prior.generate_samples(prms, size)
+
     def loglike(self, theta):
         """
         Evaluates the log-likelihood function of the problem at theta.
@@ -1045,12 +1180,12 @@ class InferenceProblem:
             The evaluated log-likelihood function for the given theta-vector.
         """
 
-        # the model error is returned for each sensor because the noise models
-        # are defined for each sensor individually
-        model_error_dict = self.evaluate_model_error(theta, key="sensor")
+        # evaluate the model error for each defined forward model and each
+        # output sensor in this/those forward model(s)
+        model_error_dict = self.evaluate_model_error(theta)
 
         # compute the contribution to the log-likelihood function for the
-        # model error of each sensor type, and sum it all up
+        # model error of forward model and output sensor, and sum it all up
         ll = 0.0
         for fwd_model_name, me_dict in model_error_dict.items():
             for sensor, me_vector in me_dict.items():

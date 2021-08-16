@@ -1,3 +1,13 @@
+"""
+Inference problem with two forward models that share a common parameter
+--------------------------------------------------------------------------------
+The first model equation is y = a * x + b with a, b being the model parameters
+and the second model equation is y = alpha * x**2 + b where alpha is a new model
+parameter, and b is the same model parameter as in the first model equation.
+Both forward models have the same noise model with a normal zero-mean
+distribution where the standard deviation is to be inferred.The problem is
+solved via sampling using taralli.
+"""
 # ============================================================================ #
 #                                   Imports                                    #
 # ============================================================================ #
@@ -9,9 +19,9 @@ import matplotlib.pyplot as plt
 # local imports
 from bayes.forward_model import ModelTemplate
 from bayes.forward_model import OutputSensor
-from bayes.noise_new import NormalNoiseZeroMean
-from bayes.inference_problem_new import InferenceProblem
-from taralli.parameter_estimation.base import EmceeParameterEstimator
+from bayes.noise import NormalNoiseZeroMean
+from bayes.inference_problem import InferenceProblem
+from bayes.solver import taralli_solver
 
 # ============================================================================ #
 #                              Set numeric values                              #
@@ -134,7 +144,7 @@ for i in range(n_tests):
                            fwd_model_name='QuadraticModel')
 
 # give problem overview
-print(problem)
+problem.info()
 
 # plot the true and noisy data
 plt.scatter(x_test, y_test_linear, label='measured data (linear)', s=10,
@@ -153,26 +163,5 @@ plt.draw()  # does not stop execution
 #                          Solve problem with Taralli                          #
 # ============================================================================ #
 
-# provide initial samples
-init_array = np.zeros((n_walkers, problem.n_calibration_prms))
-init_array[:, 0] = np.random.normal(loc_a, scale_a, n_walkers)
-init_array[:, 1] = np.random.normal(loc_alpha, scale_alpha, n_walkers)
-init_array[:, 2] = np.random.normal(loc_b, scale_b, n_walkers)
-init_array[:, 3] = np.random.uniform(low_sigma, high_sigma, n_walkers)
-
-# set up sampling task
-emcee_model = EmceeParameterEstimator(
-    log_likelihood=problem.loglike,
-    log_prior=problem.logprior,
-    ndim=problem.n_calibration_prms,
-    nwalkers=n_walkers,
-    sampling_initial_positions=init_array,
-    nsteps=n_steps,
-)
-
-# perform sampling
-emcee_model.estimate_parameters()
-
-# plot the results
-emcee_model.plot_posterior(dim_labels=problem.get_theta_names(tex=True))
-plt.show(block=True)
+# code is bundled in a specific solver routine
+taralli_solver(problem, n_walkers=n_walkers, n_steps=n_steps)

@@ -84,8 +84,9 @@ def tcs(string_1, string_2, sep=":", col_width=24, empty_str="-"):
     ----------
     string_1 : string
         The string to appear in the left column
-    string_2 : string
-        The string to appear in the right column
+    string_2 : string, list
+        The string to appear in the right column. If a list is given, the string
+        returned by the list's __str__() method will be printed.
     sep : string, optional
         A single character to appear right after string_1
     col_width : int, optional
