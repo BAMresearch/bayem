@@ -20,21 +20,21 @@ See test/test_noise.py for an example and further explaination.
 class NoiseModelInterface:
     def model_error_terms(self, model_error_dict):
         """
-        Rearranges the (model_error_key, sensor) ordering of 
-        `model_error_dict` into a single numpy vector. 
+        Rearranges the (model_error_key, sensor) ordering of
+        `model_error_dict` into a single numpy vector.
         """
         raise NotImplementedError("Implement me!")
 
     def jacobian_terms(self, jacobian_dict):
         """
-        Rearranges the (model_error_key, sensor) ordering of 
-        `jacobian_dict` into a single numpy matrix. 
+        Rearranges the (model_error_key, sensor) ordering of
+        `jacobian_dict` into a single numpy matrix.
         """
         raise NotImplementedError("Implement me!")
 
     def loglike_contribution(self, model_error_dict):
         """
-        Rearranges the (model_error_key, sensor) ordering of 
+        Rearranges the (model_error_key, sensor) ordering of
         `model_error_dict` into a single numpy vector and calculates its
         contribution to a loglikelihood function.
         """
@@ -49,12 +49,12 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
 
     def add(self, model_error_key, sensor):
         """
-        Adds a (`model_error_key`, `sensor`) pair to the noise model such that 
+        Adds a (`model_error_key`, `sensor`) pair to the noise model such that
         the corresponding output, e.g.
             model_error_dict[model_error_key][sensor]
-        or 
+        or
             jacobian_dict[model_error_key][sensor]
-        is added to the `self.model_error_terms` or 
+        is added to the `self.model_error_terms` or
         `self.jacobian_terms`, respectively.
         """
         self._key_pairs.append((model_error_key, sensor))
@@ -85,10 +85,12 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
         """
         terms = self.model_error_terms(model_error_dict)
         prec = self.parameter_list["precision"]
-        ll = 0.0
-        for error in terms:
-            ll -= len(error)/2 * math.log(2*math.pi/prec)
-            ll -= 0.5 * prec * np.sum(np.square(error))
+
+        # Minimizing the individual numpy calls by concateniating
+        theta = np.concatenate(terms)
+
+        ll = -len(theta) / 2 * math.log(2 * math.pi / prec)
+        ll -= 0.5 * prec * np.sum(np.square(theta))
         return ll
 
     def _by_noise(self, dict_of_dicts):
@@ -104,7 +106,7 @@ class UncorrelatedNoiseModel(NoiseModelInterface):
 
     def by_keys(self, terms):
         """
-        Reverse operation of `self._by_noise`. 
+        Reverse operation of `self._by_noise`.
         """
 
         if len(self._key_pairs) != len(terms):
