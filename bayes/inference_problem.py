@@ -101,15 +101,6 @@ class InferenceProblem:
         self._output_sensors_experiment = set()
         self._output_sensors_forward_models = set()
 
-        # this dictionary contains information on those sensors, measurement
-        # errors have been defined for; the keys are the sensor names, while the
-        # values are dictionaries like {'rel': <boolean>, 'prm': <string>} where
-        # 'rel' is True when the error is relative (multiplicative) and False if
-        # the error is additive; 'prm' gives the calibration parameter name that
-        # defines the measurement error; this dict is managed internally and
-        # should not be edited directly
-        self._sensor_error_dict = {}
-
     def info(self, print_it=True, include_experiments=False):
         """
         Either prints the problem definition to the console (print_it=True) or
@@ -220,19 +211,6 @@ class InferenceProblem:
                 out_sensor_str += tcs(out_sensor_name,
                                       "(only forward model)", col_width=w)
 
-        # list all sensor error defined within the problem
-        sens_error_str = underlined_string("Sensor errors defined", symbol="-")
-        if self._sensor_error_dict:
-            w = len(max(self._sensor_error_dict.keys(), key=len)) + 2
-            for sensor_name, se_dict in self._sensor_error_dict.items():
-                if se_dict['rel']:
-                    info_str = f"Relative error for sensor '{se_dict['prm']}'"
-                else:
-                    info_str = f"Absolute error for sensor '{se_dict['prm']}'"
-                sens_error_str += tcs(sensor_name, info_str, col_width=w)
-        else:
-            sens_error_str += "--No sensor errors defined--\n"
-
         # include the information on the theta interpretation
         theta_string = "\nTheta interpretation"
         theta_string += self.theta_explanation(print_it=False)
@@ -249,7 +227,7 @@ class InferenceProblem:
         # concatenate the string and return it
         full_string = title_string + fwd_string + prms_string + const_prms_str
         full_string += prms_info_str + prior_str + alias_str + inp_sensor_str
-        full_string += out_sensor_str + sens_error_str + theta_string + exp_str
+        full_string += out_sensor_str + theta_string + exp_str
 
         # either print or return the string
         if print_it:
@@ -732,17 +710,6 @@ class InferenceProblem:
         assert self._output_sensors_forward_models.issubset(
             self._output_sensors_experiment)
 
-        # check if all sensors for which sensor errors have been defined exist
-        for sensor_name in self._sensor_error_dict.keys():
-            if (sensor_name not in self._input_sensors) and \
-                    (sensor_name not in self._output_sensors_forward_models):
-                raise RuntimeError(
-                    f"A sensor error was defined for sensor '{sensor_name}', "
-                    f"but this sensor is not defined within the problem's "
-                    f"input sensors or the in one of the forward model's "
-                    f"output sensors."
-                )
-
     def add_experiment(self, exp_name, exp_input=None, exp_output=None,
                        fwd_model_name=None):
         """
@@ -949,58 +916,6 @@ class InferenceProblem:
         else:
             return s
 
-    def add_sensor_error(self, sensor_names, name=None, tex=None,
-                         info="No explanation provided", plusminus=None,
-                         error_type="abs"):
-        """
-        Adds a sensor error to one or more input and/or output sensors. Such a
-        sensor error is understood here as an unknown sensor bias which is
-        modelled by a dedicated calibration parameter with a uniform prior. So,
-        adding a sensor error adds a calibration parameter to the problem.
-
-        Parameters
-        ----------
-        sensor_names : list
-            Contains the names of (input and/or output) sensors that should be
-            associated with the specified sensor error.
-        name : string
-            The name of the calibration parameter that will be created to model
-            the sensor error.
-        tex : string, optional
-            The TeX version of the parameter's name of the calibration parameter
-            that will be created to model the sensor error.
-        info : string, optional
-            Short description of the sensor error.
-        plusminus : float
-            Defines the error bound of the uniform prior of the calibration
-            parameter that will be created to model the sensor error. For
-            example when plusminus=0.1 then the created prior will range from
-            -0.1 to +0.1.
-        error_type : string
-            Either 'abs' for an additive sensor error or 'rel' for a
-            multiplicative sensor error.
-        """
-
-        # check the given error type
-        if error_type not in ['abs', 'rel']:
-            raise RuntimeError(
-                f"Unknown error_type '{error_type}'. Note that error_type must "
-                f"be either 'abs' or 'rel'."
-            )
-
-        # the sensor error will appear as a calibration parameter in the problem
-        # with a uniform prior defined by plusminus
-        self.add_parameter(name, 'model', info=info, tex=tex,
-                           prior=('uniform', {'low': -plusminus,
-                                              'high': plusminus}))
-
-        # add the sensor names which are associated with this sensor error to
-        # the internal sensor error dictionary
-        for sensor_name in sensor_names:
-            self._sensor_error_dict[sensor_name] = {'rel': False, 'prm': name}
-            if error_type == "relative":
-                self._sensor_error_dict[sensor_name]['rel'] = True
-
     def add_forward_model(self, name, forward_model):
         """
         Adds a forward model to the inference problem. Note that multiple
@@ -1068,27 +983,14 @@ class InferenceProblem:
         if experiments is None:
             experiments = self._experiments
 
-        # get all calibration parameter names that describe sensor errors
-        sensor_error_prms = set()  # we take a set to avoid appending duplicates
-        for d in self._sensor_error_dict.values():
-            sensor_error_prms.add(d['prm'])
-        # the following conversion is necessary to satisfy the input requirement
-        # of self.get_parameters; it does not add any information
-        sensor_error_dict = list2dict(list(sensor_error_prms))
-
         # the model error is computed within the model
         model_error_dict = {}
         for fwd_name, forward_model in self._forward_models.items():
             prms_model = self.get_parameters(theta, forward_model.prms_def)
-            prms_sensor_error = self.get_parameters(theta, sensor_error_dict)
-            # extract the experiments relevant for this model
             relevant_experiments = self.get_experiments(
                 fwd_name, experiments=experiments)
-            # note that {**d1, **d2} adds the two dictionaries d1 and d2
-            model_error_dict[fwd_name] = \
-                forward_model.error({**prms_model, **prms_sensor_error},
-                                    relevant_experiments,
-                                    self._sensor_error_dict)
+            model_error_dict[fwd_name] = forward_model.error(
+                prms_model, relevant_experiments)
 
         return model_error_dict
 

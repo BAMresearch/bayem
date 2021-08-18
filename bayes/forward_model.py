@@ -159,58 +159,6 @@ class ModelTemplate:
                     (right[sensor_name] - left[sensor_name]) / (2 * h)
         return jac
 
-    @staticmethod
-    def apply_sensor_error(sensors, prms, sensor_error_dict):
-        """
-        Accounts for additive or multiplicative sensor error (understood here as
-        a sensor bias). Note that these sensor errors are understood as unknown,
-        and therefore modelled as calibration parameters to be inferred.
-
-        Parameters
-        ----------
-        sensors : dict
-            Contains the experimental input or output sensors with their names
-            as keys and their numeric values as values.
-        prms : dict
-            The calibration parameters with their local names as keys and their
-            numeric values as values.
-        sensor_error_dict : dict
-            Contains information on sensors for which errors have been defined.
-            A key-value pair in this dictionary has the following structure:
-            <sensor name>: {'rel': <bool>, 'prm': <string>}. Here, the <sensor
-            name> defines the sensor an error has been defined for. The 'rel'
-            item defines if the error is relative ('rel' is True) or absolute
-            ('rel' is False). Finally, the 'prm' item defines the calibration
-            parameter the bias is described with.
-
-        Returns
-        -------
-        sensor_copy : dict
-            A copy of the provided input argument 'sensors' with adjusted values
-            for the sensors that are associated with sensor errors.
-        """
-        # we don't want side effects to modify sensors outside of this method;
-        # this is why we make a copy here
-        sensor_copy = cp.copy(sensors)
-        for sensor_name in sensor_copy.keys():
-            # the sensor_error_dict.keys() in the line below contain the sensor
-            # names for which errors have been defined; can also be empty
-            if sensor_name in sensor_error_dict.keys():
-                # now apply the correct sensor error (relative or absolute)
-                if sensor_error_dict[sensor_name]['rel']:
-                    factor = 1 + prms[sensor_error_dict[sensor_name]['prm']]
-                    # the idea here is to reverse the relative, meaning
-                    # multiplicative, error; since the error is applied by
-                    # multiplication, its reversal needs the respective division
-                    sensor_copy[sensor_name] /= factor
-                else:
-                    summand = prms[sensor_error_dict[sensor_name]['prm']]
-                    # the idea here is to reverse the absolute, meaning additive
-                    # error; since the error is applied by addition, its
-                    # reversal needs the respective subtraction
-                    sensor_copy[sensor_name] -= summand
-        return sensor_copy
-
     def error_function(self, exp_inp, prms, output_sensor_name, ye):
         """
         Evaluates the model error for a single experiment. This function can be
@@ -252,7 +200,7 @@ class ModelTemplate:
 
         return error
 
-    def error(self, prms, experiments, sensor_error_dict):
+    def error(self, prms, experiments):
         """
         Computes the model error for all given experiments and returns them in
         a dictionary that is sorted by output sensors.
@@ -270,14 +218,6 @@ class ModelTemplate:
             output value is a similar dictionary of output sensors. The
             remaining 'forward_model' value states the forward model's name, but
             is not used here.
-        sensor_error_dict : dict
-            Contains information on sensors for which errors have been defined.
-            A key-value pair in this dictionary has the following structure:
-            <sensor name>: {'rel': <bool>, 'prm': <string>}. Here, the <sensor
-            name> defines the sensor an error has been defined for. The 'rel'
-            item defines if the error is relative ('rel' is True) or absolute
-            ('rel' is False). Finally, the 'prm' item defines the calibration
-            parameter the bias is described with.
 
         Returns
         -------
@@ -286,34 +226,14 @@ class ModelTemplate:
             of numbers representing the model errors as values.
         """
         model_error_dict = {}
-        # loop over all experiments defined within the problem; note that the
-        # 'if' condition in the next line is placed outside the loop
-        # intentionally, so that it is not evaluated each run in the loop
-        if not sensor_error_dict:
-            # in this case, no sensor errors are defined
-            for exp_dict in experiments.values():
-                exp_inp = exp_dict['input']
-                exp_out = exp_dict['output']
-                for output_sensor_name, ye in exp_out.items():
-                    me = self.error_function(exp_inp, prms,
-                                             output_sensor_name, ye)
-                    if output_sensor_name not in model_error_dict.keys():
-                        model_error_dict[output_sensor_name] = [me]
-                    else:
-                        model_error_dict[output_sensor_name].append(me)
-        else:
-            # in this case, there is at least one sensor with a defined error
-            for exp_dict in experiments.values():
-                exp_inp = self.apply_sensor_error(exp_dict['input'], prms,
-                                                  sensor_error_dict)
-                exp_out = self.apply_sensor_error(exp_dict['output'], prms,
-                                                  sensor_error_dict)
-                for output_sensor_name, ye in exp_out.items():
-                    me = self.error_function(exp_inp, prms,
-                                             output_sensor_name, ye)
-                    if output_sensor_name not in model_error_dict.keys():
-                        model_error_dict[output_sensor_name] = [me]
-                    else:
-                        model_error_dict[output_sensor_name].append(me)
-
+        for exp_dict in experiments.values():
+            exp_inp = exp_dict['input']
+            exp_out = exp_dict['output']
+            for output_sensor_name, ye in exp_out.items():
+                me = self.error_function(exp_inp, prms,
+                                         output_sensor_name, ye)
+                if output_sensor_name not in model_error_dict.keys():
+                    model_error_dict[output_sensor_name] = [me]
+                else:
+                    model_error_dict[output_sensor_name].append(me)
         return model_error_dict
