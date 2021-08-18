@@ -5,11 +5,12 @@ from copy import deepcopy as dc
 import numpy as np
 
 # local imports
+from bayes.parameter import Parameters, Parameter
 from bayes.priors import PriorNormal
 from bayes.priors import PriorLognormal
 from bayes.priors import PriorUniform
 from bayes.priors import PriorWeibull
-from bayes.subroutines import underlined_string, tcs, list2dict
+from bayes.subroutines import underlined_string, tcs
 
 
 class InferenceProblem:
@@ -30,28 +31,26 @@ class InferenceProblem:
         # the name of the problem
         self.name = name
 
-        # this is the central parameter dictionary of the problem; it contains
-        # all defined parameters ('const' and 'calibration' ones); the keys of
-        # this dictionary are the parameter names; note that each parameter must
-        # have a unique name in the problem; the values of this dictionary are
-        # again dictionaries with the following key-value pairs:
-        # 'index': int or None (the index in the theta-vector (see self.loglike)
-        #          for 'calibration'-parameter; None for 'const'-parameters)
-        # 'type':  string (either 'model', 'prior' or 'noise' depending on where
-        #          the parameter appears)
-        # 'role':  string (either 'const' for a constant parameter or
-        #          'calibration' for a calibration parameter)
-        # 'prior': object or None (the prior-object of the 'calibration'-
-        #          parameter; None for 'const'-parameters)
-        # 'value': float or None (defines the value for 'const'-parameters;
-        #          None for 'calibration'-parameters)
-        # 'info':  string (a short explanation of the parameter)
-        # 'tex':   string or None (the TeX version of the parameter's name, for
-        #          example r'$\alpha$' for a parameter named 'alpha')
-        self._prm_dict = {}
-
-        # the number of currently defined 'calibration'-parameters
-        self.n_calibration_prms = 0
+        # this is the central parameter dictionary of the problem (the used
+        # Parameters-class is derived from the dict-class); it contains all
+        # defined parameters ('const' and 'calibration' ones); the keys of this
+        # dictionary are the parameter names; note that each parameter must have
+        # a unique name in the problem; the values of this dictionary are
+        # Parameter-objects (see parameter.py) with the following attributes:
+        # .index  int or None (the index in the theta-vector (see self.loglike)
+        #         for 'calibration'-parameter; None for 'const'-parameters)
+        # .type   string (either 'model', 'prior' or 'noise' depending on where
+        #         the parameter appears)
+        # .role   string (either 'const' for a constant parameter or
+        #         'calibration' for a calibration parameter)
+        # .prior  object or None (the prior-object of the 'calibration'-
+        #         parameter; None for 'const'-parameters)
+        # .value  float or None (defines the value for 'const'-parameters;
+        #         None for 'calibration'-parameters)
+        # .info   string (a short explanation of the parameter)
+        # .tex:   string or None (the TeX version of the parameter's name, for
+        #         example r'$\alpha$' for a parameter named 'alpha')
+        self._parameters = Parameters()
 
         # this dictionary is intended for storing the measured data from
         # experiments (see self.add_experiment); this dict is managed
@@ -91,6 +90,21 @@ class InferenceProblem:
         self._output_sensors_experiment = set()
         self._output_sensors_forward_models = set()
 
+    @property
+    def n_prms(self):
+        """Provides n_prms attribute."""
+        return self._parameters.n_prms
+
+    @property
+    def n_calibration_prms(self):
+        """Provides n_calibration_prms attribute."""
+        return self._parameters.n_calibration_prms
+
+    @property
+    def n_constant_prms(self):
+        """Provides n_constant_prms attribute."""
+        return self._parameters.n_constant_prms
+
     def info(self, print_it=True, include_experiments=False):
         """
         Either prints the problem definition to the console (print_it=True) or
@@ -123,14 +137,14 @@ class InferenceProblem:
             fwd_string += tcs(name, f"{fwd_model.prms_def}", col_width=w)
 
         # provide a parameter overview sorted by their roles and types
-        n_prms = len(self._prm_dict.keys())
+        n_prms = len(self._parameters.keys())
         prms_string = underlined_string("Parameter overview", symbol="-")
         prms_string += f"Number of parameters:   {n_prms}\n"
         prms_roles_types = {'model': [], 'prior': [], 'noise': [],
                             'calibration': [], 'const': []}
-        for prm_name, prm_dict in self._prm_dict.items():
-            prms_roles_types[prm_dict['role']].append(prm_name)
-            prms_roles_types[prm_dict['type']].append(prm_name)
+        for prm_name, parameter in self._parameters.items():
+            prms_roles_types[parameter.role].append(prm_name)
+            prms_roles_types[parameter.type].append(prm_name)
         for group, prms in prms_roles_types.items():
             prms_string += tcs(f'{group.capitalize()} parameters', prms)
 
@@ -138,14 +152,14 @@ class InferenceProblem:
         const_prms_str = underlined_string("Constant parameters", symbol="-")
         w = len(max(prms_roles_types['const'], key=len)) + 2
         for prm_name in prms_roles_types['const']:
-            prm_value = self._prm_dict[prm_name]['value']
+            prm_value = self._parameters[prm_name].value
             const_prms_str += tcs(prm_name, f"{prm_value:.2f}", col_width=w)
 
         # additional information on the problem's parameters
         prms_info_str = underlined_string("Parameter explanations", symbol="-")
-        w = len(max(self._prm_dict.keys(), key=len)) + 2
-        for prm_name, prm_dict in self._prm_dict.items():
-            prms_info_str += tcs(prm_name, f"{prm_dict['info']}", col_width=w)
+        w = len(max(self._parameters.keys(), key=len)) + 2
+        for prm_name, parameter in self._parameters.items():
+            prms_info_str += tcs(prm_name, f"{parameter.info}", col_width=w)
 
         # include information on the defined priors
         prior_str = underlined_string("Priors defined", symbol="-")
@@ -273,7 +287,7 @@ class InferenceProblem:
 
         # check whether the parameter name was used before; note that all
         # parameters (across types!) must have unique names
-        if prm_name in self._prm_dict.keys():
+        if prm_name in self._parameters.keys():
             raise RuntimeError(
                 f"A parameter with name '{prm_name}' has already been" +
                 f" defined. Please choose another name."
@@ -284,8 +298,7 @@ class InferenceProblem:
         if const is None:  # in this case we are adding a 'calibration'-param.
             # first, define the index of this parameter in the numeric vector
             # theta, which is given to self.loglike and self.logprior
-            prm_index = self.n_calibration_prms
-            self.n_calibration_prms += 1
+            prm_index = self._parameters.n_calibration_prms
             # the prm_value is reserved for 'const'-parameter; hence, it is set
             # to None in this case, where we are adding a 'calibration'-param.
             prm_value = None
@@ -315,13 +328,13 @@ class InferenceProblem:
             prm_value = const
 
         # add the parameter to the central parameter dictionary
-        self._prm_dict[prm_name] = {'index': prm_index,
-                                    'type': prm_type,
-                                    'role': prm_role,
-                                    'prior': prm_prior,
-                                    'value': prm_value,
-                                    'info': info,
-                                    'tex': tex}
+        self._parameters[prm_name] = Parameter({'index': prm_index,
+                                                'type': prm_type,
+                                                'role': prm_role,
+                                                'prior': prm_prior,
+                                                'value': prm_value,
+                                                'info': info,
+                                                'tex': tex})
 
     def check_if_parameter_exists(self, prm_name):
         """
@@ -333,7 +346,7 @@ class InferenceProblem:
             A global parameter name.
         """
         # check if the given parameter exists
-        if prm_name not in self._prm_dict.keys():
+        if prm_name not in self._parameters.keys():
             raise RuntimeError(
                 f"A parameter with name '{prm_name}' has not been defined yet.")
 
@@ -351,27 +364,26 @@ class InferenceProblem:
 
         # different steps must be taken depending on whether the parameter which
         # should be removed is a 'const'- or a 'calibration'-parameter
-        if self._prm_dict[prm_name]['index'] is None:
+        if self._parameters[prm_name].index is None:
             # in this case prm_name refers to a constant parameter; hence, we
             # can simply remove this parameter without side effects
-            del self._prm_dict[prm_name]
+            del self._parameters[prm_name]
         else:
             # in this case prm_name refers to a calibration parameter; hence we
             # need to remove the prior-parameter and the prior-object; also, we
             # have to correct the index values of the remaining calibration prms
-            for prior_prm in self._prm_dict[prm_name]['prior'].\
+            for prior_prm in self._parameters[prm_name].prior.\
                     prms_def_no_ref.keys():
                 self.remove_parameter(prior_prm)  # recursive call
-            del self._priors[self._prm_dict[prm_name]['prior'].name]
-            del self._prm_dict[prm_name]['prior']
-            del self._prm_dict[prm_name]
+            del self._priors[self._parameters[prm_name].prior.name]
+            del self._parameters[prm_name].prior
+            del self._parameters[prm_name]
             # correct the indices of the remaining 'calibration'-parameters
             idx = 0
-            for name, prm_dict in self._prm_dict.items():
-                if prm_dict['index'] is not None:
-                    prm_dict['index'] = idx
+            for name, parameter in self._parameters.items():
+                if parameter.index is not None:
+                    parameter.index = idx
                     idx += 1
-            self.n_calibration_prms -= 1
 
     def change_parameter_role(self, prm_name, const=None, prior=None,
                               new_info=None, new_tex=None):
@@ -418,14 +430,14 @@ class InferenceProblem:
         # the parameter's role is changed by first removing it from the problem,
         # and then adding it again in its new role; the role-change does not
         # impact the type ('model', 'prior' or 'noise')
-        prm_type = self._prm_dict[prm_name]['type']
+        prm_type = self._parameters[prm_name].type
         # if no new_info/new_tex was specified, use the old ones
         if new_info is None:
-            prm_info = self._prm_dict[prm_name]['info']
+            prm_info = self._parameters[prm_name].info
         else:
             prm_info = new_info
         if new_tex is None:
-            prm_tex = self._prm_dict[prm_name]['tex']
+            prm_tex = self._parameters[prm_name].tex
         else:
             prm_tex = new_tex
         # now we can finally change the role
@@ -450,9 +462,9 @@ class InferenceProblem:
         self.check_if_parameter_exists(prm_name)
 
         # change the info/tex-string
-        self._prm_dict[prm_name]['info'] = new_info
+        self._parameters[prm_name].info = new_info
         if new_tex is not None:
-            self._prm_dict[prm_name]['tex'] = new_tex
+            self._parameters[prm_name].tex = new_tex
 
     def change_constant(self, prm_name, new_value):
         """
@@ -470,12 +482,12 @@ class InferenceProblem:
         self.check_if_parameter_exists(prm_name)
 
         # check if the given parameter is a constant
-        if self._prm_dict[prm_name]['role'] != "const":
+        if self._parameters[prm_name].role != "const":
             raise RuntimeError(
                 f"The parameter '{prm_name}' is not a constant!"
             )
         # change the parameter's value
-        self._prm_dict[prm_name]['value'] = new_value
+        self._parameters[prm_name].value = new_value
 
     def _add_prior(self, name, prior_type, prms_def, ref_prm):
         """
@@ -537,53 +549,53 @@ class InferenceProblem:
         # parameters, priors, a forward model, experiments and noise models;
         # the following statements assert that the corresponding attributes are
         # not empty or None
-        assert self._prm_dict, "No parameters have been defined yet!"
+        assert self._parameters, "No parameters have been defined yet!"
         assert self._priors, "Found no priors in the problem definition!"
         assert self._forward_models, "No forward model has been defined yet!"
         assert self._experiments, "No experiments have been defined yet!"
         assert self._noise_models, "No noise models have been defined yet!"
 
         # check if all constant parameters have values assigned
-        for prm_dict in self._prm_dict.values():
-            if prm_dict['role'] == 'const':
-                assert prm_dict['value'] is not None
+        for parameter in self._parameters.values():
+            if parameter.role == 'const':
+                assert parameter.value is not None
 
         # check if all parameters of the forward model(s) appear in
-        # self._prm_dict and if they have the correct type
+        # self._parameters and if they have the correct type
         for forward_model in self._forward_models.values():
             for model_prm in forward_model.prms_def.keys():
-                assert model_prm in self._prm_dict.keys()
-                assert self._prm_dict[model_prm]['type'] == "model"
+                assert model_prm in self._parameters.keys()
+                assert self._parameters[model_prm].type == "model"
 
-        # check if all parameters of the noise model appear in self._prm_dict
+        # check if all parameters of the noise model appear in self._parameters
         # and if they have the correct type
         for noise_model in self._noise_models.values():
             for noise_prm in noise_model.prms_def.keys():
-                assert noise_prm in self._prm_dict.keys()
-                assert self._prm_dict[noise_prm]['type'] == "noise"
+                assert noise_prm in self._parameters.keys()
+                assert self._parameters[noise_prm].type == "noise"
 
         # check if all prior objects in self._priors are consistent in terms of
-        # their parameters; each one of them must appear in self._prm_dict
-        assert len(self._priors) == self.n_calibration_prms
+        # their parameters; each one of them must appear in self._parameters
+        assert len(self._priors) == self._parameters.n_calibration_prms
         for prior_obj in self._priors.values():
             for prior_prm in prior_obj.prms_def_no_ref.keys():
-                assert prior_prm in self._prm_dict.keys()
-                assert self._prm_dict[prior_prm]['type'] == 'prior'
+                assert prior_prm in self._parameters.keys()
+                assert self._parameters[prior_prm].type == 'prior'
 
         # check if the prior-parameters of each calibration parameter exist in
         # the problem's parameter dictionary
-        for prm_name, prm_dict in self._prm_dict.items():
-            if prm_dict['role'] == 'calibration':
-                for prior_prm in prm_dict['prior'].prms_def_no_ref.keys():
-                    assert prior_prm in self._prm_dict.keys()
-                    assert self._prm_dict[prior_prm]['type'] == 'prior'
+        for prm_name, parameter in self._parameters.items():
+            if parameter.role == 'calibration':
+                for prior_prm in parameter.prior.prms_def_no_ref.keys():
+                    assert prior_prm in self._parameters.keys()
+                    assert self._parameters[prior_prm].type == 'prior'
 
         # check the indices of the calibration parameters
         idx_list = []
-        for prm_name, prm_dict in self._prm_dict.items():
-            if prm_dict['role'] == 'calibration':
-                idx_list.append(prm_dict['index'])
-        assert len(idx_list) == self.n_calibration_prms
+        for prm_name, parameter in self._parameters.items():
+            if parameter.role == 'calibration':
+                idx_list.append(parameter.index)
+        assert len(idx_list) == self._parameters.n_calibration_prms
         assert sorted(idx_list) == list(range(len(idx_list)))
 
         # check if all output sensors defined in the forward models have been
@@ -683,11 +695,11 @@ class InferenceProblem:
         """
         prms = {}
         for global_name, local_name in prm_def.items():
-            idx = self._prm_dict[global_name]['index']
+            idx = self._parameters[global_name].index
             if idx is None:
                 # in this case, the parameter is a constant and hence not read
                 # from theta, but from the internal library
-                prms[local_name] = self._prm_dict[global_name]['value']
+                prms[local_name] = self._parameters[global_name].value
             else:
                 # in this case, the parameter is a calibration parameter, and
                 # its value is read from theta
@@ -746,11 +758,11 @@ class InferenceProblem:
         # assemble the parameter's names in the order as they appear in theta
         theta_names = []
         indices = []
-        for prm_name, prm_dict in self._prm_dict.items():
-            if prm_dict['index'] is not None:
-                indices.append(prm_dict['index'])
-                if tex and prm_dict['tex'] is not None:
-                    theta_names.append(prm_dict['tex'])
+        for prm_name, parameter in self._parameters.items():
+            if parameter.index is not None:
+                indices.append(parameter.index)
+                if tex and parameter.tex is not None:
+                    theta_names.append(parameter.tex)
                 else:
                     theta_names.append(prm_name)
         # order the theta_names according to their index-values; note that this
@@ -819,7 +831,7 @@ class InferenceProblem:
         # inference problem; note that the forward model can only be added to
         # the problem after the corresponding parameters were defined
         for prm_name in forward_model.prms_def:
-            if prm_name not in self._prm_dict.keys():
+            if prm_name not in self._parameters.keys():
                 raise RuntimeError(
                     f"The model parameter '{prm_name}' has not been defined " +
                     f"yet.\nYou have to add all model parameters to the " +
@@ -895,7 +907,7 @@ class InferenceProblem:
         # check if all given noise model parameters have already been added to
         # the inference problem
         for prm_name in noise_model.prms_def:
-            if prm_name not in self._prm_dict.keys():
+            if prm_name not in self._parameters.keys():
                 raise RuntimeError(
                     f"The noise model parameter '{prm_name}' has not been " +
                     f"defined yet.\nYou have to add all noise model " +
@@ -947,18 +959,18 @@ class InferenceProblem:
         numpy.ndarray
             The generated samples.
         """
-        prior = self._priors[self._prm_dict[prm_name]['prior'].name]
+        prior = self._priors[self._parameters[prm_name].prior.name]
         # check for prior-priors; if a prior parameter is a calibration
         # parameter and not a constant, one first samples from the prior
         # parameter's prior distribution, and then takes the mean of those
         # samples to sample from the first prior distribution; this procedure
         # is recursive, so that (in principle) one could also define priors of
         # the prior's prior parameters and so forth
-        theta_aux = [0] * self.n_calibration_prms
+        theta_aux = [0] * self._parameters.n_calibration_prms
         for prior_prm_name in prior.prms_def_no_ref.keys():
-            if self._prm_dict[prior_prm_name]['role'] == 'calibration':
+            if self._parameters[prior_prm_name].role == 'calibration':
                 samples = self.sample_from_prior(prior_prm_name, size)
-                theta_aux[self._prm_dict[prior_prm_name]['index']] =\
+                theta_aux[self._parameters[prior_prm_name].index] =\
                     np.mean(samples)
         prms = self.get_parameters(theta_aux, prior.prms_def_no_ref)
         return prior.generate_samples(prms, size)
