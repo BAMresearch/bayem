@@ -102,16 +102,12 @@ problem.add_parameter('sigma', 'noise',
                       prior=('uniform', {'low': low_sigma,
                                          'high': high_sigma}))
 
-# this adds the alias 'beta' to parameter 'b'; just to show how it can be done;
-# useful when the same parameter has different names in different models
-problem.add_parameter_alias('b', 'beta')
-
 # add the forward model to the problem
 out = OutputSensor("y")
 problem.add_forward_model("LinearModel",
                           LinearModel(['a', 'b'], [out]))
 problem.add_forward_model('QuadraticModel',
-                          QuadraticModel(['alpha', 'beta'], [out]))
+                          QuadraticModel(['alpha', {'b': 'beta'}], [out]))
 
 # add the noise model to the problem
 problem.add_noise_model('y', NormalNoiseZeroMean(['sigma']))

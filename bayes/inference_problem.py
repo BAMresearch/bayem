@@ -45,8 +45,6 @@ class InferenceProblem:
         #          parameter; None for 'const'-parameters)
         # 'value': float or None (defines the value for 'const'-parameters;
         #          None for 'calibration'-parameters)
-        # 'alias': set (other names for this parameter; if no aliases are
-        #          defined, this value is an empty set)
         # 'info':  string (a short explanation of the parameter)
         # 'tex':   string or None (the TeX version of the parameter's name, for
         #          example r'$\alpha$' for a parameter named 'alpha')
@@ -54,14 +52,6 @@ class InferenceProblem:
 
         # the number of currently defined 'calibration'-parameters
         self.n_calibration_prms = 0
-
-        # this dictionary is for possible parameter alias defined in the
-        # problem; a parameter alias is another name for the same parameter; the
-        # keys of this dictionary are the aliases, while the values are the
-        # original parameter names; if possible such aliases should be avoided
-        # since they can be confusing; this dictionary is managed internally and
-        # should not be edited directly
-        self._alias_dict = {}
 
         # this dictionary is intended for storing the measured data from
         # experiments (see self.add_experiment); this dict is managed
@@ -148,7 +138,7 @@ class InferenceProblem:
         const_prms_str = underlined_string("Constant parameters", symbol="-")
         w = len(max(prms_roles_types['const'], key=len)) + 2
         for prm_name in prms_roles_types['const']:
-            prm_value = self._prm_dict[self._alias_dict[prm_name]]['value']
+            prm_value = self._prm_dict[prm_name]['value']
             const_prms_str += tcs(prm_name, f"{prm_value:.2f}", col_width=w)
 
         # additional information on the problem's parameters
@@ -162,18 +152,6 @@ class InferenceProblem:
         w = len(max(self._priors.keys(), key=len)) + 2
         for prior_name, prior_obj in self._priors.items():
             prior_str += tcs(prior_name, str(prior_obj), col_width=w)
-
-        # show aliases defined within the problem
-        alias_str = underlined_string("Aliases defined", symbol="-")
-        aliases = set(self._alias_dict.keys()). \
-            difference(set(self._alias_dict.values()))
-        if len(aliases) > 0:
-            w = len(max(list(aliases), key=len)) + 2
-            for alias_name, original_name in self._alias_dict.items():
-                if alias_name != original_name:
-                    alias_str += tcs(alias_name, original_name, col_width=w)
-        else:
-            alias_str += "--No aliases defined--\n"
 
         # list all input sensors defined within the problem
         inp_sensor_str = underlined_string("Input sensors defined", symbol="-")
@@ -226,7 +204,7 @@ class InferenceProblem:
 
         # concatenate the string and return it
         full_string = title_string + fwd_string + prms_string + const_prms_str
-        full_string += prms_info_str + prior_str + alias_str + inp_sensor_str
+        full_string += prms_info_str + prior_str + inp_sensor_str
         full_string += out_sensor_str + theta_string + exp_str
 
         # either print or return the string
@@ -243,7 +221,7 @@ class InferenceProblem:
         return self.info(print_it=False)
 
     def add_parameter(self, prm_name, prm_type, const=None, prior=None,
-                      aliases=None, info="No explanation provided", tex=None):
+                      info="No explanation provided", tex=None):
         """
         Adds a parameter ('const' or 'calibration') to the inference problem.
 
@@ -267,8 +245,6 @@ class InferenceProblem:
             and their numeric values as values. An example for a normal prior:
             ('normal', {'loc': 0.0, 'scale': 1.0}). In order to define the
             prior's parameters, check out the prior definitions in priors.py.
-        aliases : string, tuple, list, set or None, optional
-            Other names used for this parameter.
         info : string, optional
             Short explanation on the added parameter.
         tex : string or None, optional
@@ -338,25 +314,12 @@ class InferenceProblem:
             prm_prior = None
             prm_value = const
 
-        # add aliases to the alias dictionary when given; note that every
-        # parameter name is its own alias by default
-        self._alias_dict[prm_name] = prm_name
-        if aliases is not None:
-            aliases = [aliases] if (type(aliases) == str) else aliases
-            if len(aliases) > 0:
-                for alias in aliases:
-                    self._alias_dict[alias] = prm_name
-            aliases = set(aliases)
-        else:
-            aliases = set()
-
         # add the parameter to the central parameter dictionary
         self._prm_dict[prm_name] = {'index': prm_index,
                                     'type': prm_type,
                                     'role': prm_role,
                                     'prior': prm_prior,
                                     'value': prm_value,
-                                    'alias': aliases,
                                     'info': info,
                                     'tex': tex}
 
@@ -370,12 +333,11 @@ class InferenceProblem:
             A global parameter name.
         """
         # check if the given parameter exists
-        if prm_name not in self._alias_dict.keys():
+        if prm_name not in self._prm_dict.keys():
             raise RuntimeError(
-                f"A parameter or parameter-alias with name '{prm_name}' " +
-                f"has not been defined yet.")
+                f"A parameter with name '{prm_name}' has not been defined yet.")
 
-    def remove_parameter(self, prm_name, remove_aliases=True):
+    def remove_parameter(self, prm_name):
         """
         Removes a parameter ('const' or 'calibration') from inference problem.
 
@@ -383,48 +345,26 @@ class InferenceProblem:
         ----------
         prm_name : string
             The name of the parameter to be removed.
-        remove_aliases : boolean, optional
-            If True, all aliases of the given parameter will be removed too.
-            This option is useful to set False, when only the parameter's role
-            is changed (i.e. the parameter is removed and immediately added
-            again with another role - in this case the aliases should be kept).
         """
         # check if the given parameter exists
         self.check_if_parameter_exists(prm_name)
 
         # different steps must be taken depending on whether the parameter which
         # should be removed is a 'const'- or a 'calibration'-parameter
-        prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
-        if self._prm_dict[prm_name_ori]['index'] is None:
+        if self._prm_dict[prm_name]['index'] is None:
             # in this case prm_name refers to a constant parameter; hence, we
             # can simply remove this parameter without side effects
-            del self._prm_dict[prm_name_ori]
-            if remove_aliases:
-                # remove all aliases for this parameter
-                prm_aliases = []
-                for alias, name in self._alias_dict.items():
-                    if name == prm_name:
-                        prm_aliases.append(alias)
-                for alias in prm_aliases:
-                    del self._alias_dict[alias]
+            del self._prm_dict[prm_name]
         else:
             # in this case prm_name refers to a calibration parameter; hence we
             # need to remove the prior-parameter and the prior-object; also, we
             # have to correct the index values of the remaining calibration prms
-            for prior_prm in self._prm_dict[prm_name_ori]['prior'].\
+            for prior_prm in self._prm_dict[prm_name]['prior'].\
                     prms_def_no_ref.keys():
                 self.remove_parameter(prior_prm)  # recursive call
-            del self._priors[self._prm_dict[prm_name_ori]['prior'].name]
-            del self._prm_dict[prm_name_ori]['prior']
-            del self._prm_dict[prm_name_ori]
-            if remove_aliases:
-                # remove all aliases for this parameter
-                prm_aliases = []
-                for alias, name in self._alias_dict.items():
-                    if name == prm_name:
-                        prm_aliases.append(alias)
-                for alias in prm_aliases:
-                    del self._alias_dict[alias]
+            del self._priors[self._prm_dict[prm_name]['prior'].name]
+            del self._prm_dict[prm_name]['prior']
+            del self._prm_dict[prm_name]
             # correct the indices of the remaining 'calibration'-parameters
             idx = 0
             for name, prm_dict in self._prm_dict.items():
@@ -475,26 +415,23 @@ class InferenceProblem:
                 f"You must specify either the 'const' or the 'prior' key " +
                 f"argument. You have specified none."
             )
-        # the parameter's role is changed by first removing it from the problem
-        # without removing its aliases, and then adding it again in its new role
-        prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
-        # the role-change does not impact the type ('model', 'prior' or 'noise')
-        prm_type = self._prm_dict[prm_name_ori]['type']
+        # the parameter's role is changed by first removing it from the problem,
+        # and then adding it again in its new role; the role-change does not
+        # impact the type ('model', 'prior' or 'noise')
+        prm_type = self._prm_dict[prm_name]['type']
         # if no new_info/new_tex was specified, use the old ones
         if new_info is None:
-            prm_info = self._prm_dict[prm_name_ori]['info']
+            prm_info = self._prm_dict[prm_name]['info']
         else:
             prm_info = new_info
         if new_tex is None:
-            prm_tex = self._prm_dict[prm_name_ori]['tex']
+            prm_tex = self._prm_dict[prm_name]['tex']
         else:
             prm_tex = new_tex
-        # the parameter's aliases should be kept
-        aliases = self._prm_dict[prm_name_ori]['alias']
         # now we can finally change the role
-        self.remove_parameter(prm_name_ori, remove_aliases=False)
-        self.add_parameter(prm_name_ori, prm_type, const=const, prior=prior,
-                           info=prm_info, aliases=aliases, tex=prm_tex)
+        self.remove_parameter(prm_name)
+        self.add_parameter(prm_name, prm_type, const=const, prior=prior,
+                           info=prm_info, tex=prm_tex)
 
     def change_parameter_info(self, prm_name, new_info, new_tex=None):
         """
@@ -513,10 +450,9 @@ class InferenceProblem:
         self.check_if_parameter_exists(prm_name)
 
         # change the info/tex-string
-        prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
-        self._prm_dict[prm_name_ori]['info'] = new_info
+        self._prm_dict[prm_name]['info'] = new_info
         if new_tex is not None:
-            self._prm_dict[prm_name_ori]['tex'] = new_tex
+            self._prm_dict[prm_name]['tex'] = new_tex
 
     def change_constant(self, prm_name, new_value):
         """
@@ -534,54 +470,12 @@ class InferenceProblem:
         self.check_if_parameter_exists(prm_name)
 
         # check if the given parameter is a constant
-        prm_name_ori = self._alias_dict[prm_name]  # the original parameter name
-        if self._prm_dict[prm_name_ori]['role'] != "const":
+        if self._prm_dict[prm_name]['role'] != "const":
             raise RuntimeError(
                 f"The parameter '{prm_name}' is not a constant!"
             )
         # change the parameter's value
-        self._prm_dict[prm_name_ori]['value'] = new_value
-
-    def add_parameter_alias(self, prm_name, aliases):
-        """
-        Adds an alias for a parameter of the problem. An alias is another name
-        for a global parameter name defined within the problem. By default, each
-        parameter name is its own alias.
-
-        Parameters
-        ----------
-        prm_name : string
-            The name of a global parameter defined within the problem.
-        aliases : string, list, tuple or set
-            One or more aliases to be used for prm_name.
-        """
-
-        # convert to set if string is given
-        type_aliases = type(aliases)
-        if type_aliases != set:
-            if type_aliases == str:
-                aliases = {aliases}
-            elif type_aliases in [list, tuple]:
-                aliases = set(aliases)
-            else:
-                raise ValueError(
-                    f"The 'aliases' input argument must be of type string, "
-                    f"list, tuple or set. However, '{type_aliases}' was given."
-                )
-
-        # throw warning if the alias has already been defined
-        for alias in aliases:
-            if alias in self._alias_dict.keys():
-                print(f"WARNING - The alias '{alias}' has been defined " +
-                      f"before and will now be overwritten!")
-
-        # add the alias to the central dictionary
-        self._prm_dict[prm_name]['alias'] = \
-            self._prm_dict[prm_name]['alias'].union(aliases)
-
-        # write the 'alias -> parameter name' mapping into self._alias_dict
-        for alias in aliases:
-            self._alias_dict[alias] = prm_name
+        self._prm_dict[prm_name]['value'] = new_value
 
     def _add_prior(self, name, prior_type, prms_def, ref_prm):
         """
@@ -658,39 +552,31 @@ class InferenceProblem:
         # self._prm_dict and if they have the correct type
         for forward_model in self._forward_models.values():
             for model_prm in forward_model.prms_def.keys():
-                assert model_prm in self._alias_dict.keys()
-                model_prm_ori = self._alias_dict[model_prm]
-                assert model_prm_ori in self._prm_dict.keys()
-                assert self._prm_dict[model_prm_ori]['type'] == "model"
+                assert model_prm in self._prm_dict.keys()
+                assert self._prm_dict[model_prm]['type'] == "model"
 
         # check if all parameters of the noise model appear in self._prm_dict
         # and if they have the correct type
         for noise_model in self._noise_models.values():
             for noise_prm in noise_model.prms_def.keys():
-                assert noise_prm in self._alias_dict.keys()
-                noise_prm_ori = self._alias_dict[noise_prm]
-                assert noise_prm_ori in self._prm_dict.keys()
-                assert self._prm_dict[noise_prm_ori]['type'] == "noise"
+                assert noise_prm in self._prm_dict.keys()
+                assert self._prm_dict[noise_prm]['type'] == "noise"
 
         # check if all prior objects in self._priors are consistent in terms of
         # their parameters; each one of them must appear in self._prm_dict
         assert len(self._priors) == self.n_calibration_prms
         for prior_obj in self._priors.values():
             for prior_prm in prior_obj.prms_def_no_ref.keys():
-                assert prior_prm in self._alias_dict.keys()
-                prior_prm_ori = self._alias_dict[prior_prm]
-                assert prior_prm_ori in self._prm_dict.keys()
-                assert self._prm_dict[prior_prm_ori]['type'] == 'prior'
+                assert prior_prm in self._prm_dict.keys()
+                assert self._prm_dict[prior_prm]['type'] == 'prior'
 
         # check if the prior-parameters of each calibration parameter exist in
         # the problem's parameter dictionary
         for prm_name, prm_dict in self._prm_dict.items():
             if prm_dict['role'] == 'calibration':
                 for prior_prm in prm_dict['prior'].prms_def_no_ref.keys():
-                    assert prior_prm in self._alias_dict.keys()
-                    prior_prm_ori = self._alias_dict[prior_prm]
-                    assert prior_prm_ori in self._prm_dict.keys()
-                    assert self._prm_dict[prior_prm_ori]['type'] == 'prior'
+                    assert prior_prm in self._prm_dict.keys()
+                    assert self._prm_dict[prior_prm]['type'] == 'prior'
 
         # check the indices of the calibration parameters
         idx_list = []
@@ -797,13 +683,11 @@ class InferenceProblem:
         """
         prms = {}
         for global_name, local_name in prm_def.items():
-            # get the original parameter name (i.e. not an alias)
-            prm_name_ori = self._alias_dict[global_name]
-            idx = self._prm_dict[prm_name_ori]['index']
+            idx = self._prm_dict[global_name]['index']
             if idx is None:
                 # in this case, the parameter is a constant and hence not read
                 # from theta, but from the internal library
-                prms[local_name] = self._prm_dict[prm_name_ori]['value']
+                prms[local_name] = self._prm_dict[global_name]['value']
             else:
                 # in this case, the parameter is a calibration parameter, and
                 # its value is read from theta
@@ -935,7 +819,7 @@ class InferenceProblem:
         # inference problem; note that the forward model can only be added to
         # the problem after the corresponding parameters were defined
         for prm_name in forward_model.prms_def:
-            if prm_name not in self._alias_dict.keys():
+            if prm_name not in self._prm_dict.keys():
                 raise RuntimeError(
                     f"The model parameter '{prm_name}' has not been defined " +
                     f"yet.\nYou have to add all model parameters to the " +
@@ -1011,7 +895,7 @@ class InferenceProblem:
         # check if all given noise model parameters have already been added to
         # the inference problem
         for prm_name in noise_model.prms_def:
-            if prm_name not in self._alias_dict.keys():
+            if prm_name not in self._prm_dict.keys():
                 raise RuntimeError(
                     f"The noise model parameter '{prm_name}' has not been " +
                     f"defined yet.\nYou have to add all noise model " +
@@ -1063,8 +947,7 @@ class InferenceProblem:
         numpy.ndarray
             The generated samples.
         """
-        prm_name_ori = self._alias_dict[prm_name]
-        prior = self._priors[self._prm_dict[prm_name_ori]['prior'].name]
+        prior = self._priors[self._prm_dict[prm_name]['prior'].name]
         # check for prior-priors; if a prior parameter is a calibration
         # parameter and not a constant, one first samples from the prior
         # parameter's prior distribution, and then takes the mean of those

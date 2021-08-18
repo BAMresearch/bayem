@@ -41,19 +41,6 @@ class TestProblem(unittest.TestCase):
         # removing a parameter that does not exists should raise an error
         with self.assertRaises(RuntimeError):
             p.remove_parameter('a')
-        # check if alias behave correctly when adding/removing cali parameters
-        self.assertEqual(len(p._alias_dict.keys()), 0)
-        p.add_parameter('a', 'model',
-                        prior=('normal', {'loc': 0.0, 'scale': 1.0}))
-        self.assertEqual(len(p._alias_dict.keys()), 3)
-        p.add_parameter_alias('a', 'a_1')
-        self.assertEqual(len(p._alias_dict.keys()), 4)
-        self.assertEqual(len(p._prm_dict['a']['alias']), 1)
-        p.add_parameter_alias('a', 'a_2')
-        self.assertEqual(len(p._alias_dict.keys()), 5)
-        self.assertEqual(len(p._prm_dict['a']['alias']), 2)
-        p.remove_parameter('a')
-        self.assertEqual(len(p._alias_dict.keys()), 0)
 
     def test_add_remove_const_parameter(self):
         p = InferenceProblem("TestProblem")
@@ -72,17 +59,6 @@ class TestProblem(unittest.TestCase):
         # removing a parameter that does not exists should raise an error
         with self.assertRaises(RuntimeError):
             p.remove_parameter('c')
-        # check the alias functionality
-        self.assertEqual(len(p._alias_dict.keys()), 1)
-        self.assertEqual(len(p._prm_dict['a']['alias']), 0)
-        p.add_parameter_alias('a', 'a_1')
-        self.assertEqual(len(p._alias_dict.keys()), 2)
-        self.assertEqual(len(p._prm_dict['a']['alias']), 1)
-        p.add_parameter_alias('a', 'a_2')
-        self.assertEqual(len(p._alias_dict.keys()), 3)
-        self.assertEqual(len(p._prm_dict['a']['alias']), 2)
-        p.remove_parameter('a')
-        self.assertEqual(len(p._alias_dict.keys()), 0)
 
     def test_change_parameter_role(self):
         p = InferenceProblem("TestProblem")
@@ -92,17 +68,6 @@ class TestProblem(unittest.TestCase):
         p.change_parameter_role('a', const=1.0)
         p.change_parameter_role('a',
                                 prior=('normal', {'loc': 0.0, 'scale': 1.0}))
-        # check with additional parameters and aliases
-        p.add_parameter('b', 'noise',
-                        prior=('normal', {'loc': 0.0, 'scale': 1.0}))
-        p.add_parameter_alias('a', ['a_1', 'a_2'])
-        self.assertEqual(len(p._alias_dict.keys()), 8)
-        p.change_parameter_role('a', const=1.0)
-        self.assertEqual(len(p._prm_dict['a']['alias']), 2)
-        p.change_parameter_role('a',
-                                prior=('normal', {'loc': 0.0, 'scale': 1.0}))
-        self.assertEqual(len(p._alias_dict.keys()), 8)
-
 
 if __name__ == "__main__":
     unittest.main()
