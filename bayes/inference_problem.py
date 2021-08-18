@@ -3,6 +3,7 @@ from copy import deepcopy as dc
 
 # third party imports
 import numpy as np
+from tabulate import tabulate
 
 # local imports
 from bayes.parameter import Parameters, Parameter
@@ -105,7 +106,7 @@ class InferenceProblem:
         """Provides n_constant_prms attribute."""
         return self._parameters.n_constant_prms
 
-    def info(self, print_it=True, include_experiments=False):
+    def info(self, print_it=True, include_experiments=False, tablefmt="fancy_grid"):
         """
         Either prints the problem definition to the console (print_it=True) or
         just returns the generated string without printing it (print_it=False).
@@ -120,6 +121,7 @@ class InferenceProblem:
             will be included in the printout. Depending on the number of defined
             experiments, this might result in a long additional printout, which
             is why this is set to False (no experiment printout) by default.
+        tablefmt : table format of tabulate.tabulate
 
         Returns
         -------
@@ -131,29 +133,25 @@ class InferenceProblem:
         title_string = underlined_string(self.name, n_empty_start=2)
 
         # list the forward models that have been defined within the problem
-        fwd_string = underlined_string("Forward models", symbol="-")
-        w = len(max(self._forward_models.keys(), key=len)) + 2
-        for name, fwd_model in self._forward_models.items():
-            fwd_string += tcs(name, f"{fwd_model.prms_def}", col_width=w)
+        fwd = [(name, model.prms_def) for name, model in self._forward_models.items()]
+        fwd_string = tabulate(fwd, headers=["Forward Model", "Parameters"], tablefmt=tablefmt)
+        fwd_string += "\n"*2
 
         # provide a parameter overview sorted by their roles and types
-        n_prms = len(self._parameters.keys())
-        prms_string = underlined_string("Parameter overview", symbol="-")
-        prms_string += f"Number of parameters:   {n_prms}\n"
         prms_roles_types = {'model': [], 'prior': [], 'noise': [],
                             'calibration': [], 'const': []}
         for prm_name, parameter in self._parameters.items():
             prms_roles_types[parameter.role].append(prm_name)
             prms_roles_types[parameter.type].append(prm_name)
-        for group, prms in prms_roles_types.items():
-            prms_string += tcs(f'{group.capitalize()} parameters', prms)
+
+        prms = [(group.capitalize() + " parameters", values) for group, values in prms_roles_types.items()]
+        prms_string = tabulate(prms, headers=["Role", "Parameter name"], tablefmt=tablefmt)
+        prms_string += "\n"*2
 
         # provide an overview over the 'const'-parameter's values
-        const_prms_str = underlined_string("Constant parameters", symbol="-")
-        w = len(max(prms_roles_types['const'], key=len)) + 2
-        for prm_name in prms_roles_types['const']:
-            prm_value = self._parameters[prm_name].value
-            const_prms_str += tcs(prm_name, f"{prm_value:.2f}", col_width=w)
+        const_prms_str = tabulate([(name, self._parameters[name].value) for name in prms_roles_types["const"]], headers=["Constant parameters", "value"], tablefmt=tablefmt)
+        const_prms_str += "\n"*2
+        
 
         # additional information on the problem's parameters
         prms_info_str = underlined_string("Parameter explanations", symbol="-")

@@ -1,5 +1,6 @@
 numpy
 scipy
+tabulate
 coverage
 sphinx
 sphinx_rtd_theme
