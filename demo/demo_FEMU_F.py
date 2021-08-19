@@ -31,8 +31,8 @@ dpi = 300
 sz = 14
 
 ## PARAMETERs
-E = 129.0
-n_data = 50 + 1
+E = 1290.0
+n_data = 100 + 1
 L = 13
 xs = np.linspace(0, L, n_data)
 # xs = np.array([L/(1+np.exp(-a)) for a in np.array(xs)-L/2]) # a non-uniform mesh (inspired by logistic linear regression)
@@ -50,6 +50,11 @@ std_noise = w_pnl * std_noise_raw
 F = E * np.max(Ys) / L
 Fs = [F for i in range(n_data-1)]
 
+std_noise_F = F * 0.03
+np.random.seed(19)
+noise_F = np.random.normal(0., std_noise_F, n_data-1)
+Fs += noise_F
+
 class DemoME_FEMU_F:
     def __init__(self, data, _dict_out=True, w_pnl=w_pnl):
         self.data = data
@@ -62,7 +67,7 @@ class DemoME_FEMU_F:
         EE = E_ys[0]
         ys = E_ys[1:]
         penalty = self.w_pnl * (ys - self.data)
-        residuals = np.array([EE*(ys[i+1]-ys[i])/dls[i] - F for i in range(n_data-1)])
+        residuals = np.array([EE*(ys[i+1]-ys[i])/dls[i] - Fs[i] for i in range(n_data-1)])
         self.n_evals += 1
         if self._dict_out:
             return {'res': residuals, 'penalty': penalty}
@@ -87,7 +92,7 @@ class DemoME_FEMU_F:
             J = np.append(J1, J2, axis=0)
         return J
 
-def priors_femu_f(update_of_zero_target_noises=False):
+def priors_femu_f(update_noise_of_res=False):
     # priors
     prior_means = [0.5 * E] + n_data * [Ys_max/2]
     prior_stds = [0.3 * E] + n_data * [Ys_max/1.5]
@@ -96,13 +101,16 @@ def priors_femu_f(update_of_zero_target_noises=False):
     noise0 = dict()
     update_noise = dict()
     percentile0 = 0.01
-    ss = std_noise_raw * (E / np.min(dls)) / 100 # expected std of residuals
+    # expected std of residuals
+    std1 = std_noise_raw * (E / np.min(dls)) / 100
+        # std1 is due to std in deformation, which is devided by 100 given a good inference of that noise.
+    ss = ( std1**2 + std_noise_F**2 ) ** 0.5
     sh0, sc0 = gamma_pars_of_precisions_from_stds(stds=[[ss/5, ss*5]], percentile0=percentile0) # for residuals (no noise in data)
     sh1, sc1 = gamma_pars_of_precisions_from_stds(stds=[[std_noise/2, std_noise*2]], percentile0=percentile0) # for penalty (noise in Ys_d)
     # sh1, sc1 = gamma_pars_of_precisions_from_stds(stds=[[std_noise/1.05, std_noise*1.05]], percentile0=percentile0) # for penalty (noise in Ys_d)
     noise0['res'] = vb.Gamma(shape=np.array(sh0), scale=np.array(sc0))
     noise0['penalty'] = vb.Gamma(shape=np.array(sh1), scale=np.array(sc1))
-    update_noise['res'] = update_of_zero_target_noises
+    update_noise['res'] = update_noise_of_res
     update_noise['penalty'] = True
     return prior_mvn, noise0, update_noise
 
@@ -168,9 +176,9 @@ def pp_vb(me, vb_outputs, prior_mvn, noise0, _path):
                                           , mean_color=COLORs['prior'], mean_marker=MARKERs['prior'], label_means=False \
                                               , _path=_path, _name=tit, _format=_format, dpi=dpi, sz=sz)
     tit = base_tit + ' - Posterior deformations'
-    plot_box_normal_distribution(post_m_ys, post_std_ys, label='posterior mean' \
+    plot_box_normal_distribution(post_m_ys, post_std_ys, label='posterior mean' + '\nave. precision: '+"{:.2e}".format(np.mean(post_std_ys)**(-2)) \
                                   , others=others, colors=_colors, plot_types=_plots, markers=_markers \
-                                      , tit=tit+'\nAverage precision: '+"{:.2e}".format(np.mean(post_std_ys)**(-2)), xl='x', yl=yl \
+                                      , tit=tit, xl='x', yl=yl \
                                           , mean_color=COLORs['posterior'], mean_marker=MARKERs['posterior'], label_means=False \
                                               , _path=_path, _name=tit, _format=_format, dpi=dpi, sz=sz)
     plt.figure()
@@ -234,9 +242,9 @@ def pp_vb(me, vb_outputs, prior_mvn, noise0, _path):
     _markers.append(MARKERs['data'])
     _colors.append(COLORs['data'])
     tit = base_tit + ' - Forces'
-    plot_box_normal_distribution(fs_id, fs_id_stds, label='predictive' \
+    plot_box_normal_distribution(fs_id, fs_id_stds, label='predictive' + '\nave. precision: ' + "{:.2e}".format(np.mean(fs_id_stds)**(-2)) \
                                      , others=others, colors=_colors, plot_types=_plots, markers=_markers \
-                                      , tit=tit + '\nAverage precision: ' + "{:.2e}".format(np.mean(fs_id_stds)**(-2)), xl='x', yl='F' \
+                                      , tit=tit, xl='x', yl='F' \
                                           , mean_color=COLORs['predict'], mean_marker=MARKERs['predict'], label_means=False \
                                               , _path=_path_prd, _name=tit, _format=_format, dpi=dpi, sz=sz)
     plt.figure()
@@ -261,9 +269,9 @@ def pp_vb(me, vb_outputs, prior_mvn, noise0, _path):
         _markers.append(MARKERs['data'])
         _colors.append(COLORs['data'])
         tit = base_tit + ' - Us'
-        plot_box_normal_distribution(us_id, us_id_stds, label='predictive' \
+        plot_box_normal_distribution(us_id, us_id_stds, label='predictive' + '\nave. precision: ' + "{:.2e}".format(np.mean(us_id_stds)**(-2)) \
                                          , others=others, colors=_colors, plot_types=_plots, markers=_markers \
-                                          , tit=tit + '\nAverage precision: ' + "{:.2e}".format(np.mean(us_id_stds)**(-2)), xl='x', yl='U' \
+                                          , tit=tit, xl='x', yl='U' \
                                               , mean_color=COLORs['predict'], mean_marker=MARKERs['predict'], label_means=False \
                                                   , _path=_path_prd, _name=tit, _format=_format, dpi=dpi, sz=sz)
         plt.figure()
@@ -285,12 +293,12 @@ if __name__ == "__main__":
     J0 = copy.deepcopy(me.jac(X))
     verify_jacobianDict(me, X, J0, tol=1e-8)
     ## PRIORs
-    prior_mvn1, noise01, update_noise1 = priors_femu_f(update_of_zero_target_noises=True) # with update of noise of residual
-    prior_mvn2, noise02, update_noise2 = priors_femu_f(update_of_zero_target_noises=False) # with NO update of noise of residual
+    prior_mvn1, noise01, update_noise1 = priors_femu_f(update_noise_of_res=True) # with update of noise of residual
+    prior_mvn2, noise02, update_noise2 = priors_femu_f(update_noise_of_res=False) # with NO update of noise of residual
     
     from pathlib import Path
-    _path1 = str(Path(__file__).parent) + '/demo_FEMU_F_VB_1/'
-    _path2 = str(Path(__file__).parent) + '/demo_FEMU_F_VB_2/'
+    _path1 = str(Path(__file__).parent) + '/demo_FEMU_F_VB_noiseUpdate_both/'
+    _path2 = str(Path(__file__).parent) + '/demo_FEMU_F_VB_noiseUpdate_us/'
     make_path(_path1); make_path(_path2)
     
     ## VB & PostProcess Results
