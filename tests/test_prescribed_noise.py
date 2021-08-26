@@ -105,14 +105,14 @@ class TestPrescribedNoise(unittest.TestCase):
         if print_:
             print(vb_outputs)
         ## TARALLI (Sampling) solution
-        mean, cov = taralli_solve(self.model, self.prior_pars, self.noise0, infer_noise=True)
-
-        mean_without_noise = mean[:2]
-        cov_without_noise = cov[:2, :2]
-
-
-        np.testing.assert_almost_equal(vb_outputs.param.mean / mean_without_noise, np.ones(2), decimal=3)
-        np.testing.assert_almost_equal(vb_outputs.param.cov / cov_without_noise, np.ones((2,2)), decimal=2)
+        means, cov = taralli_solve(self.model, self.prior_pars, self.noise0, infer_noise=True)
+        ## COMPARIOSINs
+        mean_pars = means[:2]
+        cov_pars = cov[:2, :2]
+        prec_noise = means[2]
+        np.testing.assert_almost_equal(vb_outputs.param.mean / mean_pars, np.ones(2), decimal=3)
+        np.testing.assert_almost_equal(0.5 * vb_outputs.param.cov / cov_pars, 0.5 * np.ones((2,2)), decimal=2)
+        np.testing.assert_almost_equal(vb_outputs.noise['res'].mean / prec_noise, 1, decimal=2) # compare noise precision (mean value)
 
     
     def test_without_noise(self, tolerance=1e-4, print_=True):
@@ -123,12 +123,11 @@ class TestPrescribedNoise(unittest.TestCase):
             print(vb_outputs)
         ## TARALLI (Sampling) solution
         means, cov = taralli_solve(self.model, self.prior_pars, self.noise0, infer_noise=False)
-
-        # check relative error:
-        np.testing.assert_almost_equal(vb_outputs.param.mean / means, np.ones(2), decimal=3)
-        print(vb_outputs.param.cov)
-        print(cov)
-        np.testing.assert_almost_equal(vb_outputs.param.cov / cov, np.ones((2,2)), decimal=2)
+        ## COMPARIOSINs
+        mean_pars = means[:2]
+        cov_pars = cov[:2, :2]
+        np.testing.assert_almost_equal(vb_outputs.param.mean / mean_pars, np.ones(2), decimal=3)
+        np.testing.assert_almost_equal(vb_outputs.param.cov / cov_pars, np.ones((2,2)), decimal=2)
 
     
 if __name__ == "__main__":
