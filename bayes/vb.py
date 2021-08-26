@@ -48,6 +48,9 @@ class MVN:
     def cov(self):
         return self.covariance
 
+    def dist(self, i):
+        return scipy.stats.norm(loc=self.mean[i], scale=self.cov[i,i]**0.5)
+    
     def pdf(self, xs, i):
         """return pdf for all xs for i-th parameter"""
         return scipy.stats.norm.pdf(xs, self.mean[i], self.std_diag[i])
@@ -80,8 +83,8 @@ class Gamma:
     def mean(self):
         return self.scale * self.shape
 
-    def pdf(self, xs):
-        return scipy.stats.gamma.pdf(xs, a=self.shape, scale=self.scale)
+    def dist(self):
+        return scipy.stats.gamma(a=self.shape, scale=self.scale)
 
     def __repr__(self):
         return f"{self.name} with \n └── mean: {self.mean:10.6f}"

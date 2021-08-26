@@ -30,6 +30,15 @@ class TestMVN(unittest.TestCase):
         with self.assertRaises(Exception):
             bayes.vb.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
 
+    def test_dist(self):
+        mean = np.r_[1, 2, 3]
+        prec = np.diag([1, 1 / 2 ** 2, 1 / 3 ** 2])
+
+        mvn = bayes.vb.MVN(mean, prec)
+        dist1D = mvn.dist(1)
+        self.assertAlmostEqual(dist1D.mean(), 2)
+        self.assertAlmostEqual(dist1D.std(), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
