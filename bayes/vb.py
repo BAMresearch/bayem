@@ -101,61 +101,17 @@ class Gamma:
         return cls(scale=1.0 / 3.0, shape=0.0)
 
 
-def plot_pdf(
-    dist,
-    expected_value=None,
-    name1="Posterior",
-    name2="Prior",
-    plot="individual",
-    color_plot="r",
-    **kwargs,
-):
-    import matplotlib.pyplot as plt
-
-    if ("min" in kwargs) & ("max" in kwargs):
-        x_min = kwargs["min"]
-        x_max = kwargs["max"]
-    else:
-        x_min = np.min(dist.mean) * 0.02
-        x_max = np.max(dist.mean) * 3
-    # Create grid and multivariate normal
-    x_plot = np.linspace(x_min, x_max, 5000)
-
-    if expected_value is not None:
-        expected_value = np.atleast_1d(expected_value)
-
-    for i in range(len(dist.mean)):
-        plt.plot(
-            x_plot, dist.pdf(x_plot, i), label="%s of parameter nb %i" % (name1, i)
-        )
-        if expected_value is not None:
-            plt.axvline(expected_value[i], ls=":", c="k")
-        if "compare_with" in kwargs:
-            plt.plot(
-                x_plot,
-                kwargs["compare_with"].pdf(x_plot, i),
-                label="%s of parameter nb %i" % (name2, i),
-            )
-
-        plt.xlabel("Parameter")
-        plt.legend()
-        if plot == "individual":
-            plt.show()
-    if plot == "joint":
-        plt.show()
-
-
 class VariationalBayesInterface:
     def __call__(self, number_vector):
         """
-        Returns a dict of type 
+        Returns a dict of type
             {noise_key : model_error_vector}
         """
         raise NotImplementedError()
 
     def jacobian(self, number_vector):
         """
-        Returns a dict of type 
+        Returns a dict of type
             {noise_key : d_model_error_d_number_vector_matrix}
 
         By default, this is a numeric Jacobian calculated by central
@@ -218,7 +174,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
     Nonlinear variational bayes algorithm according to
     @article{chappell2008variational,
           title={Variational Bayesian inference for a nonlinear forward model},
-          author={Chappell, Michael A and Groves, Adrian R and Whitcher, 
+          author={Chappell, Michael A and Groves, Adrian R and Whitcher,
                   Brandon and Woolrich, Mark W},
           journal={IEEE Transactions on Signal Processing},
           volume={57},
@@ -229,7 +185,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
         }
 
     This implements the formulas of section III.C (Extending the Noise Model)
-    with the same notation and references to each formula, with the only 
+    with the same notation and references to each formula, with the only
     exception that capital lambda L in the paper is here referred to as L.
 
     model_error that contains
@@ -251,7 +207,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
 
     noise0:
         list of gamma distributions for the noise prior
-        If noise0 is None, a noninformative gamma prior is chosen 
+        If noise0 is None, a noninformative gamma prior is chosen
         automatically according to the number of noise groups.
 
     tolerance:
@@ -286,7 +242,7 @@ def variational_bayes_nonlinear(model_error, param0, noise0=None, **kwargs):
 
 class VBResult:
     """
-    Somehow inspired by 
+    Somehow inspired by
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html
     """
 
@@ -331,7 +287,7 @@ class VB:
         self.iter_max = iter_max
         self.scale_by_prior_mean = True
         self.result = VBResult()
-        self.scaling_eps = 1.e-20
+        self.scaling_eps = 1.0e-20
 
     def run(self, model_error, param0, noise0=None, **kwargs):
 
@@ -480,9 +436,7 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(
-                f_new, Pm, PinvLPinv, c, s, param0.parameter_names
-            )
+            self.result.try_update(f_new, Pm, PinvLPinv, c, s, param0.parameter_names)
             if self.stop_criteria(f_new, i_iter):
                 break
 
@@ -540,18 +494,18 @@ class BayesEncoder(json.JSONEncoder):
 
     Details:
 
-    Out of the box, JSON can serialize 
+    Out of the box, JSON can serialize
         dict, list, tuple, str, int, float, True/False, None
-    
+
     To make our custom classes JSON serializable, we subclass from JSONEncoder
     and overwrite its `default` method to somehow represent our class with the
     types provided above.
 
-    The idea is to serialize our custom classes (and numpy...) as a dict 
+    The idea is to serialize our custom classes (and numpy...) as a dict
     containing:
         key: unique string to represent the classe -- this helps us to indentify
              the class when _de_serializing in `bayes.vb.bayes_hook` below
-        value: some json-serializable entries -- obj.__dict__ contains all 
+        value: some json-serializable entries -- obj.__dict__ contains all
                members class members and is not optimal, but very convenient.
     https://stackoverflow.com/questions/3768895/how-to-make-a-class-json-serializable
 
