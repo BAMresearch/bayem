@@ -48,18 +48,20 @@ class MVN:
     def cov(self):
         return self.covariance
 
-    def dist(self, i=0, j=None):
-        if j is None:
-            return scipy.stats.norm(loc=self.mean[i], scale=self.cov[i, i] ** 0.5)
+    def dist(self, dim0=0, dim1=None):
+        """
+        Exctracts a two-dimensional distribution MVN with the `dim0`th and
+        `dim1`st component of this MVN.
+        """
+        if dim1 is None:
+            return scipy.stats.norm(
+                loc=self.mean[dim0], scale=self.cov[dim0, dim0] ** 0.5
+            )
         else:
-            dim = [i, j]
+            dim = [dim0, dim1]
             dim_grid = np.ix_(dim, dim)
             sub_cov = self.cov[dim_grid]
             return scipy.stats.multivariate_normal(mean=self.mean[dim], cov=sub_cov)
-
-    def pdf(self, xs, i):
-        """return pdf for all xs for i-th parameter"""
-        return scipy.stats.norm.pdf(xs, self.mean[i], self.std_diag[i])
 
     def __str__(self):
         if self.parameter_names is not None:
