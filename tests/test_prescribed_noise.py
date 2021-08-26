@@ -89,8 +89,8 @@ class TestPrescribedNoise(unittest.TestCase):
         ## MODEL
         self.model = ME_LinearRegression(Xs, Ys)
         ## PRIOR parameters
-        means0 = [ A,  B]
-        stds0 = [0.01*A,  0.01*B]
+        means0 = [0.95*A, 1.05*B]
+        stds0 = [0.1*A, 0.1*B]
         precisions0 = [1.0 / (s**2) for s in stds0]
         self.prior_pars = vb.MVN(means0, np.diag(precisions0))
         ## PRIOR noise
@@ -113,7 +113,6 @@ class TestPrescribedNoise(unittest.TestCase):
         np.testing.assert_almost_equal(vb_outputs.param.mean / mean_pars, np.ones(2), decimal=3)
         np.testing.assert_almost_equal(0.5 * vb_outputs.param.cov / cov_pars, 0.5 * np.ones((2,2)), decimal=2)
         np.testing.assert_almost_equal(vb_outputs.noise['res'].mean / prec_noise, 1, decimal=2) # compare noise precision (mean value)
-
     
     def test_without_noise(self, tolerance=1e-4, print_=True):
         ## VB solution
@@ -127,7 +126,7 @@ class TestPrescribedNoise(unittest.TestCase):
         mean_pars = means[:2]
         cov_pars = cov[:2, :2]
         np.testing.assert_almost_equal(vb_outputs.param.mean / mean_pars, np.ones(2), decimal=3)
-        np.testing.assert_almost_equal(vb_outputs.param.cov / cov_pars, np.ones((2,2)), decimal=2)
+        np.testing.assert_almost_equal(0.5 * vb_outputs.param.cov / cov_pars, 0.5 * np.ones((2,2)), decimal=2)
 
     
 if __name__ == "__main__":
