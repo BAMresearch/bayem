@@ -39,6 +39,14 @@ class TestMVN(unittest.TestCase):
         self.assertAlmostEqual(dist1D.mean(), 2)
         self.assertAlmostEqual(dist1D.std(), 2)
 
+        dist2D = mvn.dist(1, 2)
+        self.assertAlmostEqual(dist2D.mean[0], 2)
+        self.assertAlmostEqual(dist2D.mean[1], 3)
+        
+        self.assertAlmostEqual(dist2D.cov[0, 0], 4)
+        self.assertAlmostEqual(dist2D.cov[1, 1], 9)
+        self.assertAlmostEqual(dist2D.cov[0, 1], 0)
+        self.assertAlmostEqual(dist2D.cov[1, 0], 0)
 
 if __name__ == "__main__":
     unittest.main()
