@@ -3,73 +3,127 @@ import unittest
 import bayes.vb
 
 
-class AnalyticProblem:
-    def __init__(self):
-        """
-        Example from 
-        http://www.stat.cmu.edu/~brian/463-663/week09/Chapter%2003.pdf
-        section 3.4 about midterm results of 30 students.
-        """
+"""
+Examples from
+http://www.stat.cmu.edu/~brian/463-663/week09/Chapter%2003.pdf
+section 3.4 about midterm results of 30 students.
 
-        # sample = student marks:
-        self.n = 30
-        self.data = np.random.normal(75, 10, size=self.n)
-        self.mx = np.mean(self.data)
-        self.sigma = np.std(self.data)
+"""
 
-        # prior = results from previous classes
-        self.prior_mean = 70
-        self.prior_sd = 5
+n = 30
+data = np.random.normal(75, 10, size=n)
+mx, sigma = np.mean(data), np.std(data)
 
-    def __call__(self, parameters):
-        model = np.ones(self.n) * parameters[0]
-        return {"error": model - self.data}
+prior_mean = 70
+prior_sd = 5
 
-    def analytic_posterior(self, mx, sigma):
-        tau = self.prior_sd
-        denom = self.n * tau ** 2 + sigma ** 2
-        mean = (sigma ** 2 * self.prior_mean + tau ** 2 * self.n * mx) / denom
-        variance = (sigma ** 2 * tau ** 2) / denom
-        return mean, variance
+def model_error(p):
+    model = np.ones(n) * p[0]
+    return {"error": model - data}
 
 
 class Test_VBAnalytic(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
 
-    def test_book_example(self):
-        p = AnalyticProblem()
-        mean, variance = p.analytic_posterior(mx=75, sigma=10)
-        self.assertAlmostEqual(mean, 74.4, delta=0.1)
-        print(variance)
+    def test_given_noise(self):
+        """
+        We infer the distribution mu for a given, fixed noise. This means no 
+        update of the gamma distribution within variational_bayes by passing
+        the kwarg `update_noise={"error" : False}`
 
-    def run_test(self, update_noise, should_fail):
-        np.random.seed(0)
-        p = AnalyticProblem()
-        prior = bayes.vb.MVN(p.prior_mean, 1.0 / p.prior_sd ** 2)
-        gamma = {"error": bayes.vb.Gamma.FromSD(p.sigma)}
+        For the prior N(prior_mean, scale=prior_sd), the parameters of the
+        posterior distribution N(mean, scale) read
+        """
+        denom = n * prior_sd ** 2 + sigma ** 2
+        mean = (sigma ** 2 * prior_mean + prior_sd ** 2 * n * mx) / denom
+        variance = (sigma ** 2 * prior_sd ** 2) / denom
+        scale = variance **0.5
 
-        result = bayes.vb.variational_bayes(p, prior, gamma, update_noise={"error":update_noise})
+
+        prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
+        gamma = {"error": bayes.vb.Gamma.FromSD(sigma)}
+
+
+        result = bayes.vb.variational_bayes(
+            model_error, prior, gamma, update_noise={"error": False}
+        )
+        self.assertTrue(result.success)
+        self.assertAlmostEqual(result.param.mean[0], mean)
+        self.assertAlmostEqual(result.param.std_diag[0], scale)
+
+    def test_given_mu(self):
+        """
+        We infer the gamma distribution of the noise precision for a 
+        given, fixed parameter mu. This is done by setting a prior with
+        a very high precision.
+
+        For a super noninformative noise prior (shape=0, scale->inf), the 
+        analytic solution for the INVERSE gamma distribution for the noise
+        VARIANCE reads
+        """
+        a = n / 2
+        b = np.sum((data - prior_mean) ** 2) / 2
+
+        """
+        The parameters for the corresponding gamma distribution for the 
+        PRECISION then read (a, 1/b)
+        """
+        
+        big_but_not_nan = 1e50
+        prior = bayes.vb.MVN(prior_mean, big_but_not_nan)
+        gamma = {"error": bayes.vb.Gamma(shape=0, scale=big_but_not_nan)}
+
+        result = bayes.vb.variational_bayes(
+            model_error, prior, gamma, update_noise={"error": True}
+        )
         self.assertTrue(result.success)
 
-        mean, variance = p.analytic_posterior(mx=p.mx, sigma=p.sigma)
+        gamma = result.noise["error"]
+        self.assertAlmostEqual(gamma.shape, a)
+        self.assertAlmostEqual(gamma.scale, 1 / b)
 
-        if should_fail:
-            compare = self.assertNotAlmostEqual
-        else:
-            compare = self.assertAlmostEqual
+    def test_infer_both(self):
+        big_but_not_nan = 1e50
+        prior = bayes.vb.MVN(prior_mean, prior_sd)
+        gamma = {"error": bayes.vb.Gamma.FromSD(sigma, shape=1.e-10)}
 
-        compare(result.param.mean[0], mean)
-        compare(result.param.std_diag[0], np.sqrt(variance))
+        result = bayes.vb.variational_bayes(
+            model_error, prior, gamma, update_noise={"error": True}
+        )
+        self.assertTrue(result.success)
 
+        """
+        WHAT IS THE ANALYTIC SOLUTION HERE?!
+        """
+        return
+        print(result.param.std_diag[0])
+        print(np.sqrt(sigma**2/n))
 
-    def test_vb(self):
-        self.run_test(update_noise=False, should_fail=False)
-        self.run_test(update_noise=True, should_fail=True)
+        a = (n-1) / 2
+        # b = n/(n-1) * np.sum((data - result.param.mean[0]) ** 2) / 2
+        b = (n-1) * np.var(data)/2
+
+        # return
+
+        print(result)
+        gamma = result.noise["error"]
+        self.assertAlmostEqual(gamma.mean, (a-1)/b)
+        self.assertAlmostEqual(gamma.scale, 1 / b)
+        self.assertAlmostEqual(gamma.scale, a)
+
+        # a and b are the correct parameters of an INVERSE gamma
+        # distribution for sigma**2. 
+        # The corresponding parameters for a gamma distribution
+        # for precision = 1/sigma**2 are the (a, 1/b)
+
+        # gamma = result.noise["error"]
+        # self.assertAlmostEqual(gamma.shape, a)
+        # self.assertAlmostEqual(gamma.scale, 1 / b)
+
 
 if __name__ == "__main__":
     import logging
 
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
     unittest.main()
-
