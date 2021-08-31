@@ -333,7 +333,7 @@ class VB:
         self.result = VBResult()
         self.scaling_eps = 1.e-20
 
-    def run(self, model_error, param0, noise0=None, **kwargs):
+    def run(self, model_error, param0, noise0=None, update_noise=True, **kwargs):
 
         if "tolerance" in kwargs:
             self.tolerance = kwargs["tolerance"]
@@ -374,6 +374,14 @@ class VB:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
             if len(noise0) == 1:
                 return_single_noise = True
+        
+        if update_noise==True: # this is a flag and if it is True, all noises will be updated
+            update_noise = {}
+            for i in noise0:
+                update_noise[i] = True
+        else: # if not True, update_noise must have been given as a dictionary
+            assert type(update_noise)==dict
+            assert len(update_noise)==len(noise0)
 
         if isinstance(noise0, Gamma):
             # if a single Gamma is provided as prior, a single noise should
@@ -427,15 +435,16 @@ class VB:
 
             # noise parameter update
             for i in noise0:
-                # formula (30)
-                c[i] = len(k[i]) / 2 + c0[i]
-                # formula (31)
-                s_inv = (
-                    1 / s0[i]
-                    + 0.5 * k[i].T @ k[i]
-                    + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                )
-                s[i] = 1 / s_inv
+                if update_noise[i]:
+                    # formula (30)
+                    c[i] = len(k[i]) / 2 + c0[i]
+                    # formula (31)
+                    s_inv = (
+                        1 / s0[i]
+                        + 0.5 * k[i].T @ k[i]
+                        + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                    )
+                    s[i] = 1 / s_inv
 
             if "index_ARD" in kwargs:
                 index_ARD = kwargs["index_ARD"]
@@ -460,6 +469,12 @@ class VB:
             f_new -= 0.5 * sign * logdet
 
             for i in noise0:
+                """
+                NOTE:
+                    Still a possible slight improve is to exclude constant terms
+                    (depending only on c and s) in case of update_noise[i]=False.
+                    This however seems to have no influence, since they are just constants.
+                """
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
