@@ -374,14 +374,6 @@ class VB:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
             if len(noise0) == 1:
                 return_single_noise = True
-        
-        if update_noise==True: # this is a flag and if it is True, all noises will be updated
-            update_noise = {}
-            for i in noise0:
-                update_noise[i] = True
-        else: # if not True, update_noise must have been given as a dictionary
-            assert type(update_noise)==dict
-            assert len(update_noise)==len(noise0)
 
         if isinstance(noise0, Gamma):
             # if a single Gamma is provided as prior, a single noise should
@@ -394,12 +386,20 @@ class VB:
                 raise ValueError(error)
             noise_key = list(k.keys())[0]
             noise0 = {noise_key: noise0}
-
+        
         for noise_key in k:
             if noise_key not in noise0:
                 error = f"Your model error contains the noise key {noise_key},"
                 error += f"which is not given in your noise prior!"
                 raise ValueError(error)
+        
+        if update_noise==True: # this is a flag and if it is True, all noises will be updated
+            update_noise = {}
+            for i in noise0:
+                update_noise[i] = True
+        else: # if not True, update_noise must have been given as a dictionary
+            assert type(update_noise)==dict
+            assert len(update_noise)==len(noise0)
 
         # adapt notation
         s, c = {}, {}
