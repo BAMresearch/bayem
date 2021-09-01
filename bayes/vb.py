@@ -148,14 +148,14 @@ def plot_pdf(
 class VariationalBayesInterface:
     def __call__(self, number_vector):
         """
-        Returns a dict of type 
+        Returns a dict of type
             {noise_key : model_error_vector}
         """
         raise NotImplementedError()
 
     def jacobian(self, number_vector):
         """
-        Returns a dict of type 
+        Returns a dict of type
             {noise_key : d_model_error_d_number_vector_matrix}
 
         By default, this is a numeric Jacobian calculated by central
@@ -218,7 +218,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
     Nonlinear variational bayes algorithm according to
     @article{chappell2008variational,
           title={Variational Bayesian inference for a nonlinear forward model},
-          author={Chappell, Michael A and Groves, Adrian R and Whitcher, 
+          author={Chappell, Michael A and Groves, Adrian R and Whitcher,
                   Brandon and Woolrich, Mark W},
           journal={IEEE Transactions on Signal Processing},
           volume={57},
@@ -229,7 +229,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
         }
 
     This implements the formulas of section III.C (Extending the Noise Model)
-    with the same notation and references to each formula, with the only 
+    with the same notation and references to each formula, with the only
     exception that capital lambda L in the paper is here referred to as L.
 
     model_error that contains
@@ -251,7 +251,7 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
 
     noise0:
         list of gamma distributions for the noise prior
-        If noise0 is None, a noninformative gamma prior is chosen 
+        If noise0 is None, a noninformative gamma prior is chosen
         automatically according to the number of noise groups.
 
     tolerance:
@@ -286,7 +286,7 @@ def variational_bayes_nonlinear(model_error, param0, noise0=None, **kwargs):
 
 class VBResult:
     """
-    Somehow inspired by 
+    Somehow inspired by
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html
     """
 
@@ -331,9 +331,9 @@ class VB:
         self.iter_max = iter_max
         self.scale_by_prior_mean = True
         self.result = VBResult()
-        self.scaling_eps = 1.e-20
+        self.scaling_eps = 1.0e-20
 
-    def run(self, model_error, param0, noise0=None, **kwargs):
+    def run(self, model_error, param0, noise0=None, update_noise=True, **kwargs):
 
         if "tolerance" in kwargs:
             self.tolerance = kwargs["tolerance"]
@@ -393,6 +393,13 @@ class VB:
                 error += f"which is not given in your noise prior!"
                 raise ValueError(error)
 
+        if isinstance(update_noise, bool):
+            # apply the `update_noise` flag to all noises
+            flag = update_noise
+            update_noise = {}
+            for i in noise0:
+                update_noise[i] = flag
+
         # adapt notation
         s, c = {}, {}
         for n, gamma in noise0.items():
@@ -427,15 +434,16 @@ class VB:
 
             # noise parameter update
             for i in noise0:
-                # formula (30)
-                c[i] = len(k[i]) / 2 + c0[i]
-                # formula (31)
-                s_inv = (
-                    1 / s0[i]
-                    + 0.5 * k[i].T @ k[i]
-                    + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                )
-                s[i] = 1 / s_inv
+                if update_noise[i]:
+                    # formula (30)
+                    c[i] = len(k[i]) / 2 + c0[i]
+                    # formula (31)
+                    s_inv = (
+                        1 / s0[i]
+                        + 0.5 * k[i].T @ k[i]
+                        + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                    )
+                    s[i] = 1 / s_inv
 
             if "index_ARD" in kwargs:
                 index_ARD = kwargs["index_ARD"]
@@ -460,6 +468,12 @@ class VB:
             f_new -= 0.5 * sign * logdet
 
             for i in noise0:
+                """
+                NOTE:
+                    Still a possible slight improve is to exclude constant terms
+                    (depending only on c and s) in case of update_noise[i]=False.
+                    This however seems to have no influence, since they are just constants.
+                """
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
@@ -480,9 +494,7 @@ class VB:
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(
-                f_new, Pm, PinvLPinv, c, s, param0.parameter_names
-            )
+            self.result.try_update(f_new, Pm, PinvLPinv, c, s, param0.parameter_names)
             if self.stop_criteria(f_new, i_iter):
                 break
 
@@ -540,18 +552,18 @@ class BayesEncoder(json.JSONEncoder):
 
     Details:
 
-    Out of the box, JSON can serialize 
+    Out of the box, JSON can serialize
         dict, list, tuple, str, int, float, True/False, None
-    
+
     To make our custom classes JSON serializable, we subclass from JSONEncoder
     and overwrite its `default` method to somehow represent our class with the
     types provided above.
 
-    The idea is to serialize our custom classes (and numpy...) as a dict 
+    The idea is to serialize our custom classes (and numpy...) as a dict
     containing:
         key: unique string to represent the classe -- this helps us to indentify
              the class when _de_serializing in `bayes.vb.bayes_hook` below
-        value: some json-serializable entries -- obj.__dict__ contains all 
+        value: some json-serializable entries -- obj.__dict__ contains all
                members class members and is not optimal, but very convenient.
     https://stackoverflow.com/questions/3768895/how-to-make-a-class-json-serializable
 
