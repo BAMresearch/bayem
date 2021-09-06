@@ -13,7 +13,7 @@ def test_vb_visu(generate_ref_img=False):
     gamma0 = bayes.vb.Gamma.FromSD(5, shape=3)
     gamma1 = bayes.vb.Gamma.FromSD(1, shape=8.5)
 
-    axes = bayes.vb_visu.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1])
+    axes = bayes.vb_visu.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
     bayes.vb_visu.format_axes(axes)
 
     ref_img_name = Path(__file__).absolute().parent / "test_vb_visu_ref.png"

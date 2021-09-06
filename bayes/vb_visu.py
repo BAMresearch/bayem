@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
 def plot_pdf(
@@ -45,7 +46,14 @@ def plot_pdf(
 
 
 def visualize_vb_marginal_matrix(
-    mvn, gammas=None, axes=None, resolution=201, median=True, color="#d20020", lw=1
+    mvn,
+    gammas=None,
+    axes=None,
+    resolution=201,
+    median=True,
+    color="#d20020",
+    lw=1,
+    label=None,
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -70,6 +78,8 @@ def visualize_vb_marginal_matrix(
         should work like "red", "g", (0.61, 0.47, 0)
     lw:
         widths of all plotted lines
+    label:
+        if provided, adds a legend entry
     """
     gammas = gammas or []
 
@@ -77,7 +87,7 @@ def visualize_vb_marginal_matrix(
     N = N_mvn + len(gammas)
 
     if axes is None:
-        fig, axes = plt.subplots(N, N)
+        _, axes = plt.subplots(N, N)
 
     assert axes.shape == (N, N)
 
@@ -119,6 +129,29 @@ def visualize_vb_marginal_matrix(
                     axes[i, j].axvline(
                         dists_1d[j].median(), ls="--", color=color, lw=lw
                     )
+
+    if label is not None:
+
+        line = Line2D([0], [0], color=color, linewidth=lw, label=label)
+        fig = axes[0, 0].figure
+        if fig.legends:
+            handles = fig.legends[0].legendHandles
+            fig.legends = []
+        else:
+            handles = []
+        handles.append(line)
+
+        ax_bounds = np.array([list(ax.bbox._bbox.bounds) for ax in axes.flat])
+        top_margin = 1 - (ax_bounds[:, 0] + ax_bounds[:, 2]).max()
+        right_margin = 1 - (ax_bounds[:, 1] + ax_bounds[:, 3]).max()
+        bbox_to_anchor = (1.0 - right_margin / 2, 1.0 - top_margin)
+        fig.legend(
+            handles=handles,
+            loc="upper right",
+            fontsize=8,
+            bbox_to_anchor=bbox_to_anchor,
+        )
+
     return axes
 
 
