@@ -48,9 +48,20 @@ class MVN:
     def cov(self):
         return self.covariance
 
-    def pdf(self, xs, i):
-        """return pdf for all xs for i-th parameter"""
-        return scipy.stats.norm.pdf(xs, self.mean[i], self.std_diag[i])
+    def dist(self, dim0=0, dim1=None):
+        """
+        Exctracts a two-dimensional distribution MVN with the `dim0`th and
+        `dim1`st component of this MVN.
+        """
+        if dim1 is None:
+            return scipy.stats.norm(
+                loc=self.mean[dim0], scale=self.cov[dim0, dim0] ** 0.5
+            )
+        else:
+            dim = [dim0, dim1]
+            dim_grid = np.ix_(dim, dim)
+            sub_cov = self.cov[dim_grid]
+            return scipy.stats.multivariate_normal(mean=self.mean[dim], cov=sub_cov)
 
     def __str__(self):
         if self.parameter_names is not None:
@@ -80,8 +91,8 @@ class Gamma:
     def mean(self):
         return self.scale * self.shape
 
-    def pdf(self, xs):
-        return scipy.stats.gamma.pdf(xs, a=self.shape, scale=self.scale)
+    def dist(self):
+        return scipy.stats.gamma(a=self.shape, scale=self.scale)
 
     def __repr__(self):
         return f"{self.name} with \n └── mean: {self.mean:10.6f}"
@@ -99,50 +110,6 @@ class Gamma:
         https://math.stackexchange.com/questions/449234/vague-gamma-prior
         """
         return cls(scale=1.0 / 3.0, shape=0.0)
-
-
-def plot_pdf(
-    dist,
-    expected_value=None,
-    name1="Posterior",
-    name2="Prior",
-    plot="individual",
-    color_plot="r",
-    **kwargs,
-):
-    import matplotlib.pyplot as plt
-
-    if ("min" in kwargs) & ("max" in kwargs):
-        x_min = kwargs["min"]
-        x_max = kwargs["max"]
-    else:
-        x_min = np.min(dist.mean) * 0.02
-        x_max = np.max(dist.mean) * 3
-    # Create grid and multivariate normal
-    x_plot = np.linspace(x_min, x_max, 5000)
-
-    if expected_value is not None:
-        expected_value = np.atleast_1d(expected_value)
-
-    for i in range(len(dist.mean)):
-        plt.plot(
-            x_plot, dist.pdf(x_plot, i), label="%s of parameter nb %i" % (name1, i)
-        )
-        if expected_value is not None:
-            plt.axvline(expected_value[i], ls=":", c="k")
-        if "compare_with" in kwargs:
-            plt.plot(
-                x_plot,
-                kwargs["compare_with"].pdf(x_plot, i),
-                label="%s of parameter nb %i" % (name2, i),
-            )
-
-        plt.xlabel("Parameter")
-        plt.legend()
-        if plot == "individual":
-            plt.show()
-    if plot == "joint":
-        plt.show()
 
 
 class VariationalBayesInterface:
