@@ -10,6 +10,9 @@ class TestMVN(unittest.TestCase):
             precision=np.diag([1, 2, 3]),
             parameter_names=["A", "B", "C"],
         )
+   
+    def test_len(self):
+        self.assertEqual(len(self.mvn), 3)
 
     def test_named_print(self):
         print(self.mvn)

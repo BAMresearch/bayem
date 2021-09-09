@@ -28,6 +28,9 @@ class MVN:
         if self.parameter_names is not None:
             assert len(self.parameter_names) == len(self.mean)
 
+    def __len__(self):
+        return len(self.mean)
+
     def index(self, parameter_name):
         return self.parameter_names.index(parameter_name)
 
