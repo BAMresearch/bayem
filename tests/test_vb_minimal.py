@@ -26,14 +26,6 @@ class Test_VB(unittest.TestCase):
         param_post, noise_post = info.param, info.noise
         print(info)
 
-        # if plot:
-        #     plot_pdf(
-        #         param_post,
-        #         expected_value=param_true,
-        #         compare_with=param_prior,
-        #         plot="joint",
-        #     )
-        #
         for i, correct_value in enumerate([A, B]):
             posterior_mean = param_post.mean[i]
             posterior_std = param_post.std_diag[i]
@@ -48,6 +40,7 @@ class Test_VB(unittest.TestCase):
         self.assertAlmostEqual(post_noise_std, sd, delta=sd / 100)
 
         self.assertLess(info.nit, 20)
+        self.assertLess(info.t, 0.1)
 
     def test_dict(self):
         self.run_vb(me_dict)

@@ -4,6 +4,7 @@ import scipy.stats
 import scipy.special as special
 from .jacobian import delta_x
 import json
+from time import perf_counter
 
 import logging
 
@@ -265,6 +266,7 @@ class VBResult:
         self.free_energies = []
         self.f_max = -np.inf
         self.nit = 0
+        self.t = None
 
     def __str__(self):
         s = "### VB Result ###\n"
@@ -301,7 +303,7 @@ class VB:
         self.scaling_eps = 1.0e-20
 
     def run(self, model_error, param0, noise0=None, update_noise=True, **kwargs):
-
+        t0 = perf_counter()
         if "tolerance" in kwargs:
             self.tolerance = kwargs["tolerance"]
         if "iter_max" in kwargs:
@@ -477,6 +479,7 @@ class VB:
             noise = list(self.result.noise.values())[0]
             self.result.noise = noise
 
+        self.result.t = perf_counter() - t0
         return self.result
 
     def stop_criteria(self, f_new, i_iter):
