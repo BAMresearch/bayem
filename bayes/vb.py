@@ -1,18 +1,16 @@
 import copy
-import numpy as np
-import scipy.stats
-import scipy.special as special
-from .jacobian import delta_x
 import json
-
 import logging
+from time import perf_counter
+
+import numpy as np
+import scipy.special as special
+import scipy.stats
+from tabulate import tabulate
+
+from .jacobian import delta_x
 
 logger = logging.getLogger(__name__)
-
-
-def pretty_array(a, offset=0):
-    s = np.array2string(a, max_line_width=70, formatter={"float": "{: 7.3e}".format})
-    return s.replace("\n", "\n │" + " " * offset)
 
 
 class MVN:
@@ -20,12 +18,18 @@ class MVN:
         self.mean = np.atleast_1d(mean).astype(float)
         self.precision = np.atleast_2d(precision).astype(float)
         self.name = name
-        self.parameter_names = parameter_names
+        if parameter_names is None:
+            self.parameter_names = [f"p{i}" for i in range(len(self.mean))]
+        else:
+            self.parameter_names = parameter_names
 
         assert len(self.mean) == len(self.precision)
 
         if self.parameter_names is not None:
             assert len(self.parameter_names) == len(self.mean)
+
+    def __len__(self):
+        return len(self.mean)
 
     def index(self, parameter_name):
         return self.parameter_names.index(parameter_name)
@@ -64,20 +68,10 @@ class MVN:
             return scipy.stats.multivariate_normal(mean=self.mean[dim], cov=sub_cov)
 
     def __str__(self):
-        if self.parameter_names is not None:
-            return self._named_str()
-        else:
-            s = f"{self.name} with \n"
-            s += f" ├── mean: {pretty_array(self.mean, 9)}\n"
-            s += f" ├── std:  {pretty_array(self.std_diag, 9)}"
-            return s
-
-    def _named_str(self):
-        N = max([len(s) for s in self.parameter_names])
-        s = f"{self.name} with \n"
-        sd = self.std_diag
-        for i, name in enumerate(self.parameter_names):
-            s += f" ├── {name:{N}s} µ={self.mean[i]:10.6f} σ={sd[i]:10.6f} \n"
+        headers = ["name", "µ", "σ"]
+        data = [self.parameter_names, self.mean, self.std_diag]
+        data_T = list(zip(*data))
+        s = tabulate(data_T, headers=headers)
         return s
 
 
@@ -91,11 +85,15 @@ class Gamma:
     def mean(self):
         return self.scale * self.shape
 
+    @property
+    def std(self):
+        return self.scale * self.shape**0.5
+
     def dist(self):
         return scipy.stats.gamma(a=self.shape, scale=self.scale)
 
     def __repr__(self):
-        return f"{self.name} with \n └── mean: {self.mean:10.6f}"
+        return f"{self.name:15} | mean:{self.mean:10.6f} | scale:{self.scale:10.6f} | shape:{self.shape:10.6f}"
 
     @classmethod
     def FromSD(cls, sd, shape=1.0):
@@ -265,6 +263,7 @@ class VBResult:
         self.free_energies = []
         self.f_max = -np.inf
         self.nit = 0
+        self.t = None
 
     def __str__(self):
         s = "### VB Result ###\n"
@@ -301,7 +300,7 @@ class VB:
         self.scaling_eps = 1.0e-20
 
     def run(self, model_error, param0, noise0=None, update_noise=True, **kwargs):
-
+        t0 = perf_counter()
         if "tolerance" in kwargs:
             self.tolerance = kwargs["tolerance"]
         if "iter_max" in kwargs:
@@ -477,6 +476,7 @@ class VB:
             noise = list(self.result.noise.values())[0]
             self.result.noise = noise
 
+        self.result.t = perf_counter() - t0
         return self.result
 
     def stop_criteria(self, f_new, i_iter):
