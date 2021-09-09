@@ -82,6 +82,10 @@ class Gamma:
     def mean(self):
         return self.scale * self.shape
 
+    @property
+    def std(self):
+        return self.scale * self.shape**0.5
+
     def dist(self):
         return scipy.stats.gamma(a=self.shape, scale=self.scale)
 
