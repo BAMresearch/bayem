@@ -54,6 +54,7 @@ def visualize_vb_marginal_matrix(
     color="#d20020",
     lw=1,
     label=None,
+    legend_fontsize=8
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -148,7 +149,7 @@ def visualize_vb_marginal_matrix(
         fig.legend(
             handles=handles,
             loc="upper right",
-            fontsize=8,
+            fontsize=legend_fontsize,
             bbox_to_anchor=bbox_to_anchor,
         )
 
