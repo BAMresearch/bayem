@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="bayes",
+    name="bayem",
     version="0.1",
     author="BAM",
     author_email="thomas.titscher@bam.de",
-    description="Variational Bayes",
+    description="Bayem",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="",
+    url="https://github.com/BAMresearch/BayesianInference",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

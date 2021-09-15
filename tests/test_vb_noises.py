@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from bayes import *
+from bayem import *
 
 PRM_A, PRM_B = 7.0, 10.0  # slope and offset to identify
 NOISE0_SD = 0.1

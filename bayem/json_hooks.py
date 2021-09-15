@@ -5,12 +5,12 @@ from .distributions import MVN, Gamma
 from .vb import VBResult
 
 
-class BayesEncoder(json.JSONEncoder):
+class BayemEncoder(json.JSONEncoder):
     """
     Usage:
-        string = json.dumps(obj, cls=bayes.vb.BayesEncoder, ...)
+        string = json.dumps(obj, cls=bayem.vb.BayemEncoder, ...)
         with open(...) as f:
-            json.dump(obj, f cls=bayes.vb.BayesEncoder, ...)
+            json.dump(obj, f cls=bayem.vb.BayemEncoder, ...)
 
     Details:
 
@@ -24,7 +24,7 @@ class BayesEncoder(json.JSONEncoder):
     The idea is to serialize our custom classes (and numpy...) as a dict
     containing:
         key: unique string to represent the classe -- this helps us to indentify
-             the class when _de_serializing in `bayes.vb.bayes_hook` below
+             the class when _de_serializing in `bayem.vb.bayem_hook` below
         value: some json-serializable entries -- obj.__dict__ contains all
                members class members and is not optimal, but very convenient.
     https://stackoverflow.com/questions/3768895/how-to-make-a-class-json-serializable
@@ -60,7 +60,7 @@ class BayesEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def bayes_hook(dct):
+def bayem_hook(dct):
     """
     `dct`:
         json reprensentation of an `obj` (a dict)
@@ -68,13 +68,13 @@ def bayes_hook(dct):
         python object created from `dct`
 
     Usage:
-        obj = json.loads(string, object_hook=bayes.vb.bayes_hook, ...)
+        obj = json.loads(string, object_hook=bayem.vb.bayem_hook, ...)
         with open(...) as f:
-            obj = json.load(f, object_hook=bayes.vb.bayes_hook, ...)
+            obj = json.load(f, object_hook=bayem.vb.bayem_hook, ...)
 
     Details:
 
-    BayesEncoder stores all of our classes as dicts containing their members.
+    BayemEncoder stores all of our classes as dicts containing their members.
     This `object_hook` tries to convert those dicts back to actual python objects.
 
     Some fancy metaprogramming may help to avoid repetition. TODO?

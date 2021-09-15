@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from bayes import *
+from bayem import *
 
 np.random.seed(6174)
 x = np.linspace(0, 1, 1000)

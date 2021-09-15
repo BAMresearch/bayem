@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-import bayes
+import bayem
 from test_vb import ModelError, ModelErrorWithJacobian
 
 
@@ -62,13 +62,13 @@ class Test_VB(unittest.TestCase):
 
         # setting mean and precision
         bias_param = [[0] * n_sensors, [1e-3] * n_sensors]
-        param_prior = bayes.MVN(
+        param_prior = bayem.MVN(
             [6, 11] + bias_param[0],
             ([1 / 3 ** 2, 1 / 3 ** 2] + bias_param[1]) * np.identity(2 + n_sensors),
         )
-        noise_prior = bayes.Gamma(scale=0.5, shape=2 * 1 / noise_std ** 2)
+        noise_prior = bayem.Gamma(scale=0.5, shape=2 * 1 / noise_std ** 2)
 
-        vb = bayes.VB()
+        vb = bayem.VB()
         info = vb.run(
             me,
             param_prior,
@@ -80,7 +80,7 @@ class Test_VB(unittest.TestCase):
         param_post, noise_post = info.param, info.noise
 
         if plot:
-            bayes.plot_pdf(
+            bayem.plot_pdf(
                 param_post,
                 expected_value=param_true,
                 compare_with=param_prior,
