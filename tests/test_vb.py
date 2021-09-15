@@ -72,7 +72,7 @@ class Test_VB(unittest.TestCase):
         param_post, noise_post = info.param, info.noise
 
         if plot:
-            plot_pdf(
+            bayes.plot_pdf(
                 param_post,
                 expected_value=param_true,
                 compare_with=param_prior,
