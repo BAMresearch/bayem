@@ -1,7 +1,6 @@
 import numpy as np
 import unittest
 from bayes.vb import *
-from bayes.parameters import ParameterList
 
 
 class ForwardModel:

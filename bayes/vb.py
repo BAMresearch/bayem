@@ -8,8 +8,6 @@ import scipy.special as special
 import scipy.stats
 from tabulate import tabulate
 
-from .jacobian import delta_x
-
 logger = logging.getLogger(__name__)
 
 
@@ -138,6 +136,14 @@ class VariationalBayesInterface:
             dict of type {key : numpy_matrix of shape NxM}
         """
         x = np.copy(number_vector)
+
+
+        def delta_x(x0):
+            dx = x0 * 1.0e-7 # approx x0 * sqrt(machine precision)
+            if dx == 0:
+                dx = 1.0e-7
+            return dx
+
 
         for iParam in range(len(x)):
             dx = delta_x(x[iParam])
