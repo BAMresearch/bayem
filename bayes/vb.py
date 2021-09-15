@@ -1,111 +1,13 @@
 import copy
-import json
 import logging
 from time import perf_counter
 
 import numpy as np
 import scipy.special as special
-import scipy.stats
-from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
 
-
-class MVN:
-    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
-        self.mean = np.atleast_1d(mean).astype(float)
-        self.precision = np.atleast_2d(precision).astype(float)
-        self.name = name
-        if parameter_names is None:
-            self.parameter_names = [f"p{i}" for i in range(len(self.mean))]
-        else:
-            self.parameter_names = parameter_names
-
-        assert len(self.mean) == len(self.precision)
-
-        if self.parameter_names is not None:
-            assert len(self.parameter_names) == len(self.mean)
-
-    def __len__(self):
-        return len(self.mean)
-
-    def index(self, parameter_name):
-        return self.parameter_names.index(parameter_name)
-
-    def named_mean(self, parameter_name):
-        return self.mean[self.index(parameter_name)]
-
-    def named_sd(self, parameter_name):
-        return self.std_diag[self.index(parameter_name)]
-
-    @property
-    def std_diag(self):
-        return np.sqrt(np.diag(self.cov))
-
-    @property
-    def covariance(self):
-        return np.linalg.inv(self.precision)
-
-    @property
-    def cov(self):
-        return self.covariance
-
-    def dist(self, dim0=0, dim1=None):
-        """
-        Exctracts a two-dimensional distribution MVN with the `dim0`th and
-        `dim1`st component of this MVN.
-        """
-        if dim1 is None:
-            return scipy.stats.norm(
-                loc=self.mean[dim0], scale=self.cov[dim0, dim0] ** 0.5
-            )
-        else:
-            dim = [dim0, dim1]
-            dim_grid = np.ix_(dim, dim)
-            sub_cov = self.cov[dim_grid]
-            return scipy.stats.multivariate_normal(mean=self.mean[dim], cov=sub_cov)
-
-    def __str__(self):
-        headers = ["name", "µ", "σ"]
-        data = [self.parameter_names, self.mean, self.std_diag]
-        data_T = list(zip(*data))
-        s = tabulate(data_T, headers=headers)
-        return s
-
-
-class Gamma:
-    def __init__(self, shape=1.0, scale=1.0, name="Gamma"):
-        self.scale = scale
-        self.shape = shape
-        self.name = name
-
-    @property
-    def mean(self):
-        return self.scale * self.shape
-
-    @property
-    def std(self):
-        return self.scale * self.shape**0.5
-
-    def dist(self):
-        return scipy.stats.gamma(a=self.shape, scale=self.scale)
-
-    def __repr__(self):
-        return f"{self.name:15} | mean:{self.mean:10.6f} | scale:{self.scale:10.6f} | shape:{self.shape:10.6f}"
-
-    @classmethod
-    def FromSD(cls, sd, shape=1.0):
-        return cls(shape, 1.0 / sd ** 2 / shape)
-
-    @classmethod
-    def Noninformative(cls):
-        """
-        Suggested by @ilma following
-        https://projecteuclid.org/euclid.ejs/1320416981
-        or
-        https://math.stackexchange.com/questions/449234/vague-gamma-prior
-        """
-        return cls(scale=1.0 / 3.0, shape=0.0)
+from .distributions import MVN, Gamma
 
 
 class VariationalBayesInterface:
@@ -183,6 +85,43 @@ class VBModelErrorWrapper(VariationalBayesInterface):
         else:
             return k
 
+class VBResult:
+    """
+    Somehow inspired by
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html
+    """
+
+    def __init__(self):
+        self.param = None
+        self.noise = {}
+        self.success = False
+        self.message = ""
+        self.free_energies = []
+        self.f_max = -np.inf
+        self.nit = 0
+        self.t = None
+
+    def __str__(self):
+        s = "### VB Result ###\n"
+
+        for member, value in vars(self).items():
+            v = str(value).replace("\n", "\n" + " " * 17)
+            s += f"  {member+':':14s} {v}\n"
+
+        return s
+
+    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
+        self.free_energies.append(f_new)
+        if f_new > self.f_max:
+            # update
+            self.f_max = f_new
+            self.param = MVN(
+                mean, precision, name="MVN posterior", parameter_names=parameter_names
+            )
+
+            for n in shapes:
+                self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
+
 
 def variational_bayes(model_error, param0, noise0=None, **kwargs):
     """
@@ -243,54 +182,6 @@ def variational_bayes(model_error, param0, noise0=None, **kwargs):
     """
     vb = VB()
     return vb.run(model_error, param0, noise0, **kwargs)
-
-
-def variational_bayes_nonlinear(model_error, param0, noise0=None, **kwargs):
-    logger.warning(
-        "'variational_bayes_nonlinear' is deprecated. Use 'variational_bayes' "
-        " with the same arguments that only returns a 'VBResult' instance."
-    )
-    vb = VB()
-    result = vb.run(model_error, param0, noise0, **kwargs)
-    return result.param, result.noise, result
-
-
-class VBResult:
-    """
-    Somehow inspired by
-    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html
-    """
-
-    def __init__(self):
-        self.param = None
-        self.noise = {}
-        self.success = False
-        self.message = ""
-        self.free_energies = []
-        self.f_max = -np.inf
-        self.nit = 0
-        self.t = None
-
-    def __str__(self):
-        s = "### VB Result ###\n"
-
-        for member, value in vars(self).items():
-            v = str(value).replace("\n", "\n" + " " * 17)
-            s += f"  {member+':':14s} {v}\n"
-
-        return s
-
-    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
-        self.free_energies.append(f_new)
-        if f_new > self.f_max:
-            # update
-            self.f_max = f_new
-            self.param = MVN(
-                mean, precision, name="MVN posterior", parameter_names=parameter_names
-            )
-
-            for n in shapes:
-                self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
 
 
 class VB:
@@ -516,97 +407,3 @@ class VB:
         return False
 
 
-class BayesEncoder(json.JSONEncoder):
-    """
-    Usage:
-        string = json.dumps(obj, cls=bayes.vb.BayesEncoder, ...)
-        with open(...) as f:
-            json.dump(obj, f cls=bayes.vb.BayesEncoder, ...)
-
-    Details:
-
-    Out of the box, JSON can serialize
-        dict, list, tuple, str, int, float, True/False, None
-
-    To make our custom classes JSON serializable, we subclass from JSONEncoder
-    and overwrite its `default` method to somehow represent our class with the
-    types provided above.
-
-    The idea is to serialize our custom classes (and numpy...) as a dict
-    containing:
-        key: unique string to represent the classe -- this helps us to indentify
-             the class when _de_serializing in `bayes.vb.bayes_hook` below
-        value: some json-serializable entries -- obj.__dict__ contains all
-               members class members and is not optimal, but very convenient.
-    https://stackoverflow.com/questions/3768895/how-to-make-a-class-json-serializable
-
-    Note that the method is called recursively. To serialize MVN we call the
-    `default` method below and see that json representation should contain
-    the __dict__ of members. This dict also contains "mean" of type `np.array`.
-    Thus, `default` is now called on `np.array` which is represented by a list
-    of its values.
-
-    """
-
-    def default(self, obj):
-        """
-        `obj`:
-            python object to serialize
-        return:
-            json (serializeable) reprensentation of `obj`
-        """
-        if isinstance(obj, VBResult):
-            return {"vb.VBResult": obj.__dict__}
-
-        if isinstance(obj, MVN):
-            return {"vb.MVN": obj.__dict__}
-
-        if isinstance(obj, Gamma):
-            return {"vb.Gamma": obj.__dict__}
-
-        if isinstance(obj, np.ndarray):
-            return {"np.array": obj.tolist()}
-
-        # `obj` is not one of our types? Fall back to superclass implementation.
-        return json.JSONEncoder.default(self, obj)
-
-
-def bayes_hook(dct):
-    """
-    `dct`:
-        json reprensentation of an `obj` (a dict)
-    `obj`:
-        python object created from `dct`
-
-    Usage:
-        obj = json.loads(string, object_hook=bayes.vb.bayes_hook, ...)
-        with open(...) as f:
-            obj = json.load(f, object_hook=bayes.vb.bayes_hook, ...)
-
-    Details:
-
-    BayesEncoder stores all of our classes as dicts containing their members.
-    This `object_hook` tries to convert those dicts back to actual python objects.
-
-    Some fancy metaprogramming may help to avoid repetition. TODO?
-    """
-    if "vb.VBResult" in dct:
-        result = VBResult()
-        result.__dict__ = dct["vb.VBResult"]
-        return result
-
-    if "vb.MVN" in dct:
-        mvn = MVN()
-        mvn.__dict__ = dct["vb.MVN"]
-        return mvn
-
-    if "vb.Gamma" in dct:
-        gamma = Gamma()
-        gamma.__dict__ = dct["vb.Gamma"]
-        return gamma
-
-    if "np.array" in dct:
-        return np.array(dct["np.array"])
-
-    # Type not recognized, just return the dict.
-    return dct

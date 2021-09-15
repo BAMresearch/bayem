@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-import bayes.vb
+import bayes
 
 """
 Examples from
@@ -40,10 +40,10 @@ class Test_VBAnalytic(unittest.TestCase):
         variance = (sigma ** 2 * prior_sd ** 2) / denom
         scale = variance ** 0.5
 
-        prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
-        gamma = bayes.vb.Gamma.FromSD(sigma)
+        prior = bayes.MVN(prior_mean, 1.0 / prior_sd ** 2)
+        gamma = bayes.Gamma.FromSD(sigma)
 
-        result = bayes.vb.variational_bayes(
+        result = bayes.variational_bayes(
             model_error, prior, gamma, update_noise=update_noise
         )
         self.assertTrue(result.success)
@@ -73,10 +73,10 @@ class Test_VBAnalytic(unittest.TestCase):
         """
 
         big_but_not_nan = 1e50
-        prior = bayes.vb.MVN(prior_mean, big_but_not_nan)
-        gamma = bayes.vb.Gamma(shape=0, scale=big_but_not_nan)
+        prior = bayes.MVN(prior_mean, big_but_not_nan)
+        gamma = bayes.Gamma(shape=0, scale=big_but_not_nan)
 
-        result = bayes.vb.variational_bayes(
+        result = bayes.variational_bayes(
             model_error, prior, gamma, update_noise=True
         )
         self.assertTrue(result.success)
@@ -97,18 +97,18 @@ class Test_VBAnalytic(unittest.TestCase):
         def dict_model_error(numbers):
             return {"A": np.ones(5), "B": np.zeros(5)}
 
-        param0 = bayes.vb.MVN()
-        noise0 = {"A": bayes.vb.Gamma(1, 1), "B": bayes.vb.Gamma(2, 2)}
+        param0 = bayes.MVN()
+        noise0 = {"A": bayes.Gamma(1, 1), "B": bayes.Gamma(2, 2)}
 
         # You may provide a single update_noise flag
-        result = bayes.vb.variational_bayes(
+        result = bayes.variational_bayes(
             dict_model_error, param0, noise0, update_noise=False
         )
         self.assert_gamma_equal(result.noise["A"], noise0["A"])
         self.assert_gamma_equal(result.noise["B"], noise0["B"])
 
         # Alternatively, you can provide a dict containing _all_ noise keys
-        result = bayes.vb.variational_bayes(
+        result = bayes.variational_bayes(
             dict_model_error, param0, noise0, update_noise={"A": True, "B": False}
         )
         self.assert_not_gamma_equal(result.noise["A"], noise0["A"])
@@ -116,7 +116,7 @@ class Test_VBAnalytic(unittest.TestCase):
 
         # There will be an error, if you forget one
         with self.assertRaises(KeyError):
-            bayes.vb.variational_bayes(
+            bayes.variational_bayes(
                 dict_model_error, param0, noise0, update_noise={"A": True}
             )
 

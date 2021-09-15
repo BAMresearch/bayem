@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from bayes.vb import *
+from bayes import *
 from test_vb import ModelError, ModelErrorWithJacobian
 
 

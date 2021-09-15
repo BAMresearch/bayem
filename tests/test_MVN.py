@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
-import bayes.vb
+import bayes
 
 
 class TestMVN(unittest.TestCase):
     def setUp(self):
-        self.mvn = bayes.vb.MVN(
+        self.mvn = bayes.MVN(
             mean=np.r_[1, 2, 3],
             precision=np.diag([1, 2, 3]),
             parameter_names=["A", "B", "C"],
@@ -27,17 +27,17 @@ class TestMVN(unittest.TestCase):
         prec2 = np.random.random((2, 2))
         prec3 = np.random.random((3, 3))
         with self.assertRaises(Exception):
-            bayes.vb.MVN(mean2, prec3)
+            bayes.MVN(mean2, prec3)
 
-        bayes.vb.MVN(mean2, prec2)  # no exception!
+        bayes.MVN(mean2, prec2)  # no exception!
         with self.assertRaises(Exception):
-            bayes.vb.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
+            bayes.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
 
     def test_dist(self):
         mean = np.r_[1, 2, 3]
         prec = np.diag([1, 1 / 2 ** 2, 1 / 3 ** 2])
 
-        mvn = bayes.vb.MVN(mean, prec)
+        mvn = bayes.MVN(mean, prec)
         dist1D = mvn.dist(1)
         self.assertAlmostEqual(dist1D.mean(), 2)
         self.assertAlmostEqual(dist1D.std(), 2)
@@ -53,15 +53,15 @@ class TestMVN(unittest.TestCase):
 
 class TestGamma(unittest.TestCase):
     def test_from_sd(self):
-        gamma = bayes.vb.Gamma.FromSD(6174)
+        gamma = bayes.Gamma.FromSD(6174)
         self.assertAlmostEqual(gamma.mean, 1/6174**2)
 
     def test_print(self):
-        print(bayes.vb.Gamma.FromSD(42))
+        print(bayes.Gamma.FromSD(42))
     
     def test_sd(self):
         scale, shape = 42, 6174
-        gamma = bayes.vb.Gamma(shape=shape, scale=scale)
+        gamma = bayes.Gamma(shape=shape, scale=scale)
         self.assertAlmostEqual(gamma.mean, shape*scale)
         variance = shape * scale**2
         self.assertAlmostEqual(gamma.std, variance**0.5)
