@@ -405,7 +405,7 @@ class VB:
         self.iter_max = iter_max
         self.result = VBResult()
     # @profile
-    def run(self, model_error, param0, noise0=None, **kwargs):
+    def run(self, model_error, param0, noise0=None, fix_noise=None, **kwargs):
 
         if "tolerance" in kwargs:
             self.tolerance = kwargs["tolerance"]
@@ -425,6 +425,15 @@ class VB:
             noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
             if len(noise0) == 1:
                 return_single_noise = True
+
+        update_noise = {}
+        for i in noise0:
+            if fix_noise == None:
+                update_noise[i] = True
+            elif i not in fix_noise:
+                update_noise[i] = True
+            else:
+                update_noise[i] = False
 
         if isinstance(noise0, Gamma):
             # if a single Gamma is provided as prior, a single noise should
@@ -476,21 +485,22 @@ class VB:
 
             # noise parameter update
             for i in noise0:
-                # formula (30)
-                c[i] = len(k[i]) / 2 + c0[i]
-                # formula (31)
-                s_inv = (
-                    1 / s0[i]
-                    + 0.5 * k[i].T @ k[i]
-                    + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                )
-                s[i] = 1 / s_inv
+                if update_noise[i]:
+                    # formula (30)
+                    c[i] = len(k[i]) / 2 + c0[i]
+                    # formula (31)
+                    s_inv = (
+                            1 / s0[i]
+                            + 0.5 * k[i].T @ k[i]
+                            + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
+                    )
+                    s[i] = 1 / s_inv
 
             if "index_ARD" in kwargs:
                 index_ARD = kwargs["index_ARD"]
                 n_ARD_param = len(index_ARD)
                 L0[index_ARD, index_ARD] = 1 / (
-                    m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
+                        m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
                 )
                 r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
@@ -506,19 +516,19 @@ class VB:
 
             for i in noise0:
                 f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
+                        np.log(s[i]) + special.digamma(c[i])
                 )
                 f_new += -0.5 * s[i] * c[i] * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                f_new +=  c[i] * np.log(s[i]) + special.gammaln(c[i])
-                f_new +=  c[i] - (c[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
+                f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
+                f_new += c[i] - (c[i] - 1) * (
+                        np.log(s[i]) + special.digamma(c[i])
                 )
                 if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
                         f_new += (
-                            (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
-                            - d[j] * (1 + np.log(r[j]))
-                            - special.gammaln(d[j])
+                                (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
+                                - d[j] * (1 + np.log(r[j]))
+                                - special.gammaln(d[j])
                         )
             logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
 
