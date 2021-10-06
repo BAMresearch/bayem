@@ -87,7 +87,7 @@ class Gamma:
 
     @property
     def std(self):
-        return self.scale * self.shape**0.5
+        return self.scale * self.shape ** 0.5
 
     def dist(self):
         return scipy.stats.gamma(a=self.shape, scale=self.scale)
@@ -272,8 +272,18 @@ class VBResult:
     def __str__(self):
         s = "### VB Result ###\n"
 
-        for member, value in vars(self).items():
-            v = str(value).replace("\n", "\n" + " " * 17)
+        for member in [
+            "success",
+            "message",
+            "param",
+            "noise",
+            "free_energies",
+            "f_max",
+            "nit",
+            "t",
+        ]:
+            to_print = self.__dict__[member]
+            v = str(to_print).replace("\n", "\n" + " " * 17)
             s += f"  {member+':':14s} {v}\n"
 
         return s
@@ -615,3 +625,18 @@ def bayes_hook(dct):
 
     # Type not recognized, just return the dict.
     return dct
+
+def save_json(filename, obj):
+    """
+    Saves an `obj` (possibly containing VB classes) to `filename` via json.
+    """
+    with open(filename, "w") as f:
+        json.dump(obj, f, cls=BayesEncoder, indent=2)
+
+
+def load_json(filename):
+    """
+    Loads an object (possibly containing VB classes) from `filename` via json.
+    """
+    with open(filename, "r") as f:
+        return json.load(f, object_hook=bayes_hook)
