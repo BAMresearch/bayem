@@ -100,6 +100,12 @@ class Gamma:
         return cls(shape, 1.0 / sd ** 2 / shape)
 
     @classmethod
+    def FromMeanStd(cls, mean, std):
+        variance = std ** 2
+        scale = variance / mean
+        return cls(shape=mean / scale, scale=scale)
+
+    @classmethod
     def Noninformative(cls):
         """
         Suggested by @ilma following
