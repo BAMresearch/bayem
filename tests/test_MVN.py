@@ -10,7 +10,7 @@ class TestMVN(unittest.TestCase):
             precision=np.diag([1, 2, 3]),
             parameter_names=["A", "B", "C"],
         )
-   
+
     def test_len(self):
         self.assertEqual(len(self.mvn), 3)
 
@@ -45,27 +45,28 @@ class TestMVN(unittest.TestCase):
         dist2D = mvn.dist(1, 2)
         self.assertAlmostEqual(dist2D.mean[0], 2)
         self.assertAlmostEqual(dist2D.mean[1], 3)
-        
+
         self.assertAlmostEqual(dist2D.cov[0, 0], 4)
         self.assertAlmostEqual(dist2D.cov[1, 1], 9)
         self.assertAlmostEqual(dist2D.cov[0, 1], 0)
         self.assertAlmostEqual(dist2D.cov[1, 0], 0)
 
+
 class TestGamma(unittest.TestCase):
     def test_from_sd(self):
         gamma = bayes.vb.Gamma.FromSD(6174)
-        self.assertAlmostEqual(gamma.mean, 1/6174**2)
+        self.assertAlmostEqual(gamma.mean, 1 / 6174 ** 2)
 
     def test_print(self):
         print(bayes.vb.Gamma.FromSD(42))
-    
+
     def test_sd(self):
         scale, shape = 42, 6174
         gamma = bayes.vb.Gamma(shape=shape, scale=scale)
-        self.assertAlmostEqual(gamma.mean, shape*scale)
-        variance = shape * scale**2
-        self.assertAlmostEqual(gamma.std, variance**0.5)
-        
+        self.assertAlmostEqual(gamma.mean, shape * scale)
+        variance = shape * scale ** 2
+        self.assertAlmostEqual(gamma.std, variance ** 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()

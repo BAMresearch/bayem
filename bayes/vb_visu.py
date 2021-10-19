@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 
 
 def plot_pdf(
@@ -29,7 +30,7 @@ def plot_pdf(
     for i in range(len(dist.mean)):
         plt.plot(x_plot, dist.pdf(x_plot), label="%s of parameter nb %i" % (name1))
         if expected_value is not None:
-            plt.axvline(expected_value[i], ls=":", c="k")
+            plt.axvline(expected_value[i], ls=":", red="k")
         if "compare_with" in kwargs:
             plt.plot(
                 x_plot,
@@ -54,7 +55,7 @@ def visualize_vb_marginal_matrix(
     color="#d20020",
     lw=1,
     label=None,
-    legend_fontsize=8
+    legend_fontsize=8,
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -197,3 +198,48 @@ def format_axes(axes, labels=None):
         axes[i, i].yaxis.set_label_position("right")
         for j in range(0, i):
             axes[i, j].yaxis.set_ticks([])
+
+
+def result_trace(result, show=True, highlight=None):
+    if highlight is None:
+        highlight = []
+
+    fig, (ax_f, ax_p) = plt.subplots(2, 1, sharex=True)
+
+    # plot parameters
+    ax_p.set_xlabel("interation")
+    ax_p.set_ylabel("parameter value")
+    ax_p.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    means = np.array([result.param0.mean] + result.means)
+    sds = np.array([result.param0.std_diag] + result.sds)
+    x = list(range(len(means)))
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+
+    red = np.r_[210, 0, 30] / 255
+
+    for i, name in enumerate(result.param.parameter_names):
+        color, lw = None, 1
+        if name in highlight:
+            color, lw = red, 2
+        lines = ax_p.errorbar(
+            x, means[:, i], yerr=sds[:, i], label=name, capsize=5, color=color, lw=lw
+        )
+
+    ax_p.legend()
+
+    # plot free energy
+    ax_f.set_ylabel("free energy")
+    ax_f.plot(x[1:], result.free_energies, "-k|")
+
+    # annotate prior and posterior
+    i_posterior = result.free_energies.index(result.f_max) + 1
+    ax_f.axvline(i_posterior, color=red)
+    ax_f.axvline(0, color="orange")
+    y = np.min(result.free_energies)
+    ax_f.text(0, y, "prior", color="orange")
+    ax_f.text(i_posterior, y, "posterior", color=red)
+
+    if show:
+        plt.show()

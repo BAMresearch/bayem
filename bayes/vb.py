@@ -87,7 +87,7 @@ class Gamma:
 
     @property
     def std(self):
-        return self.scale * self.shape**0.5
+        return self.scale * self.shape ** 0.5
 
     def dist(self):
         return scipy.stats.gamma(a=self.shape, scale=self.scale)
@@ -261,6 +261,10 @@ class VBResult:
         self.success = False
         self.message = ""
         self.free_energies = []
+        self.means = []
+        self.sds = []
+        self.shapes = []
+        self.scales = []
         self.f_max = -np.inf
         self.nit = 0
         self.t = None
@@ -268,14 +272,28 @@ class VBResult:
     def __str__(self):
         s = "### VB Result ###\n"
 
-        for member, value in vars(self).items():
-            v = str(value).replace("\n", "\n" + " " * 17)
+        for member in [
+            "success",
+            "message",
+            "param",
+            "noise",
+            "free_energies",
+            "f_max",
+            "nit",
+            "t",
+        ]:
+            to_print = self.__dict__[member]
+            v = str(to_print).replace("\n", "\n" + " " * 17)
             s += f"  {member+':':14s} {v}\n"
 
         return s
 
     def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
         self.free_energies.append(f_new)
+        self.means.append(mean)
+        self.sds.append(MVN(mean, precision).std_diag)
+        self.shapes.append(shapes)
+        self.scales.append(scales)
         if f_new > self.f_max:
             # update
             self.f_max = f_new
@@ -423,9 +441,10 @@ class VB:
             Pm = P @ m
             PinvLPinv = Pinv @ L @ Pinv
             logger.debug(f"current mean: {Pm}")
-            logger.debug(f"current precision: {PinvLPinv}")
-            logger.debug(f"scaled current mean: {m}")
-            logger.debug(f"scaled current precision: {L}")
+            # logger.debug(f"current precision: {PinvLPinv}")
+            if self.scale_by_prior_mean:
+                logger.debug(f"scaled current mean: {m}")
+                # logger.debug(f"scaled current precision: {L}")
 
             # free energy caluclation, formula (23) slightly rearranged
             # to account for the loop over all noise groups
@@ -477,6 +496,8 @@ class VB:
             self.result.noise = noise
 
         self.result.t = perf_counter() - t0
+        self.result.param0 = param0
+        self.result.noise0 = noise0
         return self.result
 
     def stop_criteria(self, f_new, i_iter):
@@ -604,3 +625,19 @@ def bayes_hook(dct):
 
     # Type not recognized, just return the dict.
     return dct
+
+
+def save_json(filename, obj):
+    """
+    Saves an `obj` (possibly containing VB classes) to `filename` via json.
+    """
+    with open(filename, "w") as f:
+        json.dump(obj, f, cls=BayesEncoder, indent=2)
+
+
+def load_json(filename):
+    """
+    Loads an object (possibly containing VB classes) from `filename` via json.
+    """
+    with open(filename, "r") as f:
+        return json.load(f, object_hook=bayes_hook)

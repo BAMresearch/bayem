@@ -77,6 +77,7 @@ class Test_VB(unittest.TestCase):
             iter_max=100,
             n_trials_max=50,
         )
+        print(info)
         param_post, noise_post = info.param, info.noise
 
         if plot:
