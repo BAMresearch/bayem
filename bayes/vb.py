@@ -626,6 +626,7 @@ def bayes_hook(dct):
     # Type not recognized, just return the dict.
     return dct
 
+
 def save_json(filename, obj):
     """
     Saves an `obj` (possibly containing VB classes) to `filename` via json.

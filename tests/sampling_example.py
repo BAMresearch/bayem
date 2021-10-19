@@ -206,7 +206,10 @@ if __name__ == "__main__":
     summary = pm.summary(trace)
     print(summary)
 
-    print(1.0 / info.noise[noise_key1].mean ** 0.5, 1.0 / info.noise[noise_key2].mean ** 0.5)
+    print(
+        1.0 / info.noise[noise_key1].mean ** 0.5,
+        1.0 / info.noise[noise_key2].mean ** 0.5,
+    )
 
     means = summary["mean"]
     print(1.0 / means[noise_key1] ** 0.5, 1.0 / means[noise_key2] ** 0.5)

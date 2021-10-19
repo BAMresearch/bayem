@@ -93,6 +93,7 @@ the UncorrelatedSensorNoise that slightly shortens the force noise definition
 above.
 """
 
+
 class TestNoiseSensor(unittest.TestCase):
     def test_uncorrelated_noise(self):
         n_force = bayes.noise.UncorrelatedSensorNoise("ForceSensor")
@@ -105,10 +106,12 @@ class TestNoiseSensor(unittest.TestCase):
         """
         bayes.noise.UncorrelatedSensorNoise(["ForceSensor", "TemperatureSensor"])
 
+
 """
 The simplest case of having only a single noise model is covered by the
 UncorrelatedSingleNoise that combines all terms.
 """
+
 
 class TestNoiseSingle(unittest.TestCase):
     def test_uncorrelated_noise(self):
@@ -116,9 +119,11 @@ class TestNoiseSingle(unittest.TestCase):
         terms = n_single.model_error_terms(model_error_dict)
         self.assertEqual(len(terms), 4)
 
+
 """
 Note that the behavoir of "Jacobian" is identical to the model errors
 """
+
 
 class TestNoiseJacobian(unittest.TestCase):
     def test_jacobian(self):
@@ -133,10 +138,12 @@ class TestNoiseJacobian(unittest.TestCase):
 
         CHECK(j, [J1, J2])
 
+
 """
 The loglikelihood function is not properly tested, but can be evaluated
 at your own risk
 """
+
 
 class TestNoiseLoglike(unittest.TestCase):
     def test_loglike(self):
@@ -147,12 +154,15 @@ class TestNoiseLoglike(unittest.TestCase):
 
             ll_ours = n.loglike_contribution(model_error_dict)
 
-            ll_scipy = 0.
+            ll_scipy = 0.0
             terms = n.model_error_terms(model_error_dict)
-            for term in terms: 
-                ll_scipy += sum(scipy.stats.norm.logpdf(term, scale=1./precision**0.5))
-       
+            for term in terms:
+                ll_scipy += sum(
+                    scipy.stats.norm.logpdf(term, scale=1.0 / precision ** 0.5)
+                )
+
             self.assertAlmostEqual(ll_ours, ll_scipy)
+
 
 if __name__ == "__main__":
     unittest.main()

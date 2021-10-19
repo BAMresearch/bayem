@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 
+
 def plot_pdf(
     dist,
     expected_value=None,
@@ -54,7 +55,7 @@ def visualize_vb_marginal_matrix(
     color="#d20020",
     lw=1,
     label=None,
-    legend_fontsize=8
+    legend_fontsize=8,
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -211,9 +212,9 @@ def result_trace(result, show=True, highlight=None):
     ax_p.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     means = np.array([result.param0.mean] + result.means)
-    sds  = np.array([result.param0.std_diag] + result.sds)
+    sds = np.array([result.param0.std_diag] + result.sds)
     x = list(range(len(means)))
-    
+
     plt.subplots_adjust(wspace=0, hspace=0)
 
     red = np.r_[210, 0, 30] / 255
@@ -222,17 +223,18 @@ def result_trace(result, show=True, highlight=None):
         color, lw = None, 1
         if name in highlight:
             color, lw = red, 2
-        lines = ax_p.errorbar(x, means[:,i], yerr=sds[:,i], label=name, capsize=5, color=color, lw=lw)
+        lines = ax_p.errorbar(
+            x, means[:, i], yerr=sds[:, i], label=name, capsize=5, color=color, lw=lw
+        )
 
     ax_p.legend()
 
     # plot free energy
-    ax_f.set_ylabel("free energy") 
-    ax_f.plot(x[1:], result.free_energies, "-k|") 
-    
-    
+    ax_f.set_ylabel("free energy")
+    ax_f.plot(x[1:], result.free_energies, "-k|")
+
     # annotate prior and posterior
-    i_posterior = result.free_energies.index(result.f_max) +1
+    i_posterior = result.free_energies.index(result.f_max) + 1
     ax_f.axvline(i_posterior, color=red)
     ax_f.axvline(0, color="orange")
     y = np.min(result.free_energies)
@@ -241,4 +243,3 @@ def result_trace(result, show=True, highlight=None):
 
     if show:
         plt.show()
-    
