@@ -189,11 +189,6 @@ def format_axes(axes, labels=None):
         for j in range(i + 1, N):
             axes[i, j].axis("off")
 
-    # remove all x tick labels but at the buttom row
-    for i in range(N - 1):
-        for j in range(0, i + 1):
-            axes[i, j].xaxis.set_ticks([])
-
     # move all y tick labels to the very right plot of the row
     for i in range(N):
         axes[i, i].yaxis.set_label_position("right")
