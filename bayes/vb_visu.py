@@ -92,7 +92,9 @@ def visualize_vb_marginal_matrix(
     N = N_mvn + len(gammas)
 
     if axes is None:
-        _, axes = plt.subplots(N, N)
+        fig = plt.figure()
+        axes = fig.subplots(N, N, sharex="col", sharey="row", squeeze=False)
+
 
     assert axes.shape == (N, N)
 
@@ -104,9 +106,10 @@ def visualize_vb_marginal_matrix(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
 
+        if focus:
+            axes[i, j].set_xlim(xs[j][0], xs[j][-1])
+
         for j in range(i + 1):
-            if focus:
-                axes[i, j].set_xlim(xs[j][0], xs[j][-1])
 
             if i == j:
                 x = xs[i]
