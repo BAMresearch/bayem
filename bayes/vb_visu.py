@@ -56,6 +56,7 @@ def visualize_vb_marginal_matrix(
     lw=1,
     label=None,
     legend_fontsize=8,
+    focus=False,
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -82,6 +83,8 @@ def visualize_vb_marginal_matrix(
         widths of all plotted lines
     label:
         if provided, adds a legend entry
+    focus:
+        if true, adjusts the axis limits to the current data
     """
     gammas = gammas or []
 
@@ -89,7 +92,9 @@ def visualize_vb_marginal_matrix(
     N = N_mvn + len(gammas)
 
     if axes is None:
-        _, axes = plt.subplots(N, N)
+        fig = plt.figure()
+        axes = fig.subplots(N, N, sharex="col", squeeze=False)
+
 
     assert axes.shape == (N, N)
 
@@ -101,7 +106,11 @@ def visualize_vb_marginal_matrix(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
 
+
         for j in range(i + 1):
+            if focus:
+                axes[i, j].set_xlim(xs[j][0], xs[j][-1])
+
             if i == j:
                 x = xs[i]
                 axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
@@ -110,6 +119,9 @@ def visualize_vb_marginal_matrix(
                         dists_1d[i].median(), ls="--", color=color, lw=lw
                     )
             else:
+                if focus:
+                    axes[i, j].set_ylim(xs[i][0], xs[i][-1])
+
                 xi, xj = np.meshgrid(xs[i], xs[j])
 
                 if i < N_mvn and j < N_mvn:
@@ -127,9 +139,6 @@ def visualize_vb_marginal_matrix(
                 if median:
                     axes[i, j].axhline(
                         dists_1d[i].median(), ls="--", color=color, lw=lw
-                    )
-                    axes[i, j].axvline(
-                        dists_1d[j].median(), ls="--", color=color, lw=lw
                     )
 
     if label is not None:
@@ -163,6 +172,8 @@ def format_axes(axes, labels=None):
     
     axes:
         2D matplotlib.axes grid containing the marginal matrix
+    labels:
+        names of the individual variables
     """
     N = len(axes)
 
@@ -178,26 +189,50 @@ def format_axes(axes, labels=None):
         for j in range(i + 1, N):
             axes[i, j].axis("off")
 
-    # adjust limits
-    for i in range(N):
-        for j in range(0, i + 1):
-            xj = axes[j, j].lines[0].get_data()[0]
-            axes[i, j].set_xlim(xj[0], xj[-1])
-            if i != j:
-                xi = axes[i, i].lines[0].get_data()[0]
-                axes[i, j].set_ylim(xi[0], xi[-1])
-
-    # remove all x tick labels but at the buttom row
-    for i in range(N - 1):
-        for j in range(0, i + 1):
-            axes[i, j].xaxis.set_ticks([])
-
     # move all y tick labels to the very right plot of the row
     for i in range(N):
-        axes[i, i].yaxis.tick_right()
         axes[i, i].yaxis.set_label_position("right")
+        axes[i, i].yaxis.tick_right()
         for j in range(0, i):
             axes[i, j].yaxis.set_ticks([])
+
+
+class PairPlot:
+    """
+    Class to conveniently define pair plots for a VB analysis with some
+    reasonable default values.
+    """
+
+    def __init__(self, result, show=False):
+        self.axes = None
+        self.result = result
+        self.labels = result.param0.parameter_names + list(result.noise0.keys())
+        if show:
+            self.prior()
+            self.posterior()
+            self.show()
+
+    def prior(self, **kwargs):
+        kwargs.setdefault("color", "#cd7e00")
+        kwargs.setdefault("lw", 0.5)
+        kwargs.setdefault("label", "prior")
+        self.axes = visualize_vb_marginal_matrix(
+            self.result.param0, self.result.noise0.values(), axes=self.axes, **kwargs
+        )
+        return self
+
+    def posterior(self, **kwargs):
+        kwargs.setdefault("color", "#d2001e")
+        kwargs.setdefault("lw", 1.5)
+        kwargs.setdefault("label", "vb posterior")
+        self.axes = visualize_vb_marginal_matrix(
+            self.result.param, self.result.noise.values(), axes=self.axes, **kwargs
+        )
+        return self
+
+    def show(self):
+        format_axes(self.axes, self.labels)
+        plt.show()
 
 
 def result_trace(result, show=True, highlight=None):
