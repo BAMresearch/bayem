@@ -199,6 +199,41 @@ def format_axes(axes, labels=None):
             axes[i, j].yaxis.set_ticks([])
 
 
+class PairPlot:
+    """
+    Class to conveniently define pair plots for a VB analysis with some
+    reasonable default values.
+    """
+
+    def __init__(self, result=None, show=False):
+        self.axes = None
+        if result is not None:
+            self.vb_prior(result)
+            self.vb_posterior(result)
+            if show:
+                self.show(result.param0.parameter_names + list(result.noise0.keys()))
+
+    def vb_prior(self, result, **kwargs):
+        kwargs.setdefault("color", "#cd7e00")
+        kwargs.setdefault("lw", 0.5)
+        kwargs.setdefault("label", "prior")
+        self.axes = visualize_vb_marginal_matrix(
+            result.param0, result.noise0.values(), axes=self.axes, **kwargs
+        )
+
+    def vb_posterior(self, result, **kwargs):
+        kwargs.setdefault("color", "#d2001e")
+        kwargs.setdefault("lw", 1.5)
+        kwargs.setdefault("label", "vb posterior")
+        self.axes = visualize_vb_marginal_matrix(
+            result.param, result.noise.values(), axes=self.axes, **kwargs
+        )
+
+    def show(self, labels=None):
+        format_axes(self.axes, labels)
+        plt.show()
+
+
 def result_trace(result, show=True, highlight=None):
     if highlight is None:
         highlight = []
