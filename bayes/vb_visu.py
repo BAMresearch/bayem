@@ -56,6 +56,7 @@ def visualize_vb_marginal_matrix(
     lw=1,
     label=None,
     legend_fontsize=8,
+    focus=False,
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -82,6 +83,8 @@ def visualize_vb_marginal_matrix(
         widths of all plotted lines
     label:
         if provided, adds a legend entry
+    focus:
+        if true, adjusts the axis limits to the current data
     """
     gammas = gammas or []
 
@@ -102,6 +105,9 @@ def visualize_vb_marginal_matrix(
         )
 
         for j in range(i + 1):
+            if focus:
+                axes[i, j].set_xlim(xs[j][0], xs[j][-1])
+
             if i == j:
                 x = xs[i]
                 axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
@@ -110,6 +116,9 @@ def visualize_vb_marginal_matrix(
                         dists_1d[i].median(), ls="--", color=color, lw=lw
                     )
             else:
+                if focus:
+                    axes[i, j].set_ylim(xs[i][0], xs[i][-1])
+
                 xi, xj = np.meshgrid(xs[i], xs[j])
 
                 if i < N_mvn and j < N_mvn:
@@ -127,9 +136,6 @@ def visualize_vb_marginal_matrix(
                 if median:
                     axes[i, j].axhline(
                         dists_1d[i].median(), ls="--", color=color, lw=lw
-                    )
-                    axes[i, j].axvline(
-                        dists_1d[j].median(), ls="--", color=color, lw=lw
                     )
 
     if label is not None:
@@ -163,6 +169,8 @@ def format_axes(axes, labels=None):
     
     axes:
         2D matplotlib.axes grid containing the marginal matrix
+    labels:
+        names of the individual variables
     """
     N = len(axes)
 
@@ -177,15 +185,6 @@ def format_axes(axes, labels=None):
     for i in range(N):
         for j in range(i + 1, N):
             axes[i, j].axis("off")
-
-    # adjust limits
-    for i in range(N):
-        for j in range(0, i + 1):
-            xj = axes[j, j].lines[0].get_data()[0]
-            axes[i, j].set_xlim(xj[0], xj[-1])
-            if i != j:
-                xi = axes[i, i].lines[0].get_data()[0]
-                axes[i, j].set_ylim(xi[0], xi[-1])
 
     # remove all x tick labels but at the buttom row
     for i in range(N - 1):
