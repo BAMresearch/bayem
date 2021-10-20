@@ -93,7 +93,7 @@ def visualize_vb_marginal_matrix(
 
     if axes is None:
         fig = plt.figure()
-        axes = fig.subplots(N, N, sharex="col", sharey="row", squeeze=False)
+        axes = fig.subplots(N, N, sharex="col", squeeze=False)
 
 
     assert axes.shape == (N, N)
@@ -106,10 +106,10 @@ def visualize_vb_marginal_matrix(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
 
-        if focus:
-            axes[i, j].set_xlim(xs[j][0], xs[j][-1])
 
         for j in range(i + 1):
+            if focus:
+                axes[i, j].set_xlim(xs[j][0], xs[j][-1])
 
             if i == j:
                 x = xs[i]
@@ -196,8 +196,8 @@ def format_axes(axes, labels=None):
 
     # move all y tick labels to the very right plot of the row
     for i in range(N):
-        axes[i, i].yaxis.tick_right()
         axes[i, i].yaxis.set_label_position("right")
+        axes[i, i].yaxis.tick_right()
         for j in range(0, i):
             axes[i, j].yaxis.set_ticks([])
 
@@ -208,32 +208,35 @@ class PairPlot:
     reasonable default values.
     """
 
-    def __init__(self, result=None, show=False):
+    def __init__(self, result, show=False):
         self.axes = None
-        if result is not None:
-            self.vb_prior(result)
-            self.vb_posterior(result)
-            if show:
-                self.show(result.param0.parameter_names + list(result.noise0.keys()))
+        self.result = result
+        self.labels = result.param0.parameter_names + list(result.noise0.keys())
+        if show:
+            self.prior()
+            self.posterior()
+            self.show()
 
-    def vb_prior(self, result, **kwargs):
+    def prior(self, **kwargs):
         kwargs.setdefault("color", "#cd7e00")
         kwargs.setdefault("lw", 0.5)
         kwargs.setdefault("label", "prior")
         self.axes = visualize_vb_marginal_matrix(
-            result.param0, result.noise0.values(), axes=self.axes, **kwargs
+            self.result.param0, self.result.noise0.values(), axes=self.axes, **kwargs
         )
+        return self
 
-    def vb_posterior(self, result, **kwargs):
+    def posterior(self, **kwargs):
         kwargs.setdefault("color", "#d2001e")
         kwargs.setdefault("lw", 1.5)
         kwargs.setdefault("label", "vb posterior")
         self.axes = visualize_vb_marginal_matrix(
-            result.param, result.noise.values(), axes=self.axes, **kwargs
+            self.result.param, self.result.noise.values(), axes=self.axes, **kwargs
         )
+        return self
 
-    def show(self, labels=None):
-        format_axes(self.axes, labels)
+    def show(self):
+        format_axes(self.axes, self.labels)
         plt.show()
 
 
