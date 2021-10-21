@@ -6,6 +6,7 @@ from time import perf_counter
 import numpy as np
 import scipy.special as special
 import scipy.stats
+import scipy.optimize as optimize
 from tabulate import tabulate
 
 from .jacobian import delta_x
@@ -98,6 +99,38 @@ class Gamma:
     @classmethod
     def FromSD(cls, sd, shape=1.0):
         return cls(shape, 1.0 / sd ** 2 / shape)
+
+    @classmethod
+    def FromQuantiles(cls, x0, x1, p=(0.05, 0.95)):
+        """
+        Create a gamma distribution from the given quantiles such that
+            gamma.cdf(x0) = p[0]
+            gamma.cdf(x1) = p[1]
+        following the approach from 
+        https://www.codeproject.com/Articles/56371/Finding-Probability-Distribution-Parameters-from-P
+        """
+
+        assert x0 < x1
+        assert p[0] < p[1]
+
+        def f(alpha):
+            return (
+                scipy.stats.gamma.ppf(p[1], alpha) / scipy.stats.gamma.ppf(p[0], alpha)
+                - x1 / x0
+            )
+
+        left = right = 1.0
+        while f(left) < 0.0:
+            left /= 2
+        while f(right) > 0.0:
+            right *= 2
+
+        r = optimize.root_scalar(f, bracket=[left, right], method="toms748")
+        assert r.converged
+        alpha = r.root
+        scale = x0 / scipy.stats.gamma.ppf(q=p[0], a=alpha)
+
+        return cls(shape=alpha, scale=scale)
 
     @classmethod
     def FromMeanStd(cls, mean, std):
