@@ -97,17 +97,13 @@ class Gamma:
         return f"{self.name:15} | mean:{self.mean:10.6f} | scale:{self.scale:10.6f} | shape:{self.shape:10.6f}"
 
     @classmethod
-    def FromSD(cls, sd, shape=1.0):
-        return cls(shape, 1.0 / sd ** 2 / shape)
-
-    @classmethod
     def FromQuantiles(cls, x0, x1, p=(0.05, 0.95)):
         """
         Create a gamma distribution from the given quantiles such that
             gamma.cdf(x0) = p[0]
             gamma.cdf(x1) = p[1]
         following the approach from 
-        https://www.codeproject.com/Articles/56371/Finding-Probability-Distribution-Parameters-from-P
+        https://www.johndcook.com/quantiles_parameters.pdf (Chapter 4)
         """
 
         assert x0 < x1

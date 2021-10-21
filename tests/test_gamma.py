@@ -7,12 +7,8 @@ import hypothesis.strategies as st
 
 
 class TestGamma(unittest.TestCase):
-    def test_from_sd(self):
-        gamma = bayes.vb.Gamma.FromSD(6174)
-        self.assertAlmostEqual(gamma.mean, 1 / 6174 ** 2)
-
     def test_print(self):
-        print(bayes.vb.Gamma.FromSD(42))
+        print(bayes.vb.Gamma(42, 2))
 
     def test_sd(self):
         scale, shape = 42, 6174
