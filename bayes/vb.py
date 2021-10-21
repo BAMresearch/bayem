@@ -133,6 +133,16 @@ class Gamma:
         return cls(shape=alpha, scale=scale)
 
     @classmethod
+    def FromSDQuantiles(cls, sd0, sd1, p=(0.05, 0.95)):
+        """
+        In the context of VB, the gamma distribution is used to model the noise
+        _precision_. In practice, it can be convenient, do generate this
+        distribution from the standard deviation (SD)
+        """
+        assert sd0 < sd1
+        return Gamma.FromQuantiles(1/sd1**2, 1/sd0**2, p)
+
+    @classmethod
     def FromMeanStd(cls, mean, std):
         variance = std ** 2
         scale = variance / mean

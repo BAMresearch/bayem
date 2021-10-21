@@ -42,6 +42,13 @@ class TestGamma(unittest.TestCase):
 
         self.assertAlmostEqual(d.cdf(x0), q[0])
         self.assertAlmostEqual(d.cdf(x1), q[1])
+    
+    def test_from_sd_quantiles(self):
+        gamma = bayes.vb.Gamma.FromSDQuantiles(4, 6)
+        sd_mean = 1/gamma.mean**0.5
+        
+        self.assertGreater(sd_mean, 4)
+        self.assertLess(sd_mean, 6)
 
 
 if __name__ == "__main__":
