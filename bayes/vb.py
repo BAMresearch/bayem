@@ -102,7 +102,7 @@ class Gamma:
         Create a gamma distribution from the given quantiles such that
             gamma.cdf(x0) = p[0]
             gamma.cdf(x1) = p[1]
-        following the approach from 
+        following the approach from
         https://www.johndcook.com/quantiles_parameters.pdf (Chapter 4)
         """
 
@@ -136,7 +136,7 @@ class Gamma:
         distribution from the standard deviation (SD)
         """
         assert sd0 < sd1
-        return Gamma.FromQuantiles(1/sd1**2, 1/sd0**2, p)
+        return Gamma.FromQuantiles(1 / sd1 ** 2, 1 / sd0 ** 2, p)
 
     @classmethod
     def FromMeanStd(cls, mean, std):
@@ -348,6 +348,48 @@ class VBResult:
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
+
+    def summary(self, gamma_as_sd=False, printer=None, quantiles=[0.05, 0.25, 0.75, 0.95], **tabulate_kwargs):
+        if printer is None:
+            printer = print
+
+        data = []
+        p = self.param
+        for i in range(len(p)):
+            dist = p.dist(i)
+            entry = [p.parameter_names[i], dist.median(), dist.mean(), dist.std()]
+            entry += [dist.ppf(q) for q in quantiles]
+            data.append(entry)
+
+        if isinstance(self.noise, Gamma):
+            noises = {"noise" : self.noise}
+        else:
+            noises = self.noise
+
+
+
+        for name, p in noises.items():
+            dist = p.dist()
+
+            if gamma_as_sd:
+                entry = [name, "?", 1/dist.mean()**0.5, "?"]
+                entry += [1/dist.ppf(q)**0.5 for q in quantiles]
+            else:
+                entry = [name, dist.median(), dist.mean(), dist.std()]
+                entry += [dist.ppf(q) for q in quantiles]
+            data.append(entry)
+
+
+
+        headers = ["name", "median", "mean", "sd"]
+        headers += [f"{int(q*100)}%" for q in quantiles]
+
+        s = tabulate(data, headers=headers, **tabulate_kwargs)
+        printer(s)
+        return data
+
+
+
 
 
 class VB:
