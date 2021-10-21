@@ -107,14 +107,7 @@ class VariationalBayesProblem(InferenceProblem, VariationalBayesInterface):
             )
         self.prm_prior[latent_name] = (mean, sd)
 
-    def set_noise_prior(self, name, gamma_or_sd_mean, sd_shape=None):
-        if isinstance(gamma_or_sd_mean, Gamma):
-            gamma = gamma_or_sd_mean
-            assert sd_shape is None
-        else:
-            sd_shape = sd_shape or 1.0
-            gamma = Gamma.FromSD(gamma_or_sd_mean, sd_shape)
-
+    def set_noise_prior(self, name, gamma):
         if name not in self.noise_models:
             raise RuntimeError(
                 f"{name} is not associated with noise model.. "

@@ -46,11 +46,11 @@ class TestTwoNoises(unittest.TestCase):
     def run_test(self, noise_prior, delta):
         """
         Infers two parameters of a linear model where the data is arranged
-        in two noise groups. 
+        in two noise groups.
 
         noise_prior:
             gamma distribution for the noise precision or
-            None for a noninformative prior 
+            None for a noninformative prior
         delta:
             absolute value of the inferred noise standard deviation to compare
         """
@@ -82,8 +82,8 @@ class TestTwoNoises(unittest.TestCase):
     def test_proper_noise(self):
         """Use a noise_prior that is based on the actual values"""
         noise_prior = {}
-        noise_prior["group0"] = Gamma.FromSD(NOISE0_SD * 2)
-        noise_prior["group1"] = Gamma.FromSD(NOISE1_SD * 2)
+        noise_prior["group0"] = Gamma.FromSDQuantiles(0.1 * NOISE0_SD, 10 * NOISE0_SD)
+        noise_prior["group1"] = Gamma.FromSDQuantiles(0.1 * NOISE1_SD, 10 * NOISE1_SD)
         self.run_test(noise_prior, delta=0.05)
 
     def test_noninformative_noise(self):

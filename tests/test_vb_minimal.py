@@ -44,6 +44,7 @@ class Test_VB(unittest.TestCase):
         self.assertLess(info.t, 0.1)
 
         info.summary(True)
+        info.summary(tablefmt="fancy_grid")
 
     def test_dict(self):
         self.run_vb(me_dict)
