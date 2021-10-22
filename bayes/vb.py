@@ -9,7 +9,6 @@ import scipy.stats
 import scipy.optimize as optimize
 from tabulate import tabulate
 
-from .jacobian import delta_x
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +169,12 @@ class VariationalBayesInterface:
         """
         raise NotImplementedError()
 
+    @staticmethod
+    def delta_x(x):
+        eps = 1.e-7  # approx sqrt(machine precision)
+        return max(eps, x*eps)
+
+
     def jacobian(self, number_vector):
         """
         Returns a dict of type
@@ -192,7 +197,7 @@ class VariationalBayesInterface:
         x = np.copy(number_vector)
 
         for iParam in range(len(x)):
-            dx = delta_x(x[iParam])
+            dx = self.delta_x(x[iParam])
 
             x[iParam] -= dx
             fs0 = self(x)
