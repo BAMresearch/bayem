@@ -21,7 +21,7 @@ setuptools.setup(
     install_requires=["numpy", "scipy", "tabulate"],
     extras_require={  # Optional
         "dev": ["black"],
-        "test": ["coverage", "pytest", "flake8", "imageio", "matplotlib"],
+        "test": ["coverage", "pytest", "flake8", "imageio", "matplotlib", "hypothesis"],
         "doc": ["sphinx", "sphinx_rtd_theme", "doit"],
     },
 )

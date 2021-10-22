@@ -10,8 +10,8 @@ from imageio import imread
 
 def test_vb_visu(generate_ref_img=False):
     mvn = bayes.vb.MVN(mean=[2, 30, 100], precision=[[1, 1, 1], [1, 2, 0], [1, 0, 3]])
-    gamma0 = bayes.vb.Gamma.FromSD(5, shape=3)
-    gamma1 = bayes.vb.Gamma.FromSD(1, shape=8.5)
+    gamma0 = bayes.vb.Gamma(shape=3, scale=1 / 75)
+    gamma1 = bayes.vb.Gamma(shape=8.5, scale=1 / 8.5)
 
     axes = bayes.vb_visu.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
     bayes.vb_visu.format_axes(axes)

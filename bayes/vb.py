@@ -6,6 +6,7 @@ from time import perf_counter
 import numpy as np
 import scipy.special as special
 import scipy.stats
+import scipy.optimize as optimize
 from tabulate import tabulate
 
 from .jacobian import delta_x
@@ -96,8 +97,53 @@ class Gamma:
         return f"{self.name:15} | mean:{self.mean:10.6f} | scale:{self.scale:10.6f} | shape:{self.shape:10.6f}"
 
     @classmethod
-    def FromSD(cls, sd, shape=1.0):
-        return cls(shape, 1.0 / sd ** 2 / shape)
+    def FromQuantiles(cls, x0, x1, p=(0.05, 0.95)):
+        """
+        Create a gamma distribution from the given quantiles such that
+            gamma.cdf(x0) = p[0]
+            gamma.cdf(x1) = p[1]
+        following the approach from
+        https://www.johndcook.com/quantiles_parameters.pdf (Chapter 4)
+        """
+
+        assert x0 < x1
+        assert p[0] < p[1]
+        _ppf = scipy.stats.gamma.ppf
+
+        # As the Gamma distribution is from the scale family, it follows that
+        #   scale = x_i / PPF(p_i; shape,1)
+        # which we can use to elimate the scale parameter:
+        #       x0 / PPF(p0; shape) = x1 / PPF(p1; shape)
+        # This equation is reformulated as a function of shape to find its root.
+
+        def f(shape):
+            return _ppf(p[1], shape) / _ppf(p[0], shape) - x1 / x0
+
+        # As f is strictly monotonically decreasing, we efficiently find the
+        # single root by first finding the bracket [c, F*c] such that
+        #    f(c) < 0 and f(F*c) > 0 ...
+
+        c, F = 61.74, 4.2  # Nothing up my sleeve numbers. Only influences performance.
+        while f(c) < 0.0:
+            c /= F
+        while f(F * c) > 0.0:
+            c *= F
+
+        # ... and by then applying a root finding algorithm.
+        shape = optimize.brenth(f, a=c, b=F * c, disp=True)
+
+        scale = x0 / _ppf(q=p[0], a=shape)
+        return cls(shape=shape, scale=scale)
+
+    @classmethod
+    def FromSDQuantiles(cls, sd0, sd1, p=(0.05, 0.95)):
+        """
+        In the context of VB, the gamma distribution is used to model the noise
+        _precision_. In practice, it can be convenient, do generate this
+        distribution from the standard deviation (SD)
+        """
+        assert sd0 < sd1
+        return Gamma.FromQuantiles(1 / sd1 ** 2, 1 / sd0 ** 2, p)
 
     @classmethod
     def FromMeanStd(cls, mean, std):
@@ -309,6 +355,47 @@ class VBResult:
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
+
+    def summary(
+        self,
+        gamma_as_sd=False,
+        printer=None,
+        quantiles=[0.05, 0.25, 0.75, 0.95],
+        **tabulate_kwargs,
+    ):
+        if printer is None:
+            printer = print
+
+        data = []
+        p = self.param
+        for i in range(len(p)):
+            dist = p.dist(i)
+            entry = [p.parameter_names[i], dist.median(), dist.mean(), dist.std()]
+            entry += [dist.ppf(q) for q in quantiles]
+            data.append(entry)
+
+        if isinstance(self.noise, Gamma):
+            noises = {"noise": self.noise}
+        else:
+            noises = self.noise
+
+        for name, p in noises.items():
+            dist = p.dist()
+
+            if gamma_as_sd:
+                entry = [name, "?", 1 / dist.mean() ** 0.5, "?"]
+                entry += [1 / dist.ppf(q) ** 0.5 for q in quantiles]
+            else:
+                entry = [name, dist.median(), dist.mean(), dist.std()]
+                entry += [dist.ppf(q) for q in quantiles]
+            data.append(entry)
+
+        headers = ["name", "median", "mean", "sd"]
+        headers += [f"{int(q*100)}%" for q in quantiles]
+
+        s = tabulate(data, headers=headers, **tabulate_kwargs)
+        printer(s)
+        return data
 
 
 class VB:
