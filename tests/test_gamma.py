@@ -22,9 +22,13 @@ class TestGamma(unittest.TestCase):
         self.assertAlmostEqual(gamma.mean, 6174)
         self.assertAlmostEqual(gamma.std, 42)
 
-
     @settings(derandomize=True, max_examples=200)
-    @given(st.tuples(st.floats(min_value=1.e-4, max_value=1e4), st.floats(min_value=1.e-4, max_value=1e4)))
+    @given(
+        st.tuples(
+            st.floats(min_value=1.0e-4, max_value=1e4),
+            st.floats(min_value=1.0e-4, max_value=1e4),
+        )
+    )
     def test_from_quantiles(self, x0_x1):
         x0, x1 = x0_x1
         if x0 == x1:
@@ -38,11 +42,11 @@ class TestGamma(unittest.TestCase):
 
         self.assertAlmostEqual(d.cdf(x0), q[0])
         self.assertAlmostEqual(d.cdf(x1), q[1])
-    
+
     def test_from_sd_quantiles(self):
         gamma = bayes.vb.Gamma.FromSDQuantiles(4, 6)
-        sd_mean = 1/gamma.mean**0.5
-        
+        sd_mean = 1 / gamma.mean ** 0.5
+
         self.assertGreater(sd_mean, 4)
         self.assertLess(sd_mean, 6)
 

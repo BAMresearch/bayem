@@ -109,9 +109,9 @@ class Gamma:
         assert x0 < x1
         assert p[0] < p[1]
         _ppf = scipy.stats.gamma.ppf
-       
+
         # As the Gamma distribution is from the scale family, it follows that
-        #   scale = x_i / PPF(p_i; shape,1) 
+        #   scale = x_i / PPF(p_i; shape,1)
         # which we can use to elimate the scale parameter:
         #       x0 / PPF(p0; shape) = x1 / PPF(p1; shape)
         # This equation is reformulated as a function of shape to find its root.
@@ -123,15 +123,14 @@ class Gamma:
         # single root by first finding the bracket [c, F*c] such that
         #    f(c) < 0 and f(F*c) > 0 ...
 
-        c, F = 61.74, 4.2 # Nothing up my sleeve numbers. Only influences performance.
+        c, F = 61.74, 4.2  # Nothing up my sleeve numbers. Only influences performance.
         while f(c) < 0.0:
             c /= F
         while f(F * c) > 0.0:
             c *= F
 
-        # ... and by then applying a root finding algorithm. 
-        shape = optimize.brenth(f, a=c, b=F*c, disp=True)
-
+        # ... and by then applying a root finding algorithm.
+        shape = optimize.brenth(f, a=c, b=F * c, disp=True)
 
         scale = x0 / _ppf(q=p[0], a=shape)
         return cls(shape=shape, scale=scale)

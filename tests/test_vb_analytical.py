@@ -41,7 +41,7 @@ class Test_VBAnalytic(unittest.TestCase):
         scale = variance ** 0.5
 
         prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
-        gamma = bayes.vb.Gamma.FromMeanStd(1/sigma**2, 42)
+        gamma = bayes.vb.Gamma.FromMeanStd(1 / sigma ** 2, 42)
 
         result = bayes.vb.variational_bayes(
             model_error, prior, gamma, update_noise=update_noise
