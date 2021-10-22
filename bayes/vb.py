@@ -111,13 +111,13 @@ class Gamma:
         _ppf = scipy.stats.gamma.ppf
        
         # As the Gamma distribution is from the scale family, it follows that
-        #   scale = x_i / PPF(p_i; alpha,1) 
+        #   scale = x_i / PPF(p_i; shape,1) 
         # which we can use to elimate the scale parameter:
-        #       x0 / PPF(p0; alpha) = x1 / PPF(p1; alpha)
-        # This equation is reformulated as a function of alpha to find its root.
+        #       x0 / PPF(p0; shape) = x1 / PPF(p1; shape)
+        # This equation is reformulated as a function of shape to find its root.
 
-        def f(alpha):
-            return _ppf(p[1], alpha) / _ppf(p[0], alpha) - x1 / x0
+        def f(shape):
+            return _ppf(p[1], shape) / _ppf(p[0], shape) - x1 / x0
 
         # As f is strictly monotonically decreasing, we efficiently find the
         # single root by first finding the bracket [c, F*c] such that
@@ -130,11 +130,11 @@ class Gamma:
             c *= F
 
         # ... and by then applying a root finding algorithm. 
-        alpha = optimize.brenth(f, a=c, b=F*c, disp=True)
+        shape = optimize.brenth(f, a=c, b=F*c, disp=True)
 
 
-        scale = x0 / _ppf(q=p[0], a=alpha)
-        return cls(shape=alpha, scale=scale)
+        scale = x0 / _ppf(q=p[0], a=shape)
+        return cls(shape=shape, scale=scale)
 
     @classmethod
     def FromSDQuantiles(cls, sd0, sd1, p=(0.05, 0.95)):
