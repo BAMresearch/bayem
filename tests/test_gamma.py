@@ -32,7 +32,7 @@ class TestGamma(unittest.TestCase):
         if x0 > x1:
             x1, x0 = x0, x1
 
-        q = (0.05, 0.95)
+        q = (0.15, 0.95)
         gamma = bayes.vb.Gamma.FromQuantiles(x0, x1, q)
         d = gamma.dist()
 

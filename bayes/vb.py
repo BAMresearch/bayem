@@ -108,24 +108,32 @@ class Gamma:
 
         assert x0 < x1
         assert p[0] < p[1]
+        _ppf = scipy.stats.gamma.ppf
+       
+        # As the Gamma distribution is from the scale family, it follows that
+        #   scale = x_i / PPF(p_i; alpha,1) 
+        # which we can use to elimate the scale parameter:
+        #       x0 / PPF(p0; alpha) = x1 / PPF(p1; alpha)
+        # This equation is reformulated as a function of alpha to find its root.
 
         def f(alpha):
-            return (
-                scipy.stats.gamma.ppf(p[1], alpha) / scipy.stats.gamma.ppf(p[0], alpha)
-                - x1 / x0
-            )
+            return _ppf(p[1], alpha) / _ppf(p[0], alpha) - x1 / x0
 
-        left = right = 1.0
-        while f(left) < 0.0:
-            left /= 2
-        while f(right) > 0.0:
-            right *= 2
+        # As f is strictly monotonically decreasing, we efficiently find the
+        # single root by first finding the bracket [c, F*c] such that
+        #    f(c) < 0 and f(F*c) > 0 ...
 
-        r = optimize.root_scalar(f, bracket=[left, right], method="toms748")
-        assert r.converged
-        alpha = r.root
-        scale = x0 / scipy.stats.gamma.ppf(q=p[0], a=alpha)
+        c, F = 61.74, 4.2 # Nothing up my sleeve numbers. Only influences performance.
+        while f(c) < 0.0:
+            c /= F
+        while f(F * c) > 0.0:
+            c *= F
 
+        # ... and by then applying a root finding algorithm. 
+        alpha = optimize.brenth(f, a=c, b=F*c, disp=True)
+
+
+        scale = x0 / _ppf(q=p[0], a=alpha)
         return cls(shape=alpha, scale=scale)
 
     @classmethod
@@ -349,7 +357,13 @@ class VBResult:
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
 
-    def summary(self, gamma_as_sd=False, printer=None, quantiles=[0.05, 0.25, 0.75, 0.95], **tabulate_kwargs):
+    def summary(
+        self,
+        gamma_as_sd=False,
+        printer=None,
+        quantiles=[0.05, 0.25, 0.75, 0.95],
+        **tabulate_kwargs,
+    ):
         if printer is None:
             printer = print
 
@@ -362,24 +376,20 @@ class VBResult:
             data.append(entry)
 
         if isinstance(self.noise, Gamma):
-            noises = {"noise" : self.noise}
+            noises = {"noise": self.noise}
         else:
             noises = self.noise
-
-
 
         for name, p in noises.items():
             dist = p.dist()
 
             if gamma_as_sd:
-                entry = [name, "?", 1/dist.mean()**0.5, "?"]
-                entry += [1/dist.ppf(q)**0.5 for q in quantiles]
+                entry = [name, "?", 1 / dist.mean() ** 0.5, "?"]
+                entry += [1 / dist.ppf(q) ** 0.5 for q in quantiles]
             else:
                 entry = [name, dist.median(), dist.mean(), dist.std()]
                 entry += [dist.ppf(q) for q in quantiles]
             data.append(entry)
-
-
 
         headers = ["name", "median", "mean", "sd"]
         headers += [f"{int(q*100)}%" for q in quantiles]
@@ -387,9 +397,6 @@ class VBResult:
         s = tabulate(data, headers=headers, **tabulate_kwargs)
         printer(s)
         return data
-
-
-
 
 
 class VB:
