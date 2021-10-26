@@ -132,7 +132,7 @@ class Test_VB(unittest.TestCase):
         problem.set_normal_prior("B2", B2 + 0.5, 2)
 
         noise_key = problem.add_noise_model(UncorrelatedSingleNoise())
-        problem.set_noise_prior(noise_key, Gamma.Noninformative())
+        problem.set_noise_prior(noise_key, Gamma())
 
         print(problem.prm_prior)
 
