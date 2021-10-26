@@ -167,7 +167,7 @@ def visualize_vb_marginal_matrix(
 def format_axes(axes, labels=None):
     """
     See the comments below for the individual adjustments made.
-    
+
     axes:
         2D matplotlib.axes grid containing the marginal matrix
     labels:

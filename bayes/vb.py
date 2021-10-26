@@ -161,9 +161,8 @@ class VariationalBayesInterface:
 
     @staticmethod
     def delta_x(x):
-        eps = 1.e-7  # approx sqrt(machine precision)
-        return max(eps, x*eps)
-
+        eps = 1.0e-7  # approx sqrt(machine precision)
+        return max(eps, x * eps)
 
     def jacobian(self, number_vector):
         """
