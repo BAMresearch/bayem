@@ -76,7 +76,7 @@ class MVN:
 
 
 class Gamma:
-    def __init__(self, shape=1.0, scale=1.0, name="Gamma"):
+    def __init__(self, shape=0.0, scale=1e6, name="Gamma"):
         self.scale = scale
         self.shape = shape
         self.name = name
@@ -149,16 +149,6 @@ class Gamma:
         variance = std ** 2
         scale = variance / mean
         return cls(shape=mean / scale, scale=scale)
-
-    @classmethod
-    def Noninformative(cls):
-        """
-        Suggested by @ilma following
-        https://projecteuclid.org/euclid.ejs/1320416981
-        or
-        https://math.stackexchange.com/questions/449234/vague-gamma-prior
-        """
-        return cls(scale=1.0 / 3.0, shape=0.0)
 
 
 class VariationalBayesInterface:
@@ -411,7 +401,6 @@ class VB:
         self.n_trials_max = n_trials_max
         self.tolerance = tolerance
         self.iter_max = iter_max
-        self.scale_by_prior_mean = True
         self.result = VBResult()
         self.scaling_eps = 1.0e-20
 
@@ -423,37 +412,17 @@ class VB:
             self.iter_max = kwargs["iter_max"]
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
-        if "scale_by_prior_mean" in kwargs:
-            self.scale_by_prior_mean = kwargs["scale_by_prior_mean"]
         if "scaling_eps" in kwargs:
             self.scaling_eps = kwargs["scaling_eps"]
 
         if not isinstance(model_error, VariationalBayesInterface):
             model_error = VBModelErrorWrapper(model_error)
 
-        # We perform a scaling of the prior to deal with numerically high
-        # high values.
-        scaling = np.ones_like(param0.mean)
-
-        if self.scale_by_prior_mean:
-            for i, mean in enumerate(param0.mean):
-                if abs(mean) > self.scaling_eps:
-                    scaling[i] = mean
-
-        logger.debug(f"Using scaling {scaling}")
-
-        P = np.diag(scaling)
-        Pinv = np.diag(1.0 / scaling)
-
-        k, J_orig = model_error(param0.mean), model_error.jacobian(param0.mean)
-        J = {}
-        for n, jac in J_orig.items():
-            J[n] = jac @ P
+        k, J = model_error(param0.mean), model_error.jacobian(param0.mean)
 
         return_single_noise = False
-
         if noise0 is None:
-            noise0 = {noise_key: Gamma.Noninformative() for noise_key in k}
+            noise0 = {noise_key: Gamma() for noise_key in k}
             if len(noise0) == 1:
                 return_single_noise = True
 
@@ -487,8 +456,8 @@ class VB:
         for n, gamma in noise0.items():
             s[n] = gamma.scale
             c[n] = gamma.shape
-        m = Pinv @ param0.mean
-        L = P @ param0.precision @ P
+        m = param0.mean
+        L = param0.precision
 
         m0 = np.copy(m)
         L0 = np.copy(L)
@@ -509,10 +478,7 @@ class VB:
             Lm += L0 @ m0
             m = Lm @ L_inv
 
-            k, J_orig = model_error(P @ m), model_error.jacobian(P @ m)
-            J = {}
-            for n, jac in J_orig.items():
-                J[n] = jac @ P
+            k, J = model_error(m), model_error.jacobian(m)
 
             # noise parameter update
             for i in noise0:
@@ -536,13 +502,7 @@ class VB:
                 r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
 
-            Pm = P @ m
-            PinvLPinv = Pinv @ L @ Pinv
-            logger.debug(f"current mean: {Pm}")
-            # logger.debug(f"current precision: {PinvLPinv}")
-            if self.scale_by_prior_mean:
-                logger.debug(f"scaled current mean: {m}")
-                # logger.debug(f"scaled current precision: {L}")
+            logger.info(f"current mean: {m}")
 
             # free energy caluclation, formula (23) slightly rearranged
             # to account for the loop over all noise groups
@@ -575,17 +535,15 @@ class VB:
                             - d[j] * (1 + np.log(r[j]))
                             - special.gammaln(d[j])
                         )
-            logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
+            logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, Pm, PinvLPinv, c, s, param0.parameter_names)
+            self.result.try_update(f_new, m, L, c, s, param0.parameter_names)
             if self.stop_criteria(f_new, i_iter):
                 break
 
         delta_f = self.f_old - f_new
         logger.debug(f"Stopping VB. Iterations:{i_iter}, free energy change {delta_f}.")
 
-        # self.result.njev = model_error.n_jac
-        # self.result.nfev = model_error.n
         self.result.nit = i_iter
 
         if return_single_noise:
