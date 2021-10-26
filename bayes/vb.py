@@ -9,7 +9,6 @@ import scipy.stats
 import scipy.optimize as optimize
 from tabulate import tabulate
 
-from .jacobian import delta_x
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +159,11 @@ class VariationalBayesInterface:
         """
         raise NotImplementedError()
 
+    @staticmethod
+    def delta_x(x):
+        eps = 1.0e-7  # approx sqrt(machine precision)
+        return max(eps, x * eps)
+
     def jacobian(self, number_vector):
         """
         Returns a dict of type
@@ -182,7 +186,7 @@ class VariationalBayesInterface:
         x = np.copy(number_vector)
 
         for iParam in range(len(x)):
-            dx = delta_x(x[iParam])
+            dx = self.delta_x(x[iParam])
 
             x[iParam] -= dx
             fs0 = self(x)
@@ -497,7 +501,7 @@ class VB:
                 r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
                 d = 0.5 * np.ones(n_ARD_param)
 
-            logger.debug(f"current mean: {m}")
+            logger.info(f"current mean: {m}")
 
             # free energy caluclation, formula (23) slightly rearranged
             # to account for the loop over all noise groups
@@ -530,7 +534,7 @@ class VB:
                             - d[j] * (1 + np.log(r[j]))
                             - special.gammaln(d[j])
                         )
-            logger.debug(f"Free energy of iteration {i_iter} is {f_new}")
+            logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
             self.result.try_update(f_new, m, L, c, s, param0.parameter_names)
             if self.stop_criteria(f_new, i_iter):

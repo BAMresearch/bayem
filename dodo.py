@@ -12,9 +12,8 @@ def task_website():
             "them manually or via \n $pip3 install .[doc]"
         ) from e
 
-    pages = glob.glob("docs/*.rst")
     return {
-        "file_dep": pages + ["conf.py", "index.rst"],
+        "file_dep": ["conf.py", "index.rst"],
         "actions": ["sphinx-build . .build"],
         "verbosity": 2,
     }

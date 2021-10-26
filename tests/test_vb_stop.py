@@ -64,9 +64,9 @@ class TestFreeEnergy(unittest.TestCase):
 
     def test_increase_in_free_energy_at_max_iter(self):
         """
-            f_new > f_old but i=iter_max
-            :return:
-            """
+        f_new > f_old but i=iter_max
+        :return:
+        """
         msg = "---------Test case: Free energy is increasing - max nb of iterations is reached ---------"
         logger.info(msg)
         # define samples of param and free energy for each iteration
@@ -89,9 +89,9 @@ class TestFreeEnergy(unittest.TestCase):
 
     def test_stopped_by_max_iter(self):
         """
-            f_new < f_old but i=iter_max and n_trials<n_trials_max
-            :return:
-            """
+        f_new < f_old but i=iter_max and n_trials<n_trials_max
+        :return:
+        """
         msg = "---------Test case: Free energy is decreasing -max nb of iterations is reached before n_trials_max---------"
         logger.info(msg)
         # define samples of param and free energy for each iteration
@@ -117,9 +117,9 @@ class TestFreeEnergy(unittest.TestCase):
 
     def test_reached_tolerance_return_stored(self):
         """
-            f_new < f_old but i=iter_max and n_trials<n_trials_max
-            :return:
-            """
+        f_new < f_old but i=iter_max and n_trials<n_trials_max
+        :return:
+        """
         msg = "---------Test case: Free energy change is below tolerance - return stored param values---------T"
         logger.info(msg)
         # define samples of param and free energy for each iteration
