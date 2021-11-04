@@ -76,7 +76,7 @@ class MVN:
 
 
 class Gamma:
-    def __init__(self, shape=0.0, scale=1e6, name="Gamma"):
+    def __init__(self, shape=1.e-6, scale=1e6, name="Gamma"):
         self.scale = scale
         self.shape = shape
         self.name = name
@@ -508,15 +508,20 @@ class VB:
             f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
             (sign, logdet) = np.linalg.slogdet(L)
             f_new -= 0.5 * sign * logdet
+            f_new += 0.5 * len(m)
+            
+            (sign0, logdet0) = np.linalg.slogdet(L0)
+            f_new += 0.5 * sign0 * logdet0
 
             for i in noise0:
+                N = len(k[i])
                 """
                 NOTE:
                     Still a possible slight improve is to exclude constant terms
                     (depending only on c and s) in case of update_noise[i]=False.
                     This however seems to have no influence, since they are just constants.
                 """
-                f_new += -s[i] * c[i] / s0[i] + (len(k[i]) / 2 + c0[i] - 1) * (
+                f_new += -s[i] * c[i] / s0[i] + (N / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
                 f_new += (
@@ -527,6 +532,8 @@ class VB:
                 )
                 f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
                 f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
+                # constant terms to fix the evidence
+                f_new += -N/2 * np.log(2*np.pi) - special.gammaln(c0[i]) - c0[i] * np.log(s0[i])
                 if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
                         f_new += (
