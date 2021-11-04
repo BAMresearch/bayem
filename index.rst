@@ -108,35 +108,35 @@ which is identical to eq.(5) in Chappels paper.
 Log Posterior
 =============
 The log-posterior :math:`L` in the above integrand is given using Bayes theorem and the assumption of parameter
-and noise prior being
-uncorrelated by:
+and noise prior being uncorrelated by:
 
 .. math::
     L = & \;\log[P(\boldsymbol{y}|\boldsymbol{\theta},\Phi] +\log[P(\boldsymbol{\theta})] +\log[P(\Phi)] +
-    \mathrm{const}
-    \lbrace \boldsymbol{\theta},\Phi \rbrace\\[3mm]
+    \color{red}{-[log(P(\boldsymbol{y}))]} \\[3mm]
     = & \;\log[P(\boldsymbol{y}|\boldsymbol{\theta},\Phi]+\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m_0},
-    \Lambda_0^{-1})]+\log[\Gamma(\Phi;s_0,c_0)] + \mathrm{const}\lbrace \boldsymbol{\theta},\Phi
-    \rbrace\\[2mm]
+    \Lambda_0^{-1})]+\log[\Gamma(\Phi;s_0,c_0)] + \color{red}{-[log(P(\boldsymbol{y}))]}\\[2mm]
     = &  \left(-\frac{N}{2}\log[2\pi]\right) + \frac{N}{2}\log[\Phi] - \frac{1}{2} \Phi
     \boldsymbol{k}^T\boldsymbol{k} \\
     & + (-\frac{1}{2}\log[2\pi^p \, \mathrm{det}(\Lambda_0^{-1})]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
     \, \Lambda_0 \,(\boldsymbol{\theta}-\boldsymbol{m}_0) \\
     & + (\log[1/\Gamma(c_0)]-c_0\log[s_0]) + (c_0-1)\log[\Phi] -\frac{1}{s_0} \Phi \\[2mm]
-    & + \mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace.\\
+    & + \color{red}{-[log(P(\boldsymbol{y}))]}.\\
 
-The constant term is caused by ignoring the evidence term :math:`P(\boldsymbol{y})=\frac{P
-(\boldsymbol{y}|\boldsymbol{w})\,P(\boldsymbol{w})}{P(\boldsymbol{w}|\boldsymbol{y})}`.
+.. math::
+    \color{red}{\text{Since in the free energy equation the evidence is not included, this part is neglected in the further derivation.}}
 
 Adding all terms not dependent on :math:`\boldsymbol{\theta}` and :math:`\boldsymbol{\Phi}`
-[marked with ()] to the constant gives
+[marked with ()] to a constant gives
 
 .. math::
     L = \frac{N}{2}\log[\Phi] - \frac{1}{2} \Phi \boldsymbol{k}^T\boldsymbol{k} -\frac{1}{2}
     (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \, \Lambda_0 \,(\boldsymbol{\theta}-\boldsymbol{m}_0)  + (c_0-1)
     \log[\Phi] -\frac{1}{s_0} \Phi + \mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace
 
-similar to eq.(16) in Chappels paper.
+similar to eq.(16) in Chappels paper, with
+
+.. math::
+    \color{red}{\mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace = -\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}
 
 Update equations
 ================
@@ -318,34 +318,35 @@ term 1:
 .. math::
     1 = &  \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\, \Gamma(\Phi;s,c) L \;d\Phi
     \;d\boldsymbol{\theta}   \\
-    & \color{blue}{\text{with substituting the definition of the log posterior $L$}}\\
+    & \color{blue}{\text{with substituting the definition of the log posterior $L$ WITHOUT evidence part}}\\
     = & (\frac{N}{2}+(c_0-1)) \int\log[\Phi] \, \Gamma(\Phi;s,c)\, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta}\\
     & - \frac{1}{2} \int \Phi \boldsymbol{k}^T\boldsymbol{k} \, \Gamma(\Phi;s,c)\,\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\Phi \,   d\boldsymbol{\theta}  \\
     & -\frac{1}{2} \int (\boldsymbol{\theta}-\boldsymbol{m}_0)^T \Lambda_0 (\boldsymbol{\theta}-\boldsymbol{m}_0)
     \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c)
     \, d\Phi   \\
     & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}  \\
-    & + \int const \, \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \\
+    & + \color{red}{[-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]]} \int \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \\
     = &  (\frac{N}{2}+c_0-1)(\log[s]+\psi(c)) \text{    [see derivation in appendix ??]}\\
     & - \frac{1}{2} \int \Phi \, \Gamma(\Phi;s,c)\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta} \text{    [see above]}\\
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0)) \text{    [see derivation 1 in appendix]}\\
     & - \frac{sc}{s_0}\\
-    & + const   \\
+    & \color{red}{-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}\\
     = &  (\frac{N}{2}+c_0-1)(log[s]+\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
-    & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} + \mathrm{const}
+    & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
+    & \color{red}{-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}
 
 term 2:
 
 .. math::
     2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     = & - \int \Gamma(\Phi;s,c) \, d\Phi \, \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] d\boldsymbol{\theta} \\
-    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] = const - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] =} \color{red}{-\frac{1}{2}log(2\pi^p)} \color{blue}{- \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m})}\\
-    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, (const - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, ({\color{red}{-\frac{1}{2}log(2\pi^p)}} - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m}))  d\boldsymbol{\theta} \\
-    = & \mathrm{const} + \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
-    = & \mathrm{const} + \frac{1}{2}\log[det \Lambda^{-1}] +  \frac{1}{2} n_{param}\\
-    = & - \frac{1}{2}\log[det \Lambda] + \mathrm{const}
+    = & {\color{red}{\frac{1}{2}log(2\pi^p)}} + \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
+    = & {\color{red}{\frac{1}{2}log(2\pi^p)}} + \frac{1}{2}\log[det \Lambda^{-1}] +  \frac{1}{2} n_{param}\\
+    = & - \frac{1}{2}\log[det \Lambda] + \color{red}{\frac{1}{2} n_{param} + \frac{1}{2}log(2\pi^p)}
 
 term 3:
 
@@ -367,9 +368,10 @@ term 3:
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0) +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
     & \color{green}{- \frac{1}{2}\log[det \Lambda]} \\
     &  \color{green}{ +\log[\Gamma_c] + c\log[s] + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c)) }\\
-    & + const
+    & \color{red}{-\frac{N}{2}\log[2\pi] \cancel{-\frac{1}{2}\log[2\pi^p]} +\frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0] + \frac{1}{2} n_{param} + \cancel{\frac{1}{2}log(2\pi^p)}}
 
-not the same as in Chappell eq 23
+not the same as in Chappell eq 23.
+
 
 Free energy equation check
 ----------------------------
