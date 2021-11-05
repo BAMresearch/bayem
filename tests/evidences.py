@@ -33,7 +33,16 @@ assert abs(vb_result.param.mean[0] - mean) < 1.e-8
 assert abs(vb_result.param.std_diag[0] - scale) < 1.e-8
 print("analytic VB free energy:", vb_result.f_max)
 
-sampler = dynesty.DynamicNestedSampler(loglikelihood=loglike, prior_transform=prior.ppf, ndim=1)
-sampler.run_nested()
-print("dnyesty log evidence:   ", sampler.results.logz[-1])
+# sampler = dynesty.DynamicNestedSampler(loglikelihood=loglike, prior_transform=prior.ppf, ndim=1)
+# sampler.run_nested()
+# print("dnyesty log evidence:   ", sampler.results.logz[-1])
 print("dnyesty log evidence:   -116.54005116")
+
+# analytic solution based on 
+# https://www.econstor.eu/bitstream/10419/85883/1/02084.pdf eq 3 (whereever that is coming from)
+m = (2*np.pi)**(-n/2) * sigma**(-n) * scale/prior_sd * np.exp(-1/2*(np.dot(data, data)/sigma**2 + prior_mean**2/prior_sd**2 - mean**2/scale**2))
+logz = np.log(m) # this approach is almost exact, but error prone due to numerical imprecisions
+# print(logz)
+logz = -n/2 * np.log(2*np.pi) - n * np.log(sigma) + np.log(scale/prior_sd) -1/2*(np.dot(data, data)/sigma**2 + prior_mean**2/prior_sd**2 - mean**2/scale**2)
+print("analytic solution:     ", logz) # well, no difference though
+
