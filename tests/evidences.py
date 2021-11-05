@@ -26,18 +26,14 @@ def loglike(theta):
     logpdfs = scipy.stats.norm.logpdf(model_error(theta), scale=sigma)
     return np.sum(logpdfs)
 
-vb_result = bayes.vb.variational_bayes(model_error, param0=bayes.vb.MVN(prior_mean, 1/prior_sd**2), noise0=bayes.vb.Gamma(scale=1, shape=1/sigma**2), update_noise=False)
+shape = 1e10
+vb_result = bayes.vb.variational_bayes(model_error, param0=bayes.vb.MVN(prior_mean, 1/prior_sd**2), noise0=bayes.vb.Gamma(shape=shape, scale=1/shape * 1/sigma**2), update_noise=False)
         
 assert abs(vb_result.param.mean[0] - mean) < 1.e-8
 assert abs(vb_result.param.std_diag[0] - scale) < 1.e-8
-print(vb_result.f_max)
+print("analytic VB free energy:", vb_result.f_max)
 
 sampler = dynesty.DynamicNestedSampler(loglikelihood=loglike, prior_transform=prior.ppf, ndim=1)
-# sampler.run_nested(nlive_init=10)
 sampler.run_nested()
-# with open("result.json", "w") as f:
-    # json.dump(sampler.results, f)
-
-
-# dynesty.plotting.runplot(sampler.results)
-
+print("dnyesty log evidence:   ", sampler.results.logz[-1])
+print("dnyesty log evidence:   -116.54005116")
