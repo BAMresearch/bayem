@@ -40,8 +40,31 @@ class Test_VBAnalytic(unittest.TestCase):
         variance = (sigma ** 2 * prior_sd ** 2) / denom
         scale = variance ** 0.5
 
+        # analytic solution based on
+        # https://www.econstor.eu/bitstream/10419/85883/1/02084.pdf eq 3 (whereever that is coming from)
+        exponent = (
+            -1
+            / 2
+            * (
+                np.dot(data, data) / sigma ** 2
+                + prior_mean ** 2 / prior_sd ** 2
+                - mean ** 2 / scale ** 2
+            )
+        )
+
+        z = (
+            (2 * np.pi) ** (-n / 2)
+            * sigma ** (-n)
+            * scale
+            / prior_sd
+            * np.exp(exponent)
+        )
+        logz = np.log(z)
+
         prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
-        gamma = bayes.vb.Gamma.FromMeanStd(1 / sigma ** 2, 42)
+
+        narrow_gamma_sd = 1.0e-4
+        gamma = bayes.vb.Gamma.FromMeanStd(1 / sigma ** 2, narrow_gamma_sd)
 
         result = bayes.vb.variational_bayes(
             model_error, prior, gamma, update_noise=update_noise
@@ -49,6 +72,9 @@ class Test_VBAnalytic(unittest.TestCase):
         self.assertTrue(result.success)
         check_method(result.param.mean[0], mean)
         check_method(result.param.std_diag[0], scale)
+
+        if check_method == self.assertAlmostEqual:
+            check_method(result.f_max, logz, delta=abs(logz) * 1.0e-4)
 
     def test_given_noise(self):
         self.given_noise(update_noise=False, check_method=self.assertAlmostEqual)
