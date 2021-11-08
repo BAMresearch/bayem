@@ -77,10 +77,14 @@ class Test_VBAnalytic(unittest.TestCase):
 
         prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
         narrow_gamma = bayes.vb.Gamma.FromMeanStd(1 / sigma ** 2, 1.0e-6)
-        result = bayes.vb.variational_bayes(
+        result1 = bayes.vb.variational_bayes(
             model_error, prior, narrow_gamma, update_noise=True
         )
-        self.assertAlmostEqual(result.f_max, logz, places=6)
+        result2 = bayes.vb.variational_bayes(
+            model_error, prior, narrow_gamma, update_noise=False
+        )
+        self.assertAlmostEqual(result1.f_max, logz, places=6)
+        self.assertAlmostEqual(result2.f_max, logz, places=6)
 
     def test_given_mu(self):
         """
