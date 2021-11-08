@@ -76,7 +76,7 @@ class MVN:
 
 
 class Gamma:
-    def __init__(self, shape=1.e-6, scale=1e6, name="Gamma"):
+    def __init__(self, shape=1.0e-6, scale=1e6, name="Gamma"):
         self.scale = scale
         self.shape = shape
         self.name = name
@@ -401,7 +401,6 @@ class VB:
         self.tolerance = tolerance
         self.iter_max = iter_max
         self.result = VBResult()
-        self.scaling_eps = 1.0e-20
 
     def run(self, model_error, param0, noise0=None, update_noise=True, **kwargs):
         t0 = perf_counter()
@@ -411,8 +410,6 @@ class VB:
             self.iter_max = kwargs["iter_max"]
         if "n_trials_max" in kwargs:
             self.n_trials_max = kwargs["n_trials_max"]
-        if "scaling_eps" in kwargs:
-            self.scaling_eps = kwargs["scaling_eps"]
 
         if not isinstance(model_error, VariationalBayesInterface):
             model_error = VBModelErrorWrapper(model_error)
@@ -509,7 +506,7 @@ class VB:
             (sign, logdet) = np.linalg.slogdet(L)
             f_new -= 0.5 * sign * logdet
             f_new += 0.5 * len(m)
-            
+
             (sign0, logdet0) = np.linalg.slogdet(L0)
             f_new += 0.5 * sign0 * logdet0
 
@@ -521,6 +518,7 @@ class VB:
                     (depending only on c and s) in case of update_noise[i]=False.
                     This however seems to have no influence, since they are just constants.
                 """
+                # From the update equation
                 f_new += -s[i] * c[i] / s0[i] + (N / 2 + c0[i] - 1) * (
                     np.log(s[i]) + special.digamma(c[i])
                 )
@@ -533,7 +531,11 @@ class VB:
                 f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
                 f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
                 # constant terms to fix the evidence
-                f_new += -N/2 * np.log(2*np.pi) - special.gammaln(c0[i]) - c0[i] * np.log(s0[i])
+                f_new += (
+                    -N / 2 * np.log(2 * np.pi)
+                    - special.gammaln(c0[i])
+                    - c0[i] * np.log(s0[i])
+                )
                 if "index_ARD" in kwargs:
                     for j in range(n_ARD_param):
                         f_new += (
