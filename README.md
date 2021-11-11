@@ -9,7 +9,7 @@
 > Chappell, Michael A., Adrian R. Groves, Brandon Whitcher, and Mark W. Woolrich. 
 > IEEE Transactions on Signal Processing 57, no. 1 (2008): 223-236.
 
-with an updated free energy equation to correctly capture the log evidence. The algorithm is based on a user-defined model error to allow a arbitrary combination of custim forward models and measured data.
+with an updated free energy equation to correctly capture the log evidence. The algorithm requires a user-defined model error allowing a arbitrary combination of custom forward models and measured data.
 
 A recently puplished implementation by the group of Chappell based on `tensorflow` can be found [here](https://github.com/physimals/vaby_avb).
 
