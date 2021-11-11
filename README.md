@@ -11,7 +11,7 @@
 
 with an updated free energy equation to correctly capture the log evidence. The algorithm requires a user-defined model error allowing a arbitrary combination of custom forward models and measured data.
 
-A recently puplished implementation by the group of Chappell based on `tensorflow` can be found [here](https://github.com/physimals/vaby_avb).
+A recently published implementation by the group of Chappell based on `tensorflow` can be found [here](https://github.com/physimals/vaby_avb).
 
 # Installation
 
