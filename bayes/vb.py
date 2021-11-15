@@ -215,6 +215,8 @@ class VBModelErrorWrapper(VariationalBayesInterface):
         Still, to match the VariationalBayesInterface, we use this adapter.
         """
         self.model_error = model_error
+        if hasattr(self.model_error, 'jacobian'):
+            self.jacobian = self.model_error.jacobian
 
     def __call__(self, number_vector):
         k = self.model_error(number_vector)
