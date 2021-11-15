@@ -179,12 +179,12 @@ class Test_VB_AnalyticBayes(unittest.TestCase):
             plt.plot(pp.ms, pp.pdf_m, label='Analytic')
             plt.plot(pp.ms, pdf_vb_at_ms, label='VB')
             plt.title('Posterior of parameter')
-            plt.xlabel('parameter'); plt.ylabel('pdf'); plt.legend()
+            plt.xlabel('mio'); plt.ylabel('pdf'); plt.legend()
             plt.figure()
             plt.plot(pp.sigmas, pp.pdf_sigma, label='Analytic')
             plt.plot(pp.sigmas, pdf_vb_at_sigmas, label='VB (transformed)')
-            plt.title('Posterior of parameter')
-            plt.xlabel('Sigma'); plt.ylabel('pdf'); plt.legend()
+            plt.title('Posterior of standard deviation of noise')
+            plt.xlabel('sigma'); plt.ylabel('pdf'); plt.legend()
             plt.show()
 
 
