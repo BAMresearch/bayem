@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from bayes.vb import *
+import bayem
 
 
 class ForwardModel:

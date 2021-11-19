@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from bayes.vb import *
+import bayem 
 
 np.random.seed(6174)
 x = np.linspace(0, 1, 1000)
@@ -20,10 +20,10 @@ def me_vector(parameters):
 class Test_VB(unittest.TestCase):
     def run_vb(self, model_error):
 
-        param_prior = MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = Gamma(shape=0.1, scale=1000)
+        param_prior = bayem.MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
+        noise_prior = bayem.Gamma(shape=0.1, scale=1000)
 
-        info = variational_bayes(model_error, param_prior, noise_prior)
+        info = bayem.variational_bayes(model_error, param_prior, noise_prior)
         param_post, noise_post = info.param, info.noise
         print(info)
 
