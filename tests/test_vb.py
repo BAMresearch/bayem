@@ -18,7 +18,7 @@ class ForwardModel:
         return np.vstack([d_dm, d_dc]).T
 
 
-class ModelError(VariationalBayesInterface):
+class ModelError(bayem.VariationalBayesInterface):
     def __init__(self, forward_model, data):
         """
         forward_model:
@@ -63,10 +63,10 @@ class Test_VB(unittest.TestCase):
         else:
             me = ModelError(fw, data)
 
-        param_prior = MVN([0, 11], [[1 / 7 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = {"noise0": Gamma.FromSDQuantiles(0.5 * noise_sd, 1.5 * noise_sd)}
+        param_prior = bayem.MVN([0, 11], [[1 / 7 ** 2, 0], [0, 1 / 3 ** 2]])
+        noise_prior = {"noise0": bayem.Gamma.FromSDQuantiles(0.5 * noise_sd, 1.5 * noise_sd)}
 
-        info = variational_bayes(
+        info = bayem.variational_bayes(
             me, param_prior, noise_prior, scale_by_prior_mean=given_jac
         )
         param_post, noise_post = info.param, info.noise

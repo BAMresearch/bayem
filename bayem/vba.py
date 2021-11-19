@@ -11,8 +11,6 @@ from .distributions import MVN, Gamma
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["variational_bayes"]
-
 class VariationalBayesInterface:
     def __call__(self, number_vector):
         """
@@ -499,13 +497,13 @@ class BayesEncoder(json.JSONEncoder):
             json (serializeable) reprensentation of `obj`
         """
         if isinstance(obj, VBResult):
-            return {"vb.VBResult": obj.__dict__}
+            return {"bayem.VBResult": obj.__dict__}
 
         if isinstance(obj, MVN):
-            return {"vb.MVN": obj.__dict__}
+            return {"bayem.MVN": obj.__dict__}
 
         if isinstance(obj, Gamma):
-            return {"vb.Gamma": obj.__dict__}
+            return {"bayem.Gamma": obj.__dict__}
 
         if isinstance(obj, np.ndarray):
             return {"np.array": obj.tolist()}
@@ -533,19 +531,19 @@ def bayes_hook(dct):
 
     Some fancy metaprogramming may help to avoid repetition. TODO?
     """
-    if "vb.VBResult" in dct:
+    if "bayem.VBResult" in dct:
         result = VBResult()
-        result.__dict__ = dct["vb.VBResult"]
+        result.__dict__ = dct["bayem.VBResult"]
         return result
 
-    if "vb.MVN" in dct:
+    if "bayem.MVN" in dct:
         mvn = MVN()
-        mvn.__dict__ = dct["vb.MVN"]
+        mvn.__dict__ = dct["bayem.MVN"]
         return mvn
 
-    if "vb.Gamma" in dct:
+    if "bayem.Gamma" in dct:
         gamma = Gamma()
-        gamma.__dict__ = dct["vb.Gamma"]
+        gamma.__dict__ = dct["bayem.Gamma"]
         return gamma
 
     if "np.array" in dct:
@@ -555,17 +553,27 @@ def bayes_hook(dct):
     return dct
 
 
-def save_json(filename, obj):
+def save_json(obj, filename=None):
     """
-    Saves an `obj` (possibly containing VB classes) to `filename` via json.
+    Saves an `obj` (possibly containing VB classes) to `filename` via json or
+    returns the json string.
     """
-    with open(filename, "w") as f:
-        json.dump(obj, f, cls=BayesEncoder, indent=2)
+    s = json.dumps(obj, cls=BayesEncoder, indent=2)
+    if filename is not None:
+        with open(filename, "w") as f:
+            f.write(s)
+    return s
 
 
-def load_json(filename):
+def load_json(filename_or_string):
     """
-    Loads an object (possibly containing VB classes) from `filename` via json.
+    Loads an object (possibly containing VB classes) from `filename_or_string` 
+    via json.
     """
-    with open(filename, "r") as f:
-        return json.load(f, object_hook=bayes_hook)
+    if filename_or_string.endswith(".json"):
+        with open(filename_or_string, "r") as f:
+            string = f.read()
+    else:
+        string = filename_or_string
+
+    return json.loads(string, object_hook=bayes_hook)

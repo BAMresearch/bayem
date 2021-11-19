@@ -1,25 +1,25 @@
 import unittest
 import numpy as np
-import bayes.vb
+import bayem
 import json
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
 
 class TestJSON(unittest.TestCase):
     def test_json(self):
         data = {}
-        data["parameter_prior"] = bayes.vb.MVN(
+        data["parameter_prior"] = bayem.MVN(
             mean=np.r_[1, 2, 3],
             precision=np.diag([1, 2, 3]),
             parameter_names=["A", "B", "C"],
         )
 
-        data["noise_prior"] = bayes.vb.Gamma()
+        data["noise_prior"] = bayem.Gamma()
         data["non bayes thing"] = {"best number": 6174.0}
 
-        string = json.dumps(data, cls=bayes.vb.BayesEncoder, indent=2)
-        print(string)
-
-        loaded = json.loads(string, object_hook=bayes.vb.bayes_hook)
+        string = bayem.save_json(data)
+        loaded = bayem.load_json(string)
 
         A, B = data["parameter_prior"], loaded["parameter_prior"]
         CHECK = np.testing.assert_array_equal
@@ -37,17 +37,18 @@ class TestJSON(unittest.TestCase):
         def dummy_me(prm):
             return prm ** 2
 
-        result = bayes.vb.variational_bayes(
+        result = bayem.variational_bayes(
             dummy_me,
-            param0=bayes.vb.MVN([1, 1], np.diag([1, 1]), parameter_names=["A", "B"]),
+            param0=bayem.MVN([1, 1], np.diag([1, 1]), parameter_names=["A", "B"]),
         )
 
-        dumped = json.dumps(result, cls=bayes.vb.BayesEncoder, indent=2)
+        with TemporaryDirectory() as f:
+            filename = str(Path(f) / "tmp.json")
+            dumped = bayem.save_json(result, filename)
+            loaded = bayem.load_json(filename)
+            dumped_again = bayem.save_json(loaded)
+            self.assertEqual(dumped, dumped_again)
 
-        loaded = json.loads(dumped, object_hook=bayes.vb.bayes_hook)
-        dumped_again = json.dumps(loaded, cls=bayes.vb.BayesEncoder, indent=2)
-
-        self.assertEqual(dumped, dumped_again)
 
 
 if __name__ == "__main__":
