@@ -1,9 +1,10 @@
 import numpy as np
-import scipy.stats 
+import scipy.stats
 import scipy.optimize as optimize
 from tabulate import tabulate
 
 __all__ = ["MVN", "Gamma"]
+
 
 class MVN:
     def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
@@ -141,5 +142,3 @@ class Gamma:
         variance = std ** 2
         scale = variance / mean
         return cls(shape=mean / scale, scale=scale)
-
-

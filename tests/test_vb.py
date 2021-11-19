@@ -46,7 +46,7 @@ class ModelErrorWithJacobian(ModelError):
 
 
 class Test_VB(unittest.TestCase):
-    def run_vb(self, n_data, given_jac=False, plot=False):
+    def run_vb(self, n_data, given_jac=False):
         np.random.seed(6174)
 
         fw = ForwardModel()
@@ -64,20 +64,14 @@ class Test_VB(unittest.TestCase):
             me = ModelError(fw, data)
 
         param_prior = bayem.MVN([0, 11], [[1 / 7 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = {"noise0": bayem.Gamma.FromSDQuantiles(0.5 * noise_sd, 1.5 * noise_sd)}
+        noise_prior = {
+            "noise0": bayem.Gamma.FromSDQuantiles(0.5 * noise_sd, 1.5 * noise_sd)
+        }
 
         info = bayem.variational_bayes(
             me, param_prior, noise_prior, scale_by_prior_mean=given_jac
         )
         param_post, noise_post = info.param, info.noise
-
-        if plot:
-            plot_pdf(
-                param_post,
-                expected_value=param_true,
-                compare_with=param_prior,
-                plot="joint",
-            )
 
         for i in range(2):
             posterior_mean = param_post.mean[i]
@@ -99,7 +93,7 @@ class Test_VB(unittest.TestCase):
         self.run_vb(n_data=1000, given_jac=False)
 
     def test_vb_with_given_jac(self):
-        self.run_vb(n_data=1000, given_jac=True, plot=False)
+        self.run_vb(n_data=1000, given_jac=True)
 
 
 if __name__ == "__main__":

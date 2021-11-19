@@ -1,6 +1,3 @@
-import glob
-
-
 def task_website():
     try:
         import sphinx

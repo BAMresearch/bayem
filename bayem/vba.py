@@ -11,6 +11,7 @@ from .distributions import MVN, Gamma
 
 logger = logging.getLogger(__name__)
 
+
 class VariationalBayesInterface:
     def __call__(self, number_vector):
         """
@@ -75,7 +76,7 @@ class VBModelErrorWrapper(VariationalBayesInterface):
         Still, to match the VariationalBayesInterface, we use this adapter.
         """
         self.model_error = model_error
-        if hasattr(self.model_error, 'jacobian'):
+        if hasattr(self.model_error, "jacobian"):
             self.jacobian = self.model_error.jacobian
 
     def __call__(self, number_vector):

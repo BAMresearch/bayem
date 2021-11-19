@@ -1,7 +1,5 @@
 import unittest
-import numpy as np
 import bayem
-import scipy.stats
 from hypothesis import given, settings
 import hypothesis.strategies as st
 

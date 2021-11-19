@@ -82,8 +82,12 @@ class TestTwoNoises(unittest.TestCase):
     def test_proper_noise(self):
         """Use a noise_prior that is based on the actual values"""
         noise_prior = {}
-        noise_prior["group0"] = bayem.Gamma.FromSDQuantiles(0.1 * NOISE0_SD, 10 * NOISE0_SD)
-        noise_prior["group1"] = bayem.Gamma.FromSDQuantiles(0.1 * NOISE1_SD, 10 * NOISE1_SD)
+        noise_prior["group0"] = bayem.Gamma.FromSDQuantiles(
+            0.1 * NOISE0_SD, 10 * NOISE0_SD
+        )
+        noise_prior["group1"] = bayem.Gamma.FromSDQuantiles(
+            0.1 * NOISE1_SD, 10 * NOISE1_SD
+        )
         self.run_test(noise_prior, delta=0.05)
 
     def test_noninformative_noise(self):
@@ -102,7 +106,7 @@ class TestTwoNoises(unittest.TestCase):
         # Providing a wrong dimension in the noise pattern should fail.
         wrong_noise = bayem.Gamma((1, 1), (2, 2))
         with self.assertRaises(Exception):
-            variational_bayes(me, bayem.MVN(7, 12), wrong_noise)
+            bayem.variational_bayes(me, bayem.MVN(7, 12), wrong_noise)
 
 
 if __name__ == "__main__":

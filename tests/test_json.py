@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 import bayem
-import json
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
@@ -48,7 +47,6 @@ class TestJSON(unittest.TestCase):
             loaded = bayem.load_json(filename)
             dumped_again = bayem.save_json(loaded)
             self.assertEqual(dumped, dumped_again)
-
 
 
 if __name__ == "__main__":

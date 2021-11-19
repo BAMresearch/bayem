@@ -15,8 +15,6 @@ class ForwardModel:
         return c + self.xs * m + b
 
     def jacobian(self, parameters):
-        m = parameters[0]
-        c = parameters[1]
         b = parameters[2:]
 
         d_dm = self.xs
@@ -35,7 +33,7 @@ class Test_VB(unittest.TestCase):
     Bias term represents how the fw model deviates from the true model and should be inferred during VB. Since the bias parameters are sparse, an ARD prior is set for them.
     """
 
-    def run_vb(self, n_data, given_jac=False, plot=False):
+    def run_vb(self, n_data, given_jac=False):
         np.random.seed(6174)
 
         fw = ForwardModel()
@@ -80,14 +78,6 @@ class Test_VB(unittest.TestCase):
         print(info)
         param_post, noise_post = info.param, info.noise
 
-        if plot:
-            plot_pdf(
-                param_post,
-                expected_value=param_true,
-                compare_with=param_prior,
-                plot="joint",
-            )
-
         for i, p in enumerate(param_true):
             if i < 2 or abs(p) > 1e-10:
                 posterior_mean = param_post.mean[i]
@@ -105,11 +95,8 @@ class Test_VB(unittest.TestCase):
         post_noise_std = 1.0 / post_noise_precision ** 0.5
         self.assertAlmostEqual(post_noise_std, noise_std, delta=noise_std / 100)
 
-    # def test_vb_with_numeric_jac(self):
-    #     self.run_vb(n_data=1000, given_jac=False, plot=True)
-
     def test_vb_with_given_jac(self):
-        self.run_vb(n_data=10, given_jac=False, plot=False)
+        self.run_vb(n_data=10, given_jac=False)
 
 
 if __name__ == "__main__":

@@ -256,7 +256,7 @@ def result_trace(result, show=True, highlight=None):
         color, lw = None, 1
         if name in highlight:
             color, lw = red, 2
-        lines = ax_p.errorbar(
+        ax_p.errorbar(
             x, means[:, i], yerr=sds[:, i], label=name, capsize=5, color=color, lw=lw
         )
 

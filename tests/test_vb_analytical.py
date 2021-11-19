@@ -99,18 +99,14 @@ class Test_VBAnalytic(unittest.TestCase):
         a = n / 2
         b = np.sum((data - prior_mean) ** 2) / 2
 
-        """
-        The parameters for the corresponding gamma distribution for the 
-        PRECISION then read (a, 1/b)
-        """
+        # The parameters for the corresponding gamma distribution for the
+        # PRECISION then read (a, 1/b)
 
         big_but_not_nan = 1e20
         prior = bayem.MVN(prior_mean, big_but_not_nan)
         gamma = bayem.Gamma(shape=1.0e-20, scale=big_but_not_nan)
 
-        result = bayem.variational_bayes(
-            model_error, prior, gamma, update_noise=True
-        )
+        result = bayem.variational_bayes(model_error, prior, gamma, update_noise=True)
         self.assertTrue(result.success)
 
         gamma = result.noise
