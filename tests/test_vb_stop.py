@@ -2,7 +2,7 @@ from scipy import stats
 import numpy as np
 import unittest
 import logging
-from bayes.vb import VB
+from bayem import VB
 
 logging.getLogger("matplotlib.font_manager").disabled = True
 logger = logging.getLogger(__name__)

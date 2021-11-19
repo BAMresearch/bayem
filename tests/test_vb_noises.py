@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from bayes.vb import *
+import bayem
 
 PRM_A, PRM_B = 7.0, 10.0  # slope and offset to identify
 NOISE0_SD = 0.1
@@ -39,7 +39,7 @@ def to_mvn(parameters):
     for i, (mean, sd) in enumerate(parameters):
         means[i] = mean
         precisions[i, i] = 1.0 / sd ** 2
-    return MVN(means, precisions)
+    return bayem.MVN(means, precisions)
 
 
 class TestTwoNoises(unittest.TestCase):
@@ -65,7 +65,7 @@ class TestTwoNoises(unittest.TestCase):
         param_prior = to_mvn([(6.0, 2.0), (15.0, 7.0)])
 
         me = ModelError(fw, data)
-        info = variational_bayes(me, param_prior, noise_prior)
+        info = bayem.variational_bayes(me, param_prior, noise_prior)
 
         param = info.param
         self.assertAlmostEqual(param.mean[0], PRM_A, delta=2 * param.std_diag[0])
@@ -82,8 +82,8 @@ class TestTwoNoises(unittest.TestCase):
     def test_proper_noise(self):
         """Use a noise_prior that is based on the actual values"""
         noise_prior = {}
-        noise_prior["group0"] = Gamma.FromSDQuantiles(0.1 * NOISE0_SD, 10 * NOISE0_SD)
-        noise_prior["group1"] = Gamma.FromSDQuantiles(0.1 * NOISE1_SD, 10 * NOISE1_SD)
+        noise_prior["group0"] = bayem.Gamma.FromSDQuantiles(0.1 * NOISE0_SD, 10 * NOISE0_SD)
+        noise_prior["group1"] = bayem.Gamma.FromSDQuantiles(0.1 * NOISE1_SD, 10 * NOISE1_SD)
         self.run_test(noise_prior, delta=0.05)
 
     def test_noninformative_noise(self):
@@ -95,13 +95,14 @@ class TestTwoNoises(unittest.TestCase):
             return np.array(prm - 10)
 
         # That should work:
-        correct_noise = Gamma(1, 2)
-        info = variational_bayes(me, MVN(7, 12), correct_noise)
+        correct_noise = bayem.Gamma(1, 2)
+        info = bayem.variational_bayes(me, bayem.MVN(7, 12), correct_noise)
         self.assertTrue(info.success)
 
         # Providing a wrong dimension in the noise pattern should fail.
-        wrong_noise = Gamma((1, 1), (2, 2))
-        self.assertRaises(Exception, variational_bayes, me, MVN(7, 12), wrong_noise)
+        wrong_noise = bayem.Gamma((1, 1), (2, 2))
+        with self.assertRaises(Exception):
+            variational_bayes(me, bayem.MVN(7, 12), wrong_noise)
 
 
 if __name__ == "__main__":

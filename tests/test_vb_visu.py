@@ -3,18 +3,17 @@ import tempfile
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
-import bayes.vb
-import bayes.vb_visu
+import bayem
 from imageio import imread
 
 
 def test_vb_visu(generate_ref_img=False):
-    mvn = bayes.vb.MVN(mean=[2, 30, 100], precision=[[1, 1, 1], [1, 2, 0], [1, 0, 3]])
-    gamma0 = bayes.vb.Gamma(shape=3, scale=1 / 75)
-    gamma1 = bayes.vb.Gamma(shape=8.5, scale=1 / 8.5)
+    mvn = bayem.MVN(mean=[2, 30, 100], precision=[[1, 1, 1], [1, 2, 0], [1, 0, 3]])
+    gamma0 = bayem.Gamma(shape=3, scale=1 / 75)
+    gamma1 = bayem.Gamma(shape=8.5, scale=1 / 8.5)
 
-    axes = bayes.vb_visu.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
-    bayes.vb_visu.format_axes(axes)
+    axes = bayem.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
+    bayem.format_axes(axes)
 
     ref_img_name = Path(__file__).absolute().parent / "test_vb_visu_ref.png"
     if generate_ref_img:
