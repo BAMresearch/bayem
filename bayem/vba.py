@@ -48,6 +48,7 @@ class DictProblem:
 
 
         print(case)
+
         return self(x)
 
     def _adapt_noise0(self):
@@ -67,50 +68,33 @@ class VBA:
     def run(self):
         t0 = perf_counter()
         # extract / rename model parameters
-        m = np.array(self.x0.mean)
-        L = np.array(self.x0.precision)
-        m0 = np.copy(m)
-        L0 = np.copy(L)
+        m0 = self.x0.mean
+        L0 = self.x0.precision
+        self.m = np.array(self.x0.mean)
+        self.L = np.array(self.x0.precision)
 
         # run first evaluation of the f and jac to adjust the format
-        k, J = self.p.first_call(m)
+        k, J = self.p.first_call(self.m)
 
         # extract / rename noise parameters
-        s, c = {}, {}
+        self.s, self.c = {}, {}
         for n, gamma in self.noise0.items():
-            s[n] = gamma.scale
-            c[n] = gamma.shape
-        s0 = copy.copy(s)
-        c0 = copy.copy(c)
+            self.s[n] = gamma.scale
+            self.c[n] = gamma.shape
+        s0 = copy.copy(self.s)
+        c0 = copy.copy(self.c)
 
-        noise_groups = self.noise0.keys()
+        self.noise_groups = self.noise0.keys()
 
         i_iter = 0
         while True:
             i_iter += 1
+            
+            self.update_parameters(k, J)
 
-            # fw model parameter update
-            L = sum([s[i] * c[i] * J[i].T @ J[i] for i in noise_groups]) + L0
-            L_inv = np.linalg.inv(L)
-
-            Lm = sum([s[i] * c[i] * J[i].T @ (-k[i] + J[i] @ m) for i in noise_groups])
-            Lm += L0 @ m0
-            m = Lm @ L_inv
-
-            k, J = self.p(m)
-
-            # noise parameter update
-            for i in noise_groups:
-                # if update_noise[i]:
-                # formula (30)
-                c[i] = len(k[i]) / 2 + c0[i]
-                # formula (31)
-                s_inv = (
-                    1 / s0[i]
-                    + 0.5 * k[i].T @ k[i]
-                    + 0.5 * np.trace(L_inv @ J[i].T @ J[i])
-                )
-                s[i] = 1 / s_inv
+            k, J = self.p(self.m)
+            
+            self.update_noise(k, J)
 
             # if "index_ARD" in kwargs:
             #     index_ARD = kwargs["index_ARD"]
@@ -121,49 +105,13 @@ class VBA:
             #     r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
             #     d = 0.5 * np.ones(n_ARD_param)
 
-            logger.info(f"current mean: {m}")
+            logger.info(f"current mean: {self.m}")
 
-            # free energy caluclation, formula (23) slightly rearranged
-            # to account for the loop over all noise groups
-            f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
-            (sign, logdet) = np.linalg.slogdet(L)
-            f_new -= 0.5 * sign * logdet
-            f_new += 0.5 * len(m)
+            f_new = self.free_energy(k, J)
 
-            (sign0, logdet0) = np.linalg.slogdet(L0)
-            f_new += 0.5 * sign0 * logdet0
-
-            for i in noise_groups:
-                N = len(k[i])
-                
-                # From the update equation
-                f_new += -s[i] * c[i] / s0[i] + (N / 2 + c0[i] - 1) * (
-                    np.log(s[i]) + special.digamma(c[i])
-                )
-                f_new += (
-                    -0.5
-                    * s[i]
-                    * c[i]
-                    * (k[i].T @ k[i] + np.trace(L_inv @ J[i].T @ J[i]))
-                )
-                f_new += c[i] * np.log(s[i]) + special.gammaln(c[i])
-                f_new += c[i] - (c[i] - 1) * (np.log(s[i]) + special.digamma(c[i]))
-                # constant terms to fix the evidence
-                f_new += (
-                    -N / 2 * np.log(2 * np.pi)
-                    - special.gammaln(c0[i])
-                    - c0[i] * np.log(s0[i])
-                )
-                # if "index_ARD" in kwargs:
-                #     for j in range(n_ARD_param):
-                #         f_new += (
-                #             (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
-                #             - d[j] * (1 + np.log(r[j]))
-                #             - special.gammaln(d[j])
-                #         )
             logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, m, L, c, s, self.x0.parameter_names)
+            self.result.try_update(f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names)
             if self.stop_criteria(f_new, i_iter):
                 break
 
@@ -182,6 +130,75 @@ class VBA:
         self.result.noise0 = self.noise0
         return self.result
 
+    def update_parameters(self, k, J):
+        # fw model parameter update
+        m0, L0 = self.x0.mean, self.x0.precision
+        self.L = sum([self.s[i] * self.c[i] * J[i].T @ J[i] for i in self.noise_groups]) + L0
+        self.L_inv = np.linalg.inv(self.L)
+
+        Lm = sum([self.s[i] * self.c[i] * J[i].T @ (-k[i] + J[i] @ self.m) for i in self.noise_groups])
+        Lm += L0 @ m0
+        self.m = Lm @ self.L_inv
+
+    def update_noise(self, k, J):
+        # noise parameter update
+        for i in self.noise_groups:
+            # if update_noise[i]:
+            # formula (30)
+            c0i, s0i = self.noise0[i].shape, self.noise0[i].scale
+            self.c[i] = len(k[i]) / 2 + c0i
+            # formula (31)
+            s_inv = (
+                1 / s0i
+                + 0.5 * k[i].T @ k[i]
+                + 0.5 * np.trace(self.L_inv @ J[i].T @ J[i])
+            )
+            self.s[i] = 1 / s_inv
+
+    def free_energy(self, k, J):
+        m0, L0 = self.x0.mean, self.x0.precision
+
+        # free energy caluclation, formula (23) slightly rearranged
+        # to account for the loop over all noise groups
+        f_new = -0.5 * ((self.m - m0).T @ L0 @ (self.m - m0) + np.trace(self.L_inv @ L0))
+        (sign, logdet) = np.linalg.slogdet(self.L)
+        f_new -= 0.5 * sign * logdet
+        f_new += 0.5 * len(self.m)
+
+        (sign0, logdet0) = np.linalg.slogdet(L0)
+        f_new += 0.5 * sign0 * logdet0
+
+        for i in self.noise_groups:
+            c0i, s0i = self.noise0[i].shape, self.noise0[i].scale
+            si, ci = self.s[i], self.c[i]
+            N = len(k[i])
+            
+            # From the update equation
+            f_new += -si * ci / s0i + (N / 2 + c0i - 1) * (
+                np.log(si) + special.digamma(ci)
+            )
+            f_new += (
+                -0.5
+                * si
+                * ci
+                * (k[i].T @ k[i] + np.trace(self.L_inv @ J[i].T @ J[i]))
+            )
+            f_new += ci * np.log(si) + special.gammaln(ci)
+            f_new += ci - (ci - 1) * (np.log(si) + special.digamma(ci))
+            # constant terms to fix the evidence
+            f_new += (
+                -N / 2 * np.log(2 * np.pi)
+                - special.gammaln(c0i)
+                - c0i * np.log(s0i)
+            )
+            # if "index_ARD" in kwargs:
+            #     for j in range(n_ARD_param):
+            #         f_new += (
+            #             (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
+            #             - d[j] * (1 + np.log(r[j]))
+            #             - special.gammaln(d[j])
+            #         )
+        return f_new
 
     def stop_criteria(self, f_new, i_iter):
         self.n_trials += 1
