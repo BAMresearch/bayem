@@ -18,7 +18,7 @@ class ForwardModel:
         return np.vstack([d_dm, d_dc]).T
 
 
-class ModelError(bayem.VariationalBayesInterface):
+class ModelError:
     def __init__(self, forward_model, data):
         """
         forward_model:
@@ -37,8 +37,6 @@ class ModelError(bayem.VariationalBayesInterface):
 
         return {"noise0": np.concatenate(errors)}
 
-
-class ModelErrorWithJacobian(ModelError):
     def jacobian(self, parameters):
         jac = self._forward_model.jacobian(parameters)
         full_jac = np.tile(jac, (len(self._data), 1))
