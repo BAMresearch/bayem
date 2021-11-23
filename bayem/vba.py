@@ -81,49 +81,50 @@ class VBAProblem:
         up an internal structure such that various user provided forms of
         `f` can be used.
         """
-
-        def no_transformation(x_dict):
-            return x_dict
+        def identity(x):
+            return x
 
         def list_to_dict(x_list):
             return dict(enumerate(x_list))
-
-        def numpy_to_dict(x_np):
+        
+        def dict_to_list(x_dict):
+            return [x_dict[i] for i in range(len(x_dict))]
+        
+        def obj_to_dict(x_np):
             return {0: x_np}
 
-        def dict_to_gamma(x_dict):
+        def dict_to_obj(x_dict):
             assert len(x_dict) == 1
             assert 0 in x_dict
             return x_dict[0]
 
-        def dict_to_gamma_list(x_dict):
-            return [x_dict[i] for i in range(len(x_dict))]
 
         if self.jac_in_f:
             k, J = self.f(x)
         else:
             k = self.f(x)
+        
 
         if isinstance(k, dict):
-            self._Tk = no_transformation
-            self._TJ = no_transformation
+            self._Tk = identity
+            self._TJ = identity
             if self.noise0 is None:
                 self.noise0 = {noise_group: Gamma() for noise_group in k}
-            self._invTnoise = no_transformation
+            self._invTnoise = identity
 
         elif isinstance(k, list):
             self._Tk = list_to_dict
             self._TJ = list_to_dict
             if self.noise0 is None:
                 self.noise0 = [Gamma() for _ in range(len(k))]
-            self._invTnoise = dict_to_gamma_list
+            self._invTnoise = dict_to_list
 
         else:
-            self._Tk = numpy_to_dict
-            self._TJ = numpy_to_dict
+            self._Tk = obj_to_dict
+            self._TJ = obj_to_dict
             if self.noise0 is None:
                 self.noise0 = Gamma()
-            self._invTnoise = dict_to_gamma
+            self._invTnoise = dict_to_obj
 
         self.noise0 = self._Tk(self.noise0)
 
@@ -132,7 +133,7 @@ class VBAProblem:
         else:
             if not self.jac:
                 self.jac = CDF_Jacobian(self.f, self._Tk)
-                self._TJ = no_transformation
+                self._TJ = identity
 
             J = self.jac(x)
 
