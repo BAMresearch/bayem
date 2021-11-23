@@ -213,30 +213,30 @@ class VBA:
 
             self.update_parameters(k, J)
 
-            k, J = self.p(self.m)
-
             self.update_noise(k, J)
 
-            
-            index_ARD = list(self.options.index_ARD)
-            n_ARD_param = len(index_ARD)
-            self.x0.precision[index_ARD, index_ARD] = 1 / (
-                    self.m[index_ARD] ** 2 + self.L_inv[index_ARD, index_ARD]
-                )
-            r = 2 / (self.m[index_ARD] ** 2 + np.diag(self.L_inv)[index_ARD])
-            d = 0.5 * np.ones(n_ARD_param)
+            for idx in self.options.index_ARD:
+                mean = self.m[idx]
+                var = 1/self.L[idx, idx]
+                new_var = mean ** 2 + var
+                self.x0.precision[idx, idx] = 1 / new_var
 
             logger.info(f"current mean: {self.m}")
 
+            k, J = self.p(self.m)
+
             f_new = self.free_energy(k, J)
 
-            for i in self.noise_groups:
-                for j in range(n_ARD_param):
-                    f_new += (
-                        (d[j] - 2) * (np.log(self.s[i]) - special.digamma(d[j]))
-                        - d[j] * (1 + np.log(r[j]))
-                        - special.gammaln(d[j])
-                    )
+            for i in self.options.index_ARD:
+                d = 0.5
+                r = 2 * self.x0.precision[i, i]
+                f_new -= (d-2) * special.digamma(d)
+                f_new -= d * (1 + np.log(r))
+                f_new -= special.gammaln(d)
+                for noise in self.noise_groups:
+                    f_new += (d-2) * np.log(self.s[noise])
+
+
             logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
             self.result.try_update(
@@ -284,7 +284,6 @@ class VBA:
             if not update_noise:
                 return
 
-
             # if update_noise[i]:
             # formula (30)
             c0i, s0i = self.noise0[i].shape, self.noise0[i].scale
@@ -330,7 +329,7 @@ class VBA:
             f_new += (
                 -N / 2 * np.log(2 * np.pi) - special.gammaln(c0i) - c0i * np.log(s0i)
             )
-           
+
         return f_new
 
     def stop_criteria(self, f_new, i_iter):
@@ -346,7 +345,9 @@ class VBA:
         # stop?
         if self.n_trials >= self.options.maxtrials:
             self.result.message = "Stopping because free energy did not "
-            self.result.message += f"increase within {self.options.maxtrials} iterations."
+            self.result.message += (
+                f"increase within {self.options.maxtrials} iterations."
+            )
             return True
 
         if i_iter >= self.options.maxiter:
@@ -362,7 +363,6 @@ class VBA:
         # go on.
         self.f_old = f_new
         return False
-
 
     # """
     # Nonlinear variational bayes algorithm according to
@@ -420,6 +420,7 @@ class VBA:
     # Returns:
     #     VBResult defined below
     # """
+
 
 class VBResult:
     """
