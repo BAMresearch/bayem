@@ -3,6 +3,45 @@ import pytest
 import bayem
 
 
+class ForwardModel:
+    def __init__(self):
+        self.xs = np.linspace(0.01, 0.1, 10)
+
+    def __call__(self, parameters):
+        m, c = parameters
+        return c + self.xs * m
+
+    def jacobian(self, parameters):
+        m, c = parameters
+        d_dm = self.xs
+        d_dc = np.ones_like(self.xs)
+        return np.vstack([d_dm, d_dc]).T
+
+
+class ModelError:
+    def __init__(self, forward_model, data, with_jacobian):
+        """
+        forward_model:
+            forward model
+        data:
+            positions to evaluate, could correspond to sensor positions
+        """
+        self._forward_model = forward_model
+        self._data = data
+        self.with_jacobian = with_jacobian
+
+    def __call__(self, parameters):
+        model = self._forward_model(parameters)
+        errors = []
+        for data in self._data:
+            errors.append(model - data)
+
+        k = np.concatenate(errors)
+        if self.with_jacobian:
+            jac = self._forward_model.jacobian(parameters)
+            return k, np.tile(jac, (len(self._data), 1))
+        else:
+            return k
 
 
 @pytest.mark.parametrize("n_data, given_jac", [(1000, False), (1000, True)])
@@ -40,4 +79,3 @@ def test_vb(n_data, given_jac):
 
     assert info.nit < 20
     print(info)
-

@@ -251,7 +251,7 @@ class VBA:
         self.result.nit = i_iter
 
         self.result.t = perf_counter() - t0
-        self.result.x0 = self.x0
+        self.result.param0 = self.x0
         self.result.noise0 = self.p.original_noise(self.noise0)
         self.result.noise = self.p.original_noise(self.result.noise)
         return self.result
@@ -428,7 +428,7 @@ class VBResult:
     """
 
     def __init__(self):
-        self.x = None
+        self.param = None
         self.noise = {}
         self.success = False
         self.message = ""
@@ -447,7 +447,7 @@ class VBResult:
         for member in [
             "success",
             "message",
-            "x",
+            "param",
             "noise",
             "free_energies",
             "f_max",
@@ -469,7 +469,7 @@ class VBResult:
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.x = MVN(
+            self.param = MVN(
                 mean, precision, name="MVN posterior", parameter_names=parameter_names
             )
 
@@ -487,7 +487,7 @@ class VBResult:
             printer = print
 
         data = []
-        p = self.x
+        p = self.param
         for i in range(len(p)):
             dist = p.dist(i)
             entry = [p.parameter_names[i], dist.median(), dist.mean(), dist.std()]
