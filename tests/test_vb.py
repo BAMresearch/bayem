@@ -1,5 +1,5 @@
 import numpy as np
-import unittest
+import pytest
 import bayem
 
 
@@ -19,7 +19,7 @@ class ForwardModel:
 
 
 class ModelError:
-    def __init__(self, forward_model, data):
+    def __init__(self, forward_model, data, with_jacobian):
         """
         forward_model:
             forward model
@@ -28,6 +28,7 @@ class ModelError:
         """
         self._forward_model = forward_model
         self._data = data
+        self.with_jacobian = with_jacobian
 
     def __call__(self, parameters):
         model = self._forward_model(parameters)
@@ -35,67 +36,46 @@ class ModelError:
         for data in self._data:
             errors.append(model - data)
 
-        return {"noise0": np.concatenate(errors)}
-
-    def jacobian(self, parameters):
-        jac = self._forward_model.jacobian(parameters)
-        full_jac = np.tile(jac, (len(self._data), 1))
-        return {"noise0": full_jac}
-
-
-class Test_VB(unittest.TestCase):
-    def run_vb(self, n_data, given_jac=False):
-        np.random.seed(6174)
-
-        fw = ForwardModel()
-        param_true = [7.0, 10.0]
-        noise_sd = 0.1
-
-        data = []
-        perfect_data = fw(param_true)
-        for _ in range(n_data):
-            data.append(perfect_data + np.random.normal(0, noise_sd, len(perfect_data)))
-
-        if given_jac:
-            me = ModelErrorWithJacobian(fw, data)
+        k = np.concatenate(errors)
+        if self.with_jacobian:
+            jac = self._forward_model.jacobian(parameters)
+            return k, np.tile(jac, (len(self._data), 1))
         else:
-            me = ModelError(fw, data)
+            return k
 
-        param_prior = bayem.MVN([0, 11], [[1 / 7 ** 2, 0], [0, 1 / 3 ** 2]])
-        noise_prior = {
-            "noise0": bayem.Gamma.FromSDQuantiles(0.5 * noise_sd, 1.5 * noise_sd)
-        }
+@pytest.mark.parametrize("n_data, given_jac", [(1000, False), (1000, True)])
+def test_vb(n_data, given_jac):
+    np.random.seed(6174)
 
-        info = bayem.variational_bayes(
-            me, param_prior, noise_prior, scale_by_prior_mean=given_jac
-        )
-        param_post, noise_post = info.param, info.noise
+    fw = ForwardModel()
+    param_true = [7.0, 10.0]
+    noise_sd = 0.1
 
-        for i in range(2):
-            posterior_mean = param_post.mean[i]
-            posterior_std = param_post.std_diag[i]
+    data = []
+    perfect_data = fw(param_true)
+    for _ in range(n_data):
+        data.append(perfect_data + np.random.normal(0, noise_sd, len(perfect_data)))
 
-            self.assertLess(posterior_std, 0.3)
-            self.assertAlmostEqual(
-                posterior_mean, param_true[i], delta=2 * posterior_std
-            )
+    me = ModelError(fw, data, given_jac)
 
-            post_noise_precision = noise_post["noise0"].mean
-        post_noise_sd = 1.0 / post_noise_precision ** 0.5
-        self.assertAlmostEqual(post_noise_sd, noise_sd, delta=noise_sd / 100)
+    param_prior = bayem.MVN([0, 11], [[1 / 7 ** 2, 0], [0, 1 / 3 ** 2]])
+    noise_prior = bayem.Gamma.FromSDQuantiles(0.5 * noise_sd, 1.5 * noise_sd)
 
-        self.assertLess(info.nit, 20)
-        print(info)
+    info = bayem.vba(me, param_prior, noise_prior, jac=given_jac)
 
-    def test_vb_with_numeric_jac(self):
-        self.run_vb(n_data=1000, given_jac=False)
+    param_post, noise_post = info.param, info.noise
 
-    def test_vb_with_given_jac(self):
-        self.run_vb(n_data=1000, given_jac=True)
+    for i in range(2):
+        posterior_mean = param_post.mean[i]
+        posterior_std = param_post.std_diag[i]
 
+        assert posterior_std < 0.3
+        assert posterior_mean == pytest.approx(param_true[i], abs=2 * posterior_std)
 
-if __name__ == "__main__":
-    import logging
+        post_noise_precision = noise_post.mean
+    post_noise_sd = 1.0 / post_noise_precision ** 0.5
+    assert post_noise_sd == pytest.approx(noise_sd, rel=0.01)
 
-    logging.basicConfig(level=logging.DEBUG)
-    unittest.main()
+    assert info.nit < 20
+    print(info)
+

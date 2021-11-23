@@ -32,16 +32,6 @@ class ModelError:
         return me
 
 
-def to_mvn(parameters):
-    n = len(parameters)
-    means = np.zeros(n)
-    precisions = np.zeros((n, n))
-    for i, (mean, sd) in enumerate(parameters):
-        means[i] = mean
-        precisions[i, i] = 1.0 / sd ** 2
-    return bayem.MVN(means, precisions)
-
-
 class TestTwoNoises(unittest.TestCase):
     def run_test(self, noise_prior, delta):
         """
@@ -62,10 +52,10 @@ class TestTwoNoises(unittest.TestCase):
         data["group0"] += np.random.normal(0, NOISE0_SD, len(data["group0"]))
         data["group1"] += np.random.normal(0, NOISE1_SD, len(data["group1"]))
 
-        param_prior = to_mvn([(6.0, 2.0), (15.0, 7.0)])
+        param_prior = bayem.MVN([6.0, 2.0], [[1 / 15.0 ** 2, 0], [0, 1 / 7.0 ** 2]])
 
         me = ModelError(fw, data)
-        info = bayem.variational_bayes(me, param_prior, noise_prior)
+        info = bayem.vba(me, param_prior, noise_prior)
 
         param = info.param
         self.assertAlmostEqual(param.mean[0], PRM_A, delta=2 * param.std_diag[0])
@@ -100,13 +90,13 @@ class TestTwoNoises(unittest.TestCase):
 
         # That should work:
         correct_noise = bayem.Gamma(1, 2)
-        info = bayem.variational_bayes(me, bayem.MVN(7, 12), correct_noise)
+        info = bayem.vba(me, bayem.MVN(7, 12), correct_noise)
         self.assertTrue(info.success)
 
         # Providing a wrong dimension in the noise pattern should fail.
         wrong_noise = bayem.Gamma((1, 1), (2, 2))
         with self.assertRaises(Exception):
-            bayem.variational_bayes(me, bayem.MVN(7, 12), wrong_noise)
+            bayem.vba(me, bayem.MVN(7, 12), wrong_noise)
 
 
 if __name__ == "__main__":

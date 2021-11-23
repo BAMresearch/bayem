@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from time import perf_counter
 from tabulate import tabulate
+from typing import Union, Dict, Tuple
 
 import numpy as np
 import scipy.special as special
@@ -18,6 +19,8 @@ class Options:
     tolerance: float = 0.1
     maxiter: int = 50
     maxtrials: int = 10
+    update_noise: Union[Dict, bool] = True
+    index_ARD: Tuple[int] = ()
 
 
 class CDF_Jacobian:
@@ -129,7 +132,7 @@ class VBAProblem:
         if self.jac_in_f:
             pass
         else:
-            if self.jac is None:
+            if not self.jac:
                 self.jac = CDF_Jacobian(self.f, self._Tk)
                 self._TJ = no_transformation
 
@@ -138,7 +141,7 @@ class VBAProblem:
         return self._Tk(k), self._TJ(J)
 
 
-def vba(f, x0, noise0=None, jac=None, options=Options()):
+def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     """
     Implementation of
         Variational Bayesian inference for a nonlinear
@@ -168,7 +171,7 @@ def vba(f, x0, noise0=None, jac=None, options=Options()):
     """
 
     vba_problem = VBAProblem(f, noise0, jac)
-    return VBA(vba_problem, x0, options).run()
+    return VBA(vba_problem, x0, Options(**option_kwargs)).run()
 
 
 class VBA:
@@ -214,19 +217,26 @@ class VBA:
 
             self.update_noise(k, J)
 
-            # if "index_ARD" in kwargs:
-            #     index_ARD = kwargs["index_ARD"]
-            #     n_ARD_param = len(index_ARD)
-            #     L0[index_ARD, index_ARD] = 1 / (
-            #         m[index_ARD] ** 2 + L_inv[index_ARD, index_ARD]
-            #     )
-            #     r = 2 / (m[index_ARD] ** 2 + np.diag(L_inv)[index_ARD])
-            #     d = 0.5 * np.ones(n_ARD_param)
+            
+            index_ARD = list(self.options.index_ARD)
+            n_ARD_param = len(index_ARD)
+            self.x0.precision[index_ARD, index_ARD] = 1 / (
+                    self.m[index_ARD] ** 2 + self.L_inv[index_ARD, index_ARD]
+                )
+            r = 2 / (self.m[index_ARD] ** 2 + np.diag(self.L_inv)[index_ARD])
+            d = 0.5 * np.ones(n_ARD_param)
 
             logger.info(f"current mean: {self.m}")
 
             f_new = self.free_energy(k, J)
 
+            for i in self.noise_groups:
+                for j in range(n_ARD_param):
+                    f_new += (
+                        (d[j] - 2) * (np.log(self.s[i]) - special.digamma(d[j]))
+                        - d[j] * (1 + np.log(r[j]))
+                        - special.gammaln(d[j])
+                    )
             logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
             self.result.try_update(
@@ -266,6 +276,15 @@ class VBA:
     def update_noise(self, k, J):
         # noise parameter update
         for i in self.noise_groups:
+            try:
+                update_noise = self.options.update_noise[i]
+            except TypeError:
+                update_noise = self.options.update_noise
+
+            if not update_noise:
+                return
+
+
             # if update_noise[i]:
             # formula (30)
             c0i, s0i = self.noise0[i].shape, self.noise0[i].scale
@@ -311,13 +330,7 @@ class VBA:
             f_new += (
                 -N / 2 * np.log(2 * np.pi) - special.gammaln(c0i) - c0i * np.log(s0i)
             )
-            # if "index_ARD" in kwargs:
-            #     for j in range(n_ARD_param):
-            #         f_new += (
-            #             (d[j] - 2) * (np.log(s[i]) - special.digamma(d[j]))
-            #             - d[j] * (1 + np.log(r[j]))
-            #             - special.gammaln(d[j])
-            #         )
+           
         return f_new
 
     def stop_criteria(self, f_new, i_iter):
@@ -333,7 +346,7 @@ class VBA:
         # stop?
         if self.n_trials >= self.options.maxtrials:
             self.result.message = "Stopping because free energy did not "
-            self.result.message += f"increase within {self.n_trials_max} iterations."
+            self.result.message += f"increase within {self.options.maxtrials} iterations."
             return True
 
         if i_iter >= self.options.maxiter:

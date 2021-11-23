@@ -61,31 +61,31 @@ def f_jac_dict(x):
 
 x0 = bayem.MVN([0, 11], [[1 / 7 ** 2, 0], [0, 1 / 3 ** 2]])
 
-# provide everything
-assert bayem.vba(f, x0, n0, jac).success
-assert bayem.vba(f_list, x0, n0_list, jac_list).success
-assert bayem.vba(f_dict, x0, n0_dict, jac_dict).success
-assert bayem.vba(f_jac, x0, n0, jac=True).success
-assert bayem.vba(f_jac_dict, x0, n0_dict, jac=True).success
+def test_provide_everything():
+    assert bayem.vba(f, x0, n0, jac).success
+    assert bayem.vba(f_list, x0, n0_list, jac_list).success
+    assert bayem.vba(f_dict, x0, n0_dict, jac_dict).success
+    assert bayem.vba(f_jac, x0, n0, jac=True).success
+    assert bayem.vba(f_jac_dict, x0, n0_dict, jac=True).success
 
-# no noise
-assert bayem.vba(f, x0, jac=jac).success
-assert bayem.vba(f_list, x0, jac=jac_list).success
-assert bayem.vba(f_dict, x0, jac=jac_dict).success
-assert bayem.vba(f_jac, x0, jac=True).success 
+def test_no_noise():
+    assert bayem.vba(f, x0, jac=jac).success
+    assert bayem.vba(f_list, x0, jac=jac_list).success
+    assert bayem.vba(f_dict, x0, jac=jac_dict).success
+    assert bayem.vba(f_jac, x0, jac=True).success 
 
-# no jacobian 
-assert bayem.vba(f, x0, n0).success
-assert bayem.vba(f_list, x0, n0_list).success
-assert bayem.vba(f_dict, x0, n0_dict).success
+def test_no_jacobian():
+    assert bayem.vba(f, x0, n0).success
+    assert bayem.vba(f_list, x0, n0_list).success
+    assert bayem.vba(f_dict, x0, n0_dict).success
 
-# no jacobian, no noise
-assert bayem.vba(f, x0).success
-assert bayem.vba(f_list, x0).success
-assert bayem.vba(f_dict, x0).success
+def test_minimal():
+    assert bayem.vba(f, x0).success
+    assert bayem.vba(f_list, x0).success
+    assert bayem.vba(f_dict, x0).success
 
-# check that the posterior noise has the same type as the prior/f
-assert isinstance(bayem.vba(f, x0).noise, bayem.Gamma)
-assert isinstance(bayem.vba(f_list, x0).noise, list)
-assert isinstance(bayem.vba(f_dict, x0).noise, dict)
+def test_returned_noise_type():
+    assert isinstance(bayem.vba(f, x0).noise, bayem.Gamma)
+    assert isinstance(bayem.vba(f_list, x0).noise, list)
+    assert isinstance(bayem.vba(f_dict, x0).noise, dict)
 
