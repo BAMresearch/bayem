@@ -204,7 +204,7 @@ class PairPlot:
     def __init__(self, result, show=False):
         self.axes = None
         self.result = result
-        self.labels = result.param0.parameter_names + list(result.noise0.keys())
+        self.labels = result.x0.parameter_names + list(result.noise0.keys())
         if show:
             self.prior()
             self.posterior()
@@ -215,7 +215,7 @@ class PairPlot:
         kwargs.setdefault("lw", 0.5)
         kwargs.setdefault("label", "prior")
         self.axes = visualize_vb_marginal_matrix(
-            self.result.param0, self.result.noise0.values(), axes=self.axes, **kwargs
+            self.result.x0, self.result.noise0.values(), axes=self.axes, **kwargs
         )
         return self
 
@@ -224,7 +224,7 @@ class PairPlot:
         kwargs.setdefault("lw", 1.5)
         kwargs.setdefault("label", "vb posterior")
         self.axes = visualize_vb_marginal_matrix(
-            self.result.param, self.result.noise.values(), axes=self.axes, **kwargs
+            self.result.x, self.result.noise.values(), axes=self.axes, **kwargs
         )
         return self
 
@@ -244,15 +244,15 @@ def result_trace(result, show=True, highlight=None):
     ax_p.set_ylabel("parameter value")
     ax_p.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-    means = np.array([result.param0.mean] + result.means)
-    sds = np.array([result.param0.std_diag] + result.sds)
+    means = np.array([result.x0.mean] + result.means)
+    sds = np.array([result.x0.std_diag] + result.sds)
     x = list(range(len(means)))
 
     plt.subplots_adjust(wspace=0, hspace=0)
 
     red = np.r_[210, 0, 30] / 255
 
-    for i, name in enumerate(result.param.parameter_names):
+    for i, name in enumerate(result.x.parameter_names):
         color, lw = None, 1
         if name in highlight:
             color, lw = red, 2

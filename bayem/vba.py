@@ -428,7 +428,7 @@ class VBResult:
     """
 
     def __init__(self):
-        self.param = None
+        self.x = None
         self.noise = {}
         self.success = False
         self.message = ""
@@ -447,7 +447,7 @@ class VBResult:
         for member in [
             "success",
             "message",
-            "param",
+            "x",
             "noise",
             "free_energies",
             "f_max",
@@ -469,7 +469,7 @@ class VBResult:
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.param = MVN(
+            self.x = MVN(
                 mean, precision, name="MVN posterior", parameter_names=parameter_names
             )
 
@@ -487,7 +487,7 @@ class VBResult:
             printer = print
 
         data = []
-        p = self.param
+        p = self.x
         for i in range(len(p)):
             dist = p.dist(i)
             entry = [p.parameter_names[i], dist.median(), dist.mean(), dist.std()]
