@@ -11,9 +11,11 @@ data = A * x + B + np.random.normal(0, sd, len(x))
 def model_error(parameters):
     return parameters[0] * x + parameters[1] - data
 
+
 x0 = bayem.MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
 info = bayem.vba(model_error, x0, noise0=None)
 print(info)
+
 
 def test_results():
     for i, correct_value in enumerate([A, B]):

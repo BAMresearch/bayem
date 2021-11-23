@@ -44,12 +44,11 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6):
         Lm = s * c * J.T @ (-k + J @ m) + L0 @ m0
         m = Lm @ L_inv
 
-
         # update noise
         c = len(k) / 2 + c0
         s_inv = 1 / s0 + 0.5 * k.T @ k + 0.5 * np.trace(L_inv @ J.T @ J)
         s = 1 / s_inv
-        
+
         k, J = f(m)
 
         print(f"current mean: {m}")

@@ -1,9 +1,11 @@
-import pytest
 import tempfile
 from pathlib import Path
+
+import bayem
+import bayem.visualization as visu
 import matplotlib.pyplot as plt
 import numpy as np
-import bayem
+import pytest
 from imageio import imread
 
 
@@ -12,8 +14,8 @@ def test_vb_visu(generate_ref_img=False):
     gamma0 = bayem.Gamma(shape=3, scale=1 / 75)
     gamma1 = bayem.Gamma(shape=8.5, scale=1 / 8.5)
 
-    axes = bayem.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
-    bayem.format_axes(axes)
+    axes = visu.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
+    visu.format_axes(axes)
 
     ref_img_name = Path(__file__).absolute().parent / "test_vb_visu_ref.png"
     if generate_ref_img:

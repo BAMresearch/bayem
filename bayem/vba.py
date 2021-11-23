@@ -1,5 +1,3 @@
-import copy
-import json
 import logging
 from dataclasses import dataclass
 from time import perf_counter
@@ -58,7 +56,7 @@ class VBAProblem:
         self.f = f
         self.noise0 = noise0
         self.jac = jac
-        self.jac_in_f = not callable(jac) and jac == True
+        self.jac_in_f = not callable(jac) and jac
 
         self._Tk = None  # transformation of k = f(x)
         self._TJ = None  # transformation of J = jac(x)
@@ -187,8 +185,6 @@ class VBA:
     def run(self):
         t0 = perf_counter()
         # extract / rename model parameters
-        m0 = self.x0.mean
-        L0 = self.x0.precision
         self.m = np.array(self.x0.mean)
         self.L = np.array(self.x0.precision)
 
@@ -202,8 +198,6 @@ class VBA:
         for n, gamma in self.noise0.items():
             self.s[n] = gamma.scale
             self.c[n] = gamma.shape
-        s0 = copy.copy(self.s)
-        c0 = copy.copy(self.c)
 
         self.noise_groups = self.noise0.keys()
 
@@ -217,7 +211,7 @@ class VBA:
 
             for idx in self.options.index_ARD:
                 mean = self.m[idx]
-                var = 1/self.L[idx, idx]
+                var = 1 / self.L[idx, idx]
                 new_var = mean ** 2 + var
                 self.x0.precision[idx, idx] = 1 / new_var
 
@@ -230,17 +224,16 @@ class VBA:
             for i in self.options.index_ARD:
                 d = 0.5
                 r = 2 * self.x0.precision[i, i]
-                f_new -= (d-2) * special.digamma(d)
+                f_new -= (d - 2) * special.digamma(d)
                 f_new -= d * (1 + np.log(r))
                 f_new -= special.gammaln(d)
                 for noise in self.noise_groups:
-                    f_new += (d-2) * np.log(self.s[noise])
-
+                    f_new += (d - 2) * np.log(self.s[noise])
 
             logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
             self.result.try_update(
-                f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
+                f_new, self.m, self.L, self.c, self.s, self.x0.names
             )
             if self.stop_criteria(f_new, i_iter):
                 break
@@ -461,7 +454,7 @@ class VBResult:
 
         return s
 
-    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
+    def try_update(self, f_new, mean, precision, shapes, scales, names):
         self.free_energies.append(f_new)
         self.means.append(mean)
         self.sds.append(MVN(mean, precision).std_diag)
@@ -471,7 +464,7 @@ class VBResult:
             # update
             self.f_max = f_new
             self.param = MVN(
-                mean, precision, name="MVN posterior", parameter_names=parameter_names
+                mean, precision, name="MVN posterior", names=names
             )
 
             for n in shapes:
@@ -491,7 +484,7 @@ class VBResult:
         p = self.param
         for i in range(len(p)):
             dist = p.dist(i)
-            entry = [p.parameter_names[i], dist.median(), dist.mean(), dist.std()]
+            entry = [p.names[i], dist.median(), dist.mean(), dist.std()]
             entry += [dist.ppf(q) for q in quantiles]
             data.append(entry)
 

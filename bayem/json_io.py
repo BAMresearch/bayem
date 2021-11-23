@@ -5,12 +5,13 @@ import numpy as np
 from .distributions import MVN, Gamma
 from .vba import VBResult
 
-class BayesEncoder(json.JSONEncoder):
+
+class BayemEncoder(json.JSONEncoder):
     """
     Usage:
-        string = json.dumps(obj, cls=bayes.vb.BayesEncoder, ...)
+        string = json.dumps(obj, cls=bayes.vb.BayemEncoder, ...)
         with open(...) as f:
-            json.dump(obj, f cls=bayes.vb.BayesEncoder, ...)
+            json.dump(obj, f cls=bayes.vb.BayemEncoder, ...)
 
     Details:
 
@@ -24,7 +25,7 @@ class BayesEncoder(json.JSONEncoder):
     The idea is to serialize our custom classes (and numpy...) as a dict
     containing:
         key: unique string to represent the classe -- this helps us to indentify
-             the class when _de_serializing in `bayes.vb.bayes_hook` below
+             the class when _de_serializing in `bayes.vb.bayem_hook` below
         value: some json-serializable entries -- obj.__dict__ contains all
                members class members and is not optimal, but very convenient.
     https://stackoverflow.com/questions/3768895/how-to-make-a-class-json-serializable
@@ -60,7 +61,7 @@ class BayesEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def bayes_hook(dct):
+def bayem_hook(dct):
     """
     `dct`:
         json reprensentation of an `obj` (a dict)
@@ -68,13 +69,13 @@ def bayes_hook(dct):
         python object created from `dct`
 
     Usage:
-        obj = json.loads(string, object_hook=bayes.vb.bayes_hook, ...)
+        obj = json.loads(string, object_hook=bayes.vb.bayem_hook, ...)
         with open(...) as f:
-            obj = json.load(f, object_hook=bayes.vb.bayes_hook, ...)
+            obj = json.load(f, object_hook=bayes.vb.bayem_hook, ...)
 
     Details:
 
-    BayesEncoder stores all of our classes as dicts containing their members.
+    BayemEncoder stores all of our classes as dicts containing their members.
     This `object_hook` tries to convert those dicts back to actual python objects.
 
     Some fancy metaprogramming may help to avoid repetition. TODO?
@@ -106,7 +107,7 @@ def save_json(obj, filename=None):
     Saves an `obj` (possibly containing VB classes) to `filename` via json or
     returns the json string.
     """
-    s = json.dumps(obj, cls=BayesEncoder, indent=2)
+    s = json.dumps(obj, cls=BayemEncoder, indent=2)
     if filename is not None:
         with open(filename, "w") as f:
             f.write(s)
@@ -115,7 +116,7 @@ def save_json(obj, filename=None):
 
 def load_json(filename_or_string):
     """
-    Loads an object (possibly containing VB classes) from `filename_or_string` 
+    Loads an object (possibly containing VB classes) from `filename_or_string`
     via json.
     """
     if filename_or_string.endswith(".json"):
@@ -124,4 +125,4 @@ def load_json(filename_or_string):
     else:
         string = filename_or_string
 
-    return json.loads(string, object_hook=bayes_hook)
+    return json.loads(string, object_hook=bayem_hook)

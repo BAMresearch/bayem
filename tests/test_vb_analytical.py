@@ -42,9 +42,7 @@ class Test_VBAnalytic(unittest.TestCase):
 
         gamma = bayem.Gamma.FromMeanStd(1 / sigma ** 2, 42)
 
-        result = bayem.vba(
-            model_error, prior, gamma, update_noise=update_noise
-        )
+        result = bayem.vba(model_error, prior, gamma, update_noise=update_noise)
         self.assertTrue(result.success)
         check_method(result.param.mean[0], self.mean)
         check_method(result.param.std_diag[0], self.scale)
@@ -77,12 +75,8 @@ class Test_VBAnalytic(unittest.TestCase):
 
         prior = bayem.MVN(prior_mean, 1.0 / prior_sd ** 2)
         narrow_gamma = bayem.Gamma.FromMeanStd(1 / sigma ** 2, 1.0e-6)
-        result1 = bayem.vba(
-            model_error, prior, narrow_gamma, update_noise=True
-        )
-        result2 = bayem.vba(
-            model_error, prior, narrow_gamma, update_noise=False
-        )
+        result1 = bayem.vba(model_error, prior, narrow_gamma, update_noise=True)
+        result2 = bayem.vba(model_error, prior, narrow_gamma, update_noise=False)
         self.assertAlmostEqual(result1.f_max, logz, places=6)
         self.assertAlmostEqual(result2.f_max, logz, places=6)
 
@@ -129,9 +123,7 @@ class Test_VBAnalytic(unittest.TestCase):
         noise0 = {"A": bayem.Gamma(1, 1), "B": bayem.Gamma(2, 2)}
 
         # You may provide a single update_noise flag
-        result = bayem.vba(
-            dict_model_error, param0, noise0, update_noise=False
-        )
+        result = bayem.vba(dict_model_error, param0, noise0, update_noise=False)
         self.assert_gamma_equal(result.noise["A"], noise0["A"])
         self.assert_gamma_equal(result.noise["B"], noise0["B"])
 
@@ -144,9 +136,7 @@ class Test_VBAnalytic(unittest.TestCase):
 
         # There will be an error, if you forget one
         with self.assertRaises(KeyError):
-            bayem.vba(
-                dict_model_error, param0, noise0, update_noise={"A": True}
-            )
+            bayem.vba(dict_model_error, param0, noise0, update_noise={"A": True})
 
 
 if __name__ == "__main__":

@@ -4,13 +4,14 @@ import bayem
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
+
 def test_result_io():
     def dummy_me(prm):
         return prm ** 2
 
     result = bayem.vba(
         dummy_me,
-        x0=bayem.MVN([1, 1], np.diag([1, 1]), parameter_names=["A", "B"]),
+        x0=bayem.MVN([1, 1], np.diag([1, 1]), names=["A", "B"]),
     )
 
     with TemporaryDirectory() as f:
@@ -20,12 +21,13 @@ def test_result_io():
         dumped_again = bayem.save_json(loaded)
         assert dumped == dumped_again
 
+
 def test_custom_objects():
     data = {}
     data["parameter_prior"] = bayem.MVN(
         mean=np.r_[1, 2, 3],
         precision=np.diag([1, 2, 3]),
-        parameter_names=["A", "B", "C"],
+        names=["A", "B", "C"],
     )
 
     data["noise_prior"] = bayem.Gamma()
@@ -37,7 +39,7 @@ def test_custom_objects():
     A, B = data["parameter_prior"], loaded["parameter_prior"]
     CHECK = np.testing.assert_array_equal
     assert A.name == B.name
-    assert A.parameter_names == B.parameter_names
+    assert A.names == B.names
     CHECK(A.mean, B.mean)
     CHECK(A.precision, B.precision)
 

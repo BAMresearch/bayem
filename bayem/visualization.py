@@ -1,3 +1,4 @@
+import zaya
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -204,7 +205,7 @@ class PairPlot:
     def __init__(self, result, show=False):
         self.axes = None
         self.result = result
-        self.labels = result.param0.parameter_names + list(result.noise0.keys())
+        self.labels = result.param0.names + list(result.noise0.keys())
         if show:
             self.prior()
             self.posterior()
@@ -252,7 +253,7 @@ def result_trace(result, show=True, highlight=None):
 
     red = np.r_[210, 0, 30] / 255
 
-    for i, name in enumerate(result.param.parameter_names):
+    for i, name in enumerate(result.param.names):
         color, lw = None, 1
         if name in highlight:
             color, lw = red, 2
