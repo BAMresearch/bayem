@@ -131,11 +131,72 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
 
     Parameters
     ==========
+    f:
+        model error callable that takes a parameter vector as input and
+        returns one of:
+            * numeric vector
+            * list of numeric vectors where each item belongs to a separate
+              "noise group"
+            * dict of numeric vectors where each value belongs to a separate
+              "noise group"
 
-    The implementation is close to the formulas of
-    section III.C (Extending the Noise Model)
-    with the same notation and references to each formula, with the only
-    exception that capital lambda (precision) in the paper is here referred
+    x0:
+        bayem.MVN multivariate normal distribution for the model parameter 
+        prior
+
+    noise0:
+        Collection* (see below) bayem.Gamma distributions for the noise (hyper) 
+        parameter prior. 
+        If noise0 is None, a noninformative gamma prior is chosen
+        automatically according to the number of noise groups.
+
+    jac:
+        callable that takes a parameter vector as input and returns a 
+        collection* (see below) of df/dmodel_paramaters matrices.
+        * jac == True indicates that the model error `f` returns a tuple 
+          containing both the model error and its derivative.
+        * jac == None/False falls back to a numeric implementation based on
+          central differences of `f`. 
+
+    option_kwargs: 
+        * tolerance:
+            free energy change that causes the algorithm to stop
+
+        * maxiter:
+            maximum number of iterations
+
+        * index_ARD:
+            Automatic Relevance Determination option to allow for "the automated 
+            reduction of model complexity" (Chappell et al. 2009). It should be 
+            an array containing the indexes corresponding to the position of 
+            the ARD parameters in the `x0` MVN.
+
+        * update_noise:
+            Flags indicating whether or not the noise parameters should be 
+            inferred. This can be passed as a single boolean for all noise
+            groups or as a dict {noise_group_key : bool}.
+
+    Returns:
+        bayem.VBResult defined below
+
+    Additional notes:
+    =================
+
+    collection*:
+        The output of `f` must match the output of `jac` and the format of 
+        `noise0`. For clarity:
+
+        type(f(theta)) | type(jac(theta)) | type(noise0)
+       ----------------+------------------+-------------- 
+           vector      |      matrix      |     Gamma
+        list[vector]   |    list[matrix]  |  list[Gamma]
+        dict{g:vector} |   dict{g:matrix} | dict{g:Gamma}
+
+
+
+    The implementation is close to the formulas of section III.C (Extending the 
+    Noise Model) with the same notation and references to each formula, with the 
+    only exception that capital lambda (precision) in the paper is here referred
     to as L.
 
     @article{chappell2008variational,
@@ -338,62 +399,7 @@ class VBA:
         self.f_old = f_new
         return False
 
-    # """
-    # Nonlinear variational bayes algorithm according to
-    # @article{chappell2008variational,
-    #       title={Variational Bayesian inference for a nonlinear forward model},
-    #       author={Chappell, Michael A and Groves, Adrian R and Whitcher,
-    #               Brandon and Woolrich, Mark W},
-    #       journal={IEEE Transactions on Signal Processing},
-    #       volume={57},
-    #       number={1},
-    #       pages={223--236},
-    #       year={2008},
-    #       publisher={IEEE}
-    #     }
-    #
-    # This implements the formulas of section III.C (Extending the Noise Model)
-    # with the same notation and references to each formula, with the only
-    # exception that capital lambda L in the paper is here referred to as L.
-    #
-    # model_error that contains
-    #     __call__(parameter_means):
-    #         * difference of the forward model to the data
-    #         * list of numpy vectors where each list corresponds to one noise group
-    #         * alternatively: just a numpy vector for the case of exactly one
-    #                          noise group
-    #
-    #     jacobian(parameter_means) [optional]:
-    #         * total jacobian of the forward model w.r.t. the parameters
-    #         * NOTE: This is differs from the definition in the Chapell paper
-    #                 where it is defined as MINUS d(forward_model)/d(parameters)
-    #         * list of numpy matrices where each list corresponds to one noise group
-    #         * alternatively: just a numpy matrix for the case of exactly one
-    #                          noise group
-    # param0:
-    #     multivariate normal distributed parameter prior
-    #
-    # noise0:
-    #     list of gamma distributions for the noise prior
-    #     If noise0 is None, a noninformative gamma prior is chosen
-    #     automatically according to the number of noise groups.
-    #
-    # tolerance:
-    #     free energy change that causes the algorithm to stop
-    #
-    # iter_max:
-    #     maximum number of iterations
-    #
-    # index_ARD:
-    #     Automatic Relevance Determination option to allow for "the automated reduction of model
-    #     complexity" (Chappell et al. 2009). Should be passed (as kwargs) when ARD is applied to
-    #     one of the model parameters described by the MVN. It should be an array containing
-    #     the indexes corresponding to the position of the ARD parameters in the m and dig(L)
-    #     vectors.
-    #
-    # Returns:
-    #     VBResult defined below
-    # """
+
 
 
 class VBResult:
