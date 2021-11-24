@@ -4,7 +4,6 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
 
-
 def plot_pdf(
     dist,
     expected_value=None,
@@ -240,7 +239,7 @@ class PairPlot:
 
     def show(self):
         format_axes(self.axes, self.labels)
-        self.axes[0,0].gcf().show()
+        self.axes[0, 0].gcf().show()
 
 
 def result_trace(result, show=True, highlight=None):

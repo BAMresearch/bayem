@@ -1,6 +1,5 @@
 import numpy as np
 import bayem
-import pytest
 
 np.random.seed(6174)
 xs = np.linspace(0.01, 0.1, 100)
@@ -49,6 +48,7 @@ def jac_dict(x):
 
 
 n0_dict = {"noise": n0}
+
 
 # [4] Define f to return both k and jac
 def f_jac(x):

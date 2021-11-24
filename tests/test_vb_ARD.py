@@ -3,14 +3,13 @@ import pytest
 import bayem
 from test_vb import ModelError
 
-import logging
-
-# logging.basicConfig(level=logging.INFO)
-
 """
 Test having an ARD parameter (see Chappell paper for more info)
-True model (used for data generation) is defined as a linear model + bias term at each "sensor" location (xs)
-Bias term represents how the fw model deviates from the true model and should be inferred during VB. Since the bias parameters are sparse, an ARD prior is set for them.
+True model (used for data generation) is defined as a linear model + bias term
+at each "sensor" location (xs)
+Bias term represents how the fw model deviates from the true model and should
+be inferred during VB. Since the bias parameters are sparse, an ARD prior is
+set for them.
 """
 
 
