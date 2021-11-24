@@ -239,7 +239,7 @@ class PairPlot:
 
     def show(self):
         format_axes(self.axes, self.labels)
-        self.axes[0, 0].gcf().show()
+        plt.show()
 
 
 def result_trace(result, show=True, highlight=None):
