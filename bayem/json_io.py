@@ -119,7 +119,7 @@ def load_json(filename_or_string):
     Loads an object (possibly containing VB classes) from `filename_or_string`
     via json.
     """
-    if filename_or_string.endswith(".json"):
+    if str(filename_or_string).endswith(".json"):
         with open(filename_or_string, "r") as f:
             string = f.read()
     else:
