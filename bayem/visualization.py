@@ -1,6 +1,8 @@
 import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot as plt
+
 
 
 def plot_pdf(
@@ -12,8 +14,6 @@ def plot_pdf(
     color_plot="r",
     **kwargs,
 ):
-    import matplotlib.pyplot as plt
-
     if ("min" in kwargs) & ("max" in kwargs):
         x_min = kwargs["min"]
         x_max = kwargs["max"]
@@ -90,12 +90,7 @@ def visualize_vb_marginal_matrix(
     N_mvn = len(mvn.mean)
     N = N_mvn + len(gammas)
 
-    if axes is None:
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-        axes = fig.subplots(N, N, sharex="col", squeeze=False)
-
-    assert axes.shape == (N, N)
+    axes = _get_axes(N, axes)
 
     dists_1d = [mvn.dist(i) for i in range(N_mvn)] + [gamma.dist() for gamma in gammas]
 
@@ -104,12 +99,10 @@ def visualize_vb_marginal_matrix(
         xs.append(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
-                
+
         # diagonal plots
         x = xs[i]
         axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
-        if median:
-            axes[i, i].axvline( dists_1d[i].median(), ls="--", color=color, lw=lw)
 
         for j in range(i):
             # off-diagonal plots
@@ -127,41 +120,58 @@ def visualize_vb_marginal_matrix(
                 pdf = pdf_j @ pdf_i.T
 
             axes[i, j].contour(xj, xi, pdf, colors=[color], linewidths=lw)
-            if median:
-                axes[i, j].axhline(
-                    dists_1d[i].median(), ls="--", color=color, lw=lw
-                )
+
+    if median:
+        for i in range(N):
+            axes[i, i].axvline(dists_1d[i].median(), ls="--", color=color, lw=lw)
+            for j in range(i):
+                axes[i, j].axhline(dists_1d[i].median(), ls="--", color=color, lw=lw)
+                axes[i, j].axvline(dists_1d[j].median(), ls="--", color=color, lw=lw)
 
     if focus:
-        for i in range(N):
-            axes[i, j].set_xlim(xs[j][0], xs[j][-1])
-            for j in range(i + 1):
-                axes[i, j].set_ylim(xs[i][0], xs[i][-1])
+        _set_focus(axes, xs)
 
+    if label is None:
+        return axes
 
-    if label is not None:
+    line = Line2D([0], [0], color=color, linewidth=lw, label=label)
+    fig = axes[0, 0].figure
+    if fig.legends:
+        handles = fig.legends[0].legendHandles
+        fig.legends = []
+    else:
+        handles = []
+    handles.append(line)
 
-        line = Line2D([0], [0], color=color, linewidth=lw, label=label)
-        fig = axes[0, 0].figure
-        if fig.legends:
-            handles = fig.legends[0].legendHandles
-            fig.legends = []
-        else:
-            handles = []
-        handles.append(line)
-
-        ax_bounds = np.array([list(ax.bbox._bbox.bounds) for ax in axes.flat])
-        top_margin = 1 - (ax_bounds[:, 0] + ax_bounds[:, 2]).max()
-        right_margin = 1 - (ax_bounds[:, 1] + ax_bounds[:, 3]).max()
-        bbox_to_anchor = (1.0 - right_margin / 2, 1.0 - top_margin)
-        fig.legend(
-            handles=handles,
-            loc="upper right",
-            fontsize=legend_fontsize,
-            bbox_to_anchor=bbox_to_anchor,
-        )
+    ax_bounds = np.array([list(ax.bbox._bbox.bounds) for ax in axes.flat])
+    top_margin = 1 - (ax_bounds[:, 0] + ax_bounds[:, 2]).max()
+    right_margin = 1 - (ax_bounds[:, 1] + ax_bounds[:, 3]).max()
+    bbox_to_anchor = (1.0 - right_margin / 2, 1.0 - top_margin)
+    fig.legend(
+        handles=handles,
+        loc="upper right",
+        fontsize=legend_fontsize,
+        bbox_to_anchor=bbox_to_anchor,
+    )
 
     return axes
+
+
+def _get_axes(N, axes):
+    if axes is None:
+        fig = plt.figure()
+        axes = fig.subplots(N, N, sharex="col", squeeze=False)
+    assert axes.shape == (N, N)
+    return axes
+
+
+def _set_focus(axes, xs):
+    assert len(axes) == len(xs)
+    N = len(axes)
+    for i in range(N):
+        axes[i, i].set_xlim(xs[i][0], xs[i][-1])
+        for j in range(i + 1):
+            axes[i, j].set_ylim(xs[i][0], xs[i][-1])
 
 
 def format_axes(axes, labels=None):
@@ -230,7 +240,7 @@ class PairPlot:
 
     def show(self):
         format_axes(self.axes, self.labels)
-        plt.show()
+        self.axes[0,0].gcf().show()
 
 
 def result_trace(result, show=True, highlight=None):
