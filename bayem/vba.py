@@ -81,50 +81,32 @@ class VBAProblem:
         up an internal structure such that various user provided forms of
         `f` can be used.
         """
-        def identity(x):
-            return x
-
-        def list_to_dict(x_list):
-            return dict(enumerate(x_list))
-        
-        def dict_to_list(x_dict):
-            return [x_dict[i] for i in range(len(x_dict))]
-        
-        def obj_to_dict(x_np):
-            return {0: x_np}
-
-        def dict_to_obj(x_dict):
-            assert len(x_dict) == 1
-            assert 0 in x_dict
-            return x_dict[0]
-
 
         if self.jac_in_f:
             k, J = self.f(x)
         else:
             k = self.f(x)
-        
 
+        transformations = {
+            "dict": (_identity, _identity),
+            "list": (_list_to_dict, _dict_to_list),
+            "other": (_obj_to_dict, _dict_to_obj),
+        }
+
+        k_type = "other"
+        default_noise = Gamma()
         if isinstance(k, dict):
-            self._Tk = identity
-            self._TJ = identity
-            if self.noise0 is None:
-                self.noise0 = {noise_group: Gamma() for noise_group in k}
-            self._invTnoise = identity
+            k_type = "dict"
+            default_noise = {group: Gamma() for group in k}
+        if isinstance(k, list):
+            k_type = "list"
+            default_noise = [Gamma() for _ in range(len(k))]
 
-        elif isinstance(k, list):
-            self._Tk = list_to_dict
-            self._TJ = list_to_dict
-            if self.noise0 is None:
-                self.noise0 = [Gamma() for _ in range(len(k))]
-            self._invTnoise = dict_to_list
-
-        else:
-            self._Tk = obj_to_dict
-            self._TJ = obj_to_dict
-            if self.noise0 is None:
-                self.noise0 = Gamma()
-            self._invTnoise = dict_to_obj
+        self._Tk = transformations[k_type][0]
+        self._TJ = transformations[k_type][0]
+        self._invTnoise = transformations[k_type][1]
+        if self.noise0 is None:
+            self.noise0 = default_noise
 
         self.noise0 = self._Tk(self.noise0)
 
@@ -133,7 +115,7 @@ class VBAProblem:
         else:
             if not self.jac:
                 self.jac = CDF_Jacobian(self.f, self._Tk)
-                self._TJ = identity
+                self._TJ = _identity
 
             J = self.jac(x)
 
@@ -233,9 +215,7 @@ class VBA:
 
             logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(
-                f_new, self.m, self.L, self.c, self.s, self.x0.names
-            )
+            self.result.try_update(f_new, self.m, self.L, self.c, self.s, self.x0.names)
             if self.stop_criteria(f_new, i_iter):
                 break
 
@@ -464,9 +444,7 @@ class VBResult:
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.param = MVN(
-                mean, precision, name="MVN posterior", names=names
-            )
+            self.param = MVN(mean, precision, name="MVN posterior", names=names)
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
@@ -511,3 +489,25 @@ class VBResult:
         s = tabulate(data, headers=headers, **tabulate_kwargs)
         printer(s)
         return data
+
+
+def _identity(x):
+    return x
+
+
+def _list_to_dict(x_list):
+    return dict(enumerate(x_list))
+
+
+def _dict_to_list(x_dict):
+    return [x_dict[i] for i in range(len(x_dict))]
+
+
+def _obj_to_dict(x_np):
+    return {0: x_np}
+
+
+def _dict_to_obj(x_dict):
+    assert len(x_dict) == 1
+    assert 0 in x_dict
+    return x_dict[0]

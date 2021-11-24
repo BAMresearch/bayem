@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 
@@ -92,6 +91,7 @@ def visualize_vb_marginal_matrix(
     N = N_mvn + len(gammas)
 
     if axes is None:
+        import matplotlib.pyplot as plt
         fig = plt.figure()
         axes = fig.subplots(N, N, sharex="col", squeeze=False)
 
@@ -104,40 +104,40 @@ def visualize_vb_marginal_matrix(
         xs.append(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
+                
+        # diagonal plots
+        x = xs[i]
+        axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
+        if median:
+            axes[i, i].axvline( dists_1d[i].median(), ls="--", color=color, lw=lw)
 
-        for j in range(i + 1):
-            if focus:
-                axes[i, j].set_xlim(xs[j][0], xs[j][-1])
+        for j in range(i):
+            # off-diagonal plots
+            xi, xj = np.meshgrid(xs[i], xs[j])
 
-            if i == j:
-                x = xs[i]
-                axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
-                if median:
-                    axes[i, i].axvline(
-                        dists_1d[i].median(), ls="--", color=color, lw=lw
-                    )
+            if i < N_mvn and j < N_mvn:
+                # correlated pdf by evaluating 2D-mvn
+                dist = mvn.dist(i, j)
+                x = np.vstack([xi.flatten(), xj.flatten()]).T
+                pdf = dist.pdf(x).reshape(resolution, resolution)
             else:
-                if focus:
-                    axes[i, j].set_ylim(xs[i][0], xs[i][-1])
+                # uncorrelated pdf by multiplying the individual pdfs
+                pdf_i = dists_1d[i].pdf(xs[i]).reshape(-1, 1)
+                pdf_j = dists_1d[j].pdf(xs[j]).reshape(-1, 1)
+                pdf = pdf_j @ pdf_i.T
 
-                xi, xj = np.meshgrid(xs[i], xs[j])
+            axes[i, j].contour(xj, xi, pdf, colors=[color], linewidths=lw)
+            if median:
+                axes[i, j].axhline(
+                    dists_1d[i].median(), ls="--", color=color, lw=lw
+                )
 
-                if i < N_mvn and j < N_mvn:
-                    # correlated pdf by evaluating 2D-mvn
-                    dist = mvn.dist(i, j)
-                    x = np.vstack([xi.flatten(), xj.flatten()]).T
-                    pdf = dist.pdf(x).reshape(resolution, resolution)
-                else:
-                    # uncorrelated pdf by multiplying the individual pdfs
-                    pdf_i = dists_1d[i].pdf(xs[i]).reshape(-1, 1)
-                    pdf_j = dists_1d[j].pdf(xs[j]).reshape(-1, 1)
-                    pdf = pdf_j @ pdf_i.T
+    if focus:
+        for i in range(N):
+            axes[i, j].set_xlim(xs[j][0], xs[j][-1])
+            for j in range(i + 1):
+                axes[i, j].set_ylim(xs[i][0], xs[i][-1])
 
-                axes[i, j].contour(xj, xi, pdf, colors=[color], linewidths=lw)
-                if median:
-                    axes[i, j].axhline(
-                        dists_1d[i].median(), ls="--", color=color, lw=lw
-                    )
 
     if label is not None:
 
