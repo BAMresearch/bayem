@@ -9,9 +9,9 @@ from .vba import VBResult
 class BayemEncoder(json.JSONEncoder):
     """
     Usage:
-        string = json.dumps(obj, cls=bayes.vb.BayemEncoder, ...)
+        string = json.dumps(obj, cls=bayem.BayemEncoder, ...)
         with open(...) as f:
-            json.dump(obj, f cls=bayes.vb.BayemEncoder, ...)
+            json.dump(obj, f cls=bayem.BayemEncoder, ...)
 
     Details:
 
@@ -25,7 +25,7 @@ class BayemEncoder(json.JSONEncoder):
     The idea is to serialize our custom classes (and numpy...) as a dict
     containing:
         key: unique string to represent the classe -- this helps us to indentify
-             the class when _de_serializing in `bayes.vb.bayem_hook` below
+             the class when _de_serializing in `bayem.bayem_hook` below
         value: some json-serializable entries -- obj.__dict__ contains all
                members class members and is not optimal, but very convenient.
     https://stackoverflow.com/questions/3768895/how-to-make-a-class-json-serializable
@@ -69,9 +69,9 @@ def bayem_hook(dct):
         python object created from `dct`
 
     Usage:
-        obj = json.loads(string, object_hook=bayes.vb.bayem_hook, ...)
+        obj = json.loads(string, object_hook=bayem.bayem_hook, ...)
         with open(...) as f:
-            obj = json.load(f, object_hook=bayes.vb.bayem_hook, ...)
+            obj = json.load(f, object_hook=bayem.bayem_hook, ...)
 
     Details:
 

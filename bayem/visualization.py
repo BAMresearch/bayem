@@ -63,7 +63,7 @@ def visualize_vb_marginal_matrix(
     mvn:
         Any multivariate normal distribution that provides `.mean` and `.cov`
     gammas:
-        A list of `bayes.vb.Gamma` distributions
+        A list of `bayem.Gamma` distributions
     axes:
         If provided, this is 2D array containing similar plots e.g. from
             taralli_model.plot_posterior(...)
