@@ -21,8 +21,7 @@ class Options:
     index_ARD: Tuple[int] = ()
 
     # epsilon for central differences jacobian,  approx sqrt(machine precision):
-    cdf_eps: float = 1.0e-7
-
+    cdf_eps: float = np.finfo(np.float).eps**0.5
 
 class CDF_Jacobian:
     def __init__(self, f, transformation, cdf_eps):
