@@ -2,14 +2,14 @@ from scipy import stats
 import numpy as np
 import unittest
 import logging
-from bayem import VBA, Options
+from bayem import VBA, VBOptions
 
 logging.getLogger("matplotlib.font_manager").disabled = True
 logger = logging.getLogger(__name__)
 
 
 def test_VBA(**options):
-    return VBA(None, None, Options(**options))
+    return VBA(None, None, VBOptions(**options))
 
 
 class TestFreeEnergy(unittest.TestCase):

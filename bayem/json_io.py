@@ -1,9 +1,10 @@
 import json
+from dataclasses import asdict
 
 import numpy as np
 
 from .distributions import MVN, Gamma
-from .vba import VBResult
+from .vba import VBResult, VBOptions
 
 
 class BayemEncoder(json.JSONEncoder):
@@ -47,6 +48,9 @@ class BayemEncoder(json.JSONEncoder):
         """
         if isinstance(obj, VBResult):
             return {"bayem.VBResult": obj.__dict__}
+        
+        if isinstance(obj, VBOptions):
+            return {"bayem.VBOptions": asdict(obj)}
 
         if isinstance(obj, MVN):
             return {"bayem.MVN": obj.__dict__}
@@ -81,9 +85,12 @@ def bayem_hook(dct):
     Some fancy metaprogramming may help to avoid repetition. TODO?
     """
     if "bayem.VBResult" in dct:
-        result = VBResult()
+        result = VBResult(None)
         result.__dict__ = dct["bayem.VBResult"]
         return result
+
+    if "bayem.VBOptions" in dct:
+        return VBOptions(**dct["bayem.VBOptions"])
 
     if "bayem.MVN" in dct:
         mvn = MVN()

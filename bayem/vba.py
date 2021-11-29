@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Options:
+class VBOptions:
     tolerance: float = 0.1
     maxiter: int = 50
     maxtrials: int = 10
@@ -22,6 +22,10 @@ class Options:
 
     # epsilon for central differences jacobian,  approx sqrt(machine precision):
     cdf_eps: float = np.finfo(np.float).eps ** 0.5
+
+    # If true, includes the full precision for each iteration in the VBResult.
+    # Set that to False for _big_ problems to save memory.
+    store_full_precision: bool = True
 
 
 class CDF_Jacobian:
@@ -233,7 +237,7 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
         }
     """
 
-    options = Options(**option_kwargs)
+    options = VBOptions(**option_kwargs)
     vba_problem = VBAProblem(f, noise0, jac, options)
     return VBA(vba_problem, x0, options).run()
 
@@ -243,7 +247,7 @@ class VBA:
         self.p = vba_problem
         self.x0 = x0
         self.options = options
-        self.result = VBResult()
+        self.result = VBResult(options)
 
         self.n_trials = 0
         self.f_old = -np.inf
@@ -430,7 +434,8 @@ class VBResult:
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.OptimizeResult.html
     """
 
-    def __init__(self):
+    def __init__(self, options):
+        self.options = options
         self.param = None
         self.noise = {}
         self.success = False
@@ -440,6 +445,7 @@ class VBResult:
         self.sds = []
         self.shapes = []
         self.scales = []
+        self.precisions = []
         self.f_max = -np.inf
         self.nit = 0
         self.t = None
@@ -469,6 +475,8 @@ class VBResult:
         self.sds.append(MVN(mean, precision).std_diag)
         self.shapes.append(shapes)
         self.scales.append(scales)
+        if self.options.store_full_precision:
+            self.precisions.append(precision)
         if f_new > self.f_max:
             # update
             self.f_max = f_new
