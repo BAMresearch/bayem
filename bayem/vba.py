@@ -21,10 +21,27 @@ class Options:
     index_ARD: Tuple[int] = ()
 
     # epsilon for central differences jacobian,  approx sqrt(machine precision):
-    cdf_eps: float = np.finfo(np.float).eps**0.5
+    cdf_eps: float = np.finfo(np.float).eps ** 0.5
+
 
 class CDF_Jacobian:
     def __init__(self, f, transformation, cdf_eps):
+        """
+        Provides a numerical jacobian df/dtheta for the user-provided callable
+        `f` based on central differences.
+
+        f:
+            user provided callable, see `bayem.vba`
+
+        transformation:
+            callable that turns the output of `f` into the `dict` format
+            of the `VBAProblem` class. See the "additional notes" section
+            in `bayem.vba`
+
+        cdf_eps:
+            defines the step length of parameter `x` as 
+                h = max(cdf_eps, abs(x) * cdf_eps)
+        """
         self._f = f
         self._T = transformation
         self.cdf_eps = cdf_eps
