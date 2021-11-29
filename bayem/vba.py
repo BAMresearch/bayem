@@ -276,7 +276,9 @@ class VBA:
 
             logger.info(f"Free energy of iteration {i_iter} is {f_new}")
 
-            self.result.try_update(f_new, self.m, self.L, self.c, self.s, self.x0.names)
+            self.result.try_update(
+                f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
+            )
             if self.stop_criteria(f_new, i_iter):
                 break
 
@@ -400,8 +402,6 @@ class VBA:
         return False
 
 
-
-
 class VBResult:
     """
     Somehow inspired by
@@ -441,7 +441,7 @@ class VBResult:
 
         return s
 
-    def try_update(self, f_new, mean, precision, shapes, scales, names):
+    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
         self.free_energies.append(f_new)
         self.means.append(mean)
         self.sds.append(MVN(mean, precision).std_diag)
@@ -450,7 +450,7 @@ class VBResult:
         if f_new > self.f_max:
             # update
             self.f_max = f_new
-            self.param = MVN(mean, precision, name="MVN posterior", names=names)
+            self.param = MVN(mean, precision, "MVN posterior", parameter_names)
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
@@ -469,7 +469,7 @@ class VBResult:
         p = self.param
         for i in range(len(p)):
             dist = p.dist(i)
-            entry = [p.names[i], dist.median(), dist.mean(), dist.std()]
+            entry = [p.parameter_names[i], dist.median(), dist.mean(), dist.std()]
             entry += [dist.ppf(q) for q in quantiles]
             data.append(entry)
 

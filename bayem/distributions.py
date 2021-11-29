@@ -5,25 +5,44 @@ from tabulate import tabulate
 
 
 class MVN:
-    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", names=None):
+    def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
+        """
+        Creates a N-dimensional multivariate normal distribution from provided 
+        `mean` μ and `precision` L with the PDF
+
+           f(x) = (2π)^(-N/2) det(L)^(1/2) exp[-1/2 (x - μ)^T L (x - μ)]
+
+        mean:
+            vector of N means μ
+
+        precision:
+            precision matrix L with dimension NxN
+
+        name:
+            name of the distribution, e.g. to indicate "prior" or "posterior"
+
+        parameter_names:
+            vector of N strings that name the N parameters for convenient 
+            access via `self.named_mean`
+        """
         self.mean = np.atleast_1d(mean).astype(float)
         self.precision = np.atleast_2d(precision).astype(float)
         self.name = name
-        if names is None:
-            self.names = [f"p{i}" for i in range(len(self.mean))]
+        if parameter_names is None:
+            self.parameter_names = [f"p{i}" for i in range(len(self.mean))]
         else:
-            self.names = names
+            self.parameter_names = parameter_names
 
         assert len(self.mean) == len(self.precision)
 
-        if self.names is not None:
-            assert len(self.names) == len(self.mean)
+        if self.parameter_names is not None:
+            assert len(self.parameter_names) == len(self.mean)
 
     def __len__(self):
         return len(self.mean)
 
     def index(self, parameter_name):
-        return self.names.index(parameter_name)
+        return self.parameter_names.index(parameter_name)
 
     def named_mean(self, parameter_name):
         return self.mean[self.index(parameter_name)]
@@ -58,7 +77,7 @@ class MVN:
 
     def __str__(self):
         headers = ["name", "µ", "σ"]
-        data = [self.names, self.mean, self.std_diag]
+        data = [self.parameter_names, self.mean, self.std_diag]
         data_T = list(zip(*data))
         s = tabulate(data_T, headers=headers)
         return s
@@ -66,6 +85,31 @@ class MVN:
 
 class Gamma:
     def __init__(self, shape=1.0e-6, scale=1e6, name="Gamma"):
+        """
+        Creates a Gamma distribution from provided `shape` k and `scale` θ 
+        with the PDF
+
+            f(x) = 1 / [Γ(k) θ^k] x^(k-1) exp(-x/θ)
+
+        where Γ denotes the Gamma function.
+        
+        shape:
+            shape parameter k
+
+        scale:
+            scale parameter θ
+
+        name:
+            name of the distribution, e.g. to indicate "prior" or "posterior"
+
+        Notes:
+            The default values aim at creating a non-informative gamma 
+            distribution. Ideally, we would have shape=0 and scale=inf, but
+            that raises numerical issues. Other authors [Kerman, Jouni. 
+            "Neutral noninformative and informative conjugate beta and gamma 
+            prior distributions." Electronic Journal of Statistics 5 (2011): 
+            1450-1470.] propose Gamma(1/3, 0).
+        """
         self.scale = scale
         self.shape = shape
         self.name = name

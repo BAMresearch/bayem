@@ -10,7 +10,7 @@ def test_result_io():
 
     result = bayem.vba(
         dummy_me,
-        x0=bayem.MVN([1, 1], np.diag([1, 1]), names=["A", "B"]),
+        x0=bayem.MVN([1, 1], np.diag([1, 1]), parameter_names=["A", "B"]),
     )
 
     with TemporaryDirectory() as f:
@@ -26,7 +26,7 @@ def test_custom_objects():
     data["parameter_prior"] = bayem.MVN(
         mean=np.r_[1, 2, 3],
         precision=np.diag([1, 2, 3]),
-        names=["A", "B", "C"],
+        parameter_names=["A", "B", "C"],
     )
 
     data["noise_prior"] = bayem.Gamma()
@@ -38,7 +38,7 @@ def test_custom_objects():
     A, B = data["parameter_prior"], loaded["parameter_prior"]
     CHECK = np.testing.assert_array_equal
     assert A.name == B.name
-    assert A.names == B.names
+    assert A.parameter_names == B.parameter_names
     CHECK(A.mean, B.mean)
     CHECK(A.precision, B.precision)
 

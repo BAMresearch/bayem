@@ -8,7 +8,7 @@ class TestMVN(unittest.TestCase):
         self.mvn = bayem.MVN(
             mean=np.r_[1, 2, 3],
             precision=np.diag([1, 2, 3]),
-            names=["A", "B", "C"],
+            parameter_names=["A", "B", "C"],
         )
 
     def test_len(self):
@@ -31,7 +31,7 @@ class TestMVN(unittest.TestCase):
 
         bayem.MVN(mean2, prec2)  # no exception!
         with self.assertRaises(Exception):
-            bayem.MVN(mean2, prec2, names=["A", "B", "C"])
+            bayem.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
 
     def test_dist(self):
         mean = np.r_[1, 2, 3]
