@@ -99,12 +99,12 @@ def visualize_vb_marginal_matrix(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
 
-        # diagonal plots
+        # diagonal plots: 1D line plots of the pdfs
         x = xs[i]
         axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
 
         for j in range(i):
-            # off-diagonal plots
+            # off-diagonal plots: 2D contour plots of the pdfs
             xi, xj = np.meshgrid(xs[i], xs[j])
 
             if i < N_mvn and j < N_mvn:
