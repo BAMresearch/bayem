@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from time import perf_counter
 from tabulate import tabulate
@@ -315,6 +316,8 @@ class VBA:
 
         self.result.t = perf_counter() - t0
         self.result.param0 = self.x0
+        self.result.noise0_dict = self.noise0
+        self.result.noise_dict = self.result.noise
         self.result.noise0 = self.p.original_noise(self.noise0)
         self.result.noise = self.p.original_noise(self.result.noise)
         return self.result
@@ -443,8 +446,7 @@ class VBResult:
         self.free_energies = []
         self.means = []
         self.sds = []
-        self.shapes = []
-        self.scales = []
+        self.gammas = defaultdict(list)
         self.precisions = []
         self.f_max = -np.inf
         self.nit = 0
@@ -473,8 +475,10 @@ class VBResult:
         self.free_energies.append(f_new)
         self.means.append(mean)
         self.sds.append(MVN(mean, precision).std_diag)
-        self.shapes.append(shapes)
-        self.scales.append(scales)
+
+        for n in shapes:
+            self.gammas[n].append(Gamma(shape=shapes[n], scale=scales[n]))
+
         if self.options.store_full_precision:
             self.precisions.append(precision)
         if f_new > self.f_max:

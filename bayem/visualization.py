@@ -1,3 +1,6 @@
+from collections import defaultdict
+
+from bayem import Gamma
 import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
@@ -188,7 +191,7 @@ def format_axes(axes, labels=None):
     labels = labels or [fr"$\theta_{i}$" for i in range(N)]
     assert N == len(labels)
     for i, label in enumerate(labels):
-        axes[i, i].set_ylabel(f"$p$({labels[i]})")
+        axes[i, i].set_ylabel(f"$PDF$({labels[i]})")
         axes[len(labels) - 1, i].set_xlabel(label)
 
     # turn off top triangle
@@ -210,21 +213,21 @@ class PairPlot:
     reasonable default values.
     """
 
-    def __init__(self, result, show=False):
+    def __init__(self, result):
         self.axes = None
         self.result = result
-        self.labels = result.param0.names + list(result.noise0.keys())
-        if show:
-            self.prior()
-            self.posterior()
-            self.show()
+        noise_keys = [r"$\phi_{" + str(key) + "}$" for key in result.noise0_dict]
+        self.labels = result.param0.parameter_names + noise_keys
 
     def prior(self, **kwargs):
         kwargs.setdefault("color", "#cd7e00")
         kwargs.setdefault("lw", 0.5)
         kwargs.setdefault("label", "prior")
         self.axes = visualize_vb_marginal_matrix(
-            self.result.param0, self.result.noise0.values(), axes=self.axes, **kwargs
+            self.result.param0,
+            self.result.noise0_dict.values(),
+            axes=self.axes,
+            **kwargs,
         )
         return self
 
@@ -233,24 +236,30 @@ class PairPlot:
         kwargs.setdefault("lw", 1.5)
         kwargs.setdefault("label", "vb posterior")
         self.axes = visualize_vb_marginal_matrix(
-            self.result.param, self.result.noise.values(), axes=self.axes, **kwargs
+            self.result.param, self.result.noise_dict.values(), axes=self.axes, **kwargs
         )
         return self
 
-    def show(self):
+    def finish(self, show=True):
         format_axes(self.axes, self.labels)
-        plt.show()
+        if show:
+            plt.show()
+
+
+def pair_plot(result, show=True):
+    PairPlot(result).prior().posterior().finish(show)
 
 
 def result_trace(result, show=True, highlight=None):
     if highlight is None:
         highlight = []
 
-    fig, (ax_f, ax_p) = plt.subplots(2, 1, sharex=True)
+    fig, (ax_f, ax_p, ax_g) = plt.subplots(3, 1, sharex=True)
 
     # plot parameters
     ax_p.set_xlabel("interation")
     ax_p.set_ylabel("parameter value")
+    ax_g.set_ylabel("noise precision")
     ax_p.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     means = np.array([result.param0.mean] + result.means)
@@ -261,7 +270,7 @@ def result_trace(result, show=True, highlight=None):
 
     red = np.r_[210, 0, 30] / 255
 
-    for i, name in enumerate(result.param.names):
+    for i, name in enumerate(result.param.parameter_names):
         color, lw = None, 1
         if name in highlight:
             color, lw = red, 2
@@ -274,6 +283,16 @@ def result_trace(result, show=True, highlight=None):
     # plot free energy
     ax_f.set_ylabel("free energy")
     ax_f.plot(x[1:], result.free_energies, "-k|")
+
+    for noise_key, gammas in result.gammas.items():
+        g0 = result.noise0_dict[noise_key]
+        means = np.array([g0.mean] + [g.mean for g in gammas])
+        sds = np.array([g0.std] + [g.std for g in gammas])
+        label = r"$\phi_{" + str(noise_key) + "}$"
+        ax_g.errorbar(x, means, yerr=sds, label=label, capsize=5, lw=1, ls=":")
+    ax_g.legend()
+
+        
 
     # annotate prior and posterior
     i_posterior = result.free_energies.index(result.f_max) + 1

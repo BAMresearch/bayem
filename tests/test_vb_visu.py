@@ -8,17 +8,9 @@ import numpy as np
 import pytest
 from imageio import imread
 
-
-def test_vb_visu(generate_ref_img=False):
-    mvn = bayem.MVN(mean=[2, 30, 100], precision=[[1, 1, 1], [1, 2, 0], [1, 0, 3]])
-    gamma0 = bayem.Gamma(shape=3, scale=1 / 75)
-    gamma1 = bayem.Gamma(shape=8.5, scale=1 / 8.5)
-
-    axes = visu.visualize_vb_marginal_matrix(mvn, [gamma0, gamma1], label="VB")
-    visu.format_axes(axes)
-
-    ref_img_name = Path(__file__).absolute().parent / "test_vb_visu_ref.png"
-    if generate_ref_img:
+def compare_plt(reference_filename, generate_ref_img):
+    ref_img_name = Path(__file__).absolute().parent / reference_filename
+    if generate_ref_img: 
         plt.savefig(ref_img_name, dpi=300)
         return
 
@@ -31,6 +23,26 @@ def test_vb_visu(generate_ref_img=False):
 
         assert np.linalg.norm(test_img - ref_img) == pytest.approx(0)
 
+np.random.seed(6174)
+t = np.linspace(1, 2, 10)
+noise = np.random.normal(0, 0.42, len(t))
+
+def f(x):
+    return t * x[0]**2 - t * 9 + noise
+
+info = bayem.vba(f, x0=bayem.MVN([2], [0.5]), noise0=bayem.Gamma(1, 2))
+
+
+def test_pair_plot(generate_ref_img=False):
+    visu.pair_plot(info, show=False)
+    compare_plt("ref_pair_plot.png", generate_ref_img=generate_ref_img)
+
+def test_trace_plot(generate_ref_img=False):
+    visu.result_trace(info, show=False)
+    compare_plt("ref_trace_plot.png", generate_ref_img=generate_ref_img)
+
 
 if __name__ == "__main__":
-    test_vb_visu(generate_ref_img=False)
+    generate = False
+    test_pair_plot(generate_ref_img=generate)
+    test_trace_plot(generate_ref_img=generate)
