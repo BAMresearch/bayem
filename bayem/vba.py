@@ -20,17 +20,21 @@ class Options:
     update_noise: Union[Dict, bool] = True
     index_ARD: Tuple[int] = ()
 
+    # epsilon for central differences jacobian,  approx sqrt(machine precision):
+    cdf_eps: float = 1.0e-7
+
 
 class CDF_Jacobian:
-    def __init__(self, f, transformation):
+    def __init__(self, f, transformation, cdf_eps):
         self._f = f
         self._T = transformation
+        self.cdf_eps = cdf_eps
 
     def __call__(self, _x):
         x = np.copy(_x)
 
         for iParam in range(len(x)):
-            eps = 1.0e-7  # approx sqrt(machine precision)
+            eps = self.cdf_eps
             dx = max(eps, abs(x[iParam]) * eps)
 
             x[iParam] -= dx
@@ -52,11 +56,12 @@ class CDF_Jacobian:
 
 
 class VBAProblem:
-    def __init__(self, f, noise0, jac):
+    def __init__(self, f, noise0, jac, options):
         self.f = f
         self.noise0 = noise0
         self.jac = jac
         self.jac_in_f = not callable(jac) and jac
+        self.options = options
 
         self._Tk = None  # transformation of k = f(x)
         self._TJ = None  # transformation of J = jac(x)
@@ -114,7 +119,7 @@ class VBAProblem:
             pass
         else:
             if not self.jac:
-                self.jac = CDF_Jacobian(self.f, self._Tk)
+                self.jac = CDF_Jacobian(self.f, self._Tk, self.options.cdf_eps)
                 self._TJ = _identity
 
             J = self.jac(x)
@@ -212,8 +217,9 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
         }
     """
 
-    vba_problem = VBAProblem(f, noise0, jac)
-    return VBA(vba_problem, x0, Options(**option_kwargs)).run()
+    options = Options(**option_kwargs)
+    vba_problem = VBAProblem(f, noise0, jac, options)
+    return VBA(vba_problem, x0, options).run()
 
 
 class VBA:
