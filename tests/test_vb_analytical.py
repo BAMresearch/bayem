@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-import bayes.vb
+import bayem
 
 """
 Examples from
@@ -38,13 +38,11 @@ class Test_VBAnalytic(unittest.TestCase):
         self.scale = variance ** 0.5
 
     def given_noise(self, update_noise, check_method):
-        prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
+        prior = bayem.MVN(prior_mean, 1.0 / prior_sd ** 2)
 
-        gamma = bayes.vb.Gamma.FromMeanStd(1 / sigma ** 2, 42)
+        gamma = bayem.Gamma.FromMeanStd(1 / sigma ** 2, 42)
 
-        result = bayes.vb.variational_bayes(
-            model_error, prior, gamma, update_noise=update_noise
-        )
+        result = bayem.vba(model_error, prior, gamma, update_noise=update_noise)
         self.assertTrue(result.success)
         check_method(result.param.mean[0], self.mean)
         check_method(result.param.std_diag[0], self.scale)
@@ -75,14 +73,10 @@ class Test_VBAnalytic(unittest.TestCase):
         )
         logz = np.log(z)
 
-        prior = bayes.vb.MVN(prior_mean, 1.0 / prior_sd ** 2)
-        narrow_gamma = bayes.vb.Gamma.FromMeanStd(1 / sigma ** 2, 1.0e-6)
-        result1 = bayes.vb.variational_bayes(
-            model_error, prior, narrow_gamma, update_noise=True
-        )
-        result2 = bayes.vb.variational_bayes(
-            model_error, prior, narrow_gamma, update_noise=False
-        )
+        prior = bayem.MVN(prior_mean, 1.0 / prior_sd ** 2)
+        narrow_gamma = bayem.Gamma.FromMeanStd(1 / sigma ** 2, 1.0e-6)
+        result1 = bayem.vba(model_error, prior, narrow_gamma, update_noise=True)
+        result2 = bayem.vba(model_error, prior, narrow_gamma, update_noise=False)
         self.assertAlmostEqual(result1.f_max, logz, places=6)
         self.assertAlmostEqual(result2.f_max, logz, places=6)
 
@@ -99,18 +93,14 @@ class Test_VBAnalytic(unittest.TestCase):
         a = n / 2
         b = np.sum((data - prior_mean) ** 2) / 2
 
-        """
-        The parameters for the corresponding gamma distribution for the 
-        PRECISION then read (a, 1/b)
-        """
+        # The parameters for the corresponding gamma distribution for the
+        # PRECISION then read (a, 1/b)
 
         big_but_not_nan = 1e20
-        prior = bayes.vb.MVN(prior_mean, big_but_not_nan)
-        gamma = bayes.vb.Gamma(shape=1.0e-20, scale=big_but_not_nan)
+        prior = bayem.MVN(prior_mean, big_but_not_nan)
+        gamma = bayem.Gamma(shape=1.0e-20, scale=big_but_not_nan)
 
-        result = bayes.vb.variational_bayes(
-            model_error, prior, gamma, update_noise=True
-        )
+        result = bayem.vba(model_error, prior, gamma, update_noise=True)
         self.assertTrue(result.success)
 
         gamma = result.noise
@@ -129,18 +119,16 @@ class Test_VBAnalytic(unittest.TestCase):
         def dict_model_error(numbers):
             return {"A": np.ones(5), "B": np.zeros(5)}
 
-        param0 = bayes.vb.MVN()
-        noise0 = {"A": bayes.vb.Gamma(1, 1), "B": bayes.vb.Gamma(2, 2)}
+        param0 = bayem.MVN()
+        noise0 = {"A": bayem.Gamma(1, 1), "B": bayem.Gamma(2, 2)}
 
         # You may provide a single update_noise flag
-        result = bayes.vb.variational_bayes(
-            dict_model_error, param0, noise0, update_noise=False
-        )
+        result = bayem.vba(dict_model_error, param0, noise0, update_noise=False)
         self.assert_gamma_equal(result.noise["A"], noise0["A"])
         self.assert_gamma_equal(result.noise["B"], noise0["B"])
 
         # Alternatively, you can provide a dict containing _all_ noise keys
-        result = bayes.vb.variational_bayes(
+        result = bayem.vba(
             dict_model_error, param0, noise0, update_noise={"A": True, "B": False}
         )
         self.assert_not_gamma_equal(result.noise["A"], noise0["A"])
@@ -148,9 +136,7 @@ class Test_VBAnalytic(unittest.TestCase):
 
         # There will be an error, if you forget one
         with self.assertRaises(KeyError):
-            bayes.vb.variational_bayes(
-                dict_model_error, param0, noise0, update_noise={"A": True}
-            )
+            bayem.vba(dict_model_error, param0, noise0, update_noise={"A": True})
 
 
 if __name__ == "__main__":

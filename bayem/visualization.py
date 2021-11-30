@@ -1,7 +1,10 @@
+from collections import defaultdict
+
+from bayem import Gamma
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot as plt
 
 
 def plot_pdf(
@@ -13,8 +16,6 @@ def plot_pdf(
     color_plot="r",
     **kwargs,
 ):
-    import matplotlib.pyplot as plt
-
     if ("min" in kwargs) & ("max" in kwargs):
         x_min = kwargs["min"]
         x_max = kwargs["max"]
@@ -65,7 +66,7 @@ def visualize_vb_marginal_matrix(
     mvn:
         Any multivariate normal distribution that provides `.mean` and `.cov`
     gammas:
-        A list of `bayes.vb.Gamma` distributions
+        A list of `bayem.Gamma` distributions
     axes:
         If provided, this is 2D array containing similar plots e.g. from
             taralli_model.plot_posterior(...)
@@ -91,11 +92,7 @@ def visualize_vb_marginal_matrix(
     N_mvn = len(mvn.mean)
     N = N_mvn + len(gammas)
 
-    if axes is None:
-        fig = plt.figure()
-        axes = fig.subplots(N, N, sharex="col", squeeze=False)
-
-    assert axes.shape == (N, N)
+    axes = _get_axes(N, axes)
 
     dists_1d = [mvn.dist(i) for i in range(N_mvn)] + [gamma.dist() for gamma in gammas]
 
@@ -105,63 +102,78 @@ def visualize_vb_marginal_matrix(
             np.linspace(dists_1d[i].ppf(0.001), dists_1d[i].ppf(0.999), resolution)
         )
 
-        for j in range(i + 1):
-            if focus:
-                axes[i, j].set_xlim(xs[j][0], xs[j][-1])
+        # diagonal plots: 1D line plots of the pdfs
+        x = xs[i]
+        axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
 
-            if i == j:
-                x = xs[i]
-                axes[i, i].plot(x, dists_1d[i].pdf(x), "-", color=color, lw=lw)
-                if median:
-                    axes[i, i].axvline(
-                        dists_1d[i].median(), ls="--", color=color, lw=lw
-                    )
+        for j in range(i):
+            # off-diagonal plots: 2D contour plots of the pdfs
+            xi, xj = np.meshgrid(xs[i], xs[j])
+
+            if i < N_mvn and j < N_mvn:
+                # correlated pdf by evaluating 2D-mvn
+                dist = mvn.dist(i, j)
+                x = np.vstack([xi.flatten(), xj.flatten()]).T
+                pdf = dist.pdf(x).reshape(resolution, resolution)
             else:
-                if focus:
-                    axes[i, j].set_ylim(xs[i][0], xs[i][-1])
+                # uncorrelated pdf by multiplying the individual pdfs
+                pdf_i = dists_1d[i].pdf(xs[i]).reshape(-1, 1)
+                pdf_j = dists_1d[j].pdf(xs[j]).reshape(-1, 1)
+                pdf = pdf_j @ pdf_i.T
 
-                xi, xj = np.meshgrid(xs[i], xs[j])
+            axes[i, j].contour(xj, xi, pdf, colors=[color], linewidths=lw)
 
-                if i < N_mvn and j < N_mvn:
-                    # correlated pdf by evaluating 2D-mvn
-                    dist = mvn.dist(i, j)
-                    x = np.vstack([xi.flatten(), xj.flatten()]).T
-                    pdf = dist.pdf(x).reshape(resolution, resolution)
-                else:
-                    # uncorrelated pdf by multiplying the individual pdfs
-                    pdf_i = dists_1d[i].pdf(xs[i]).reshape(-1, 1)
-                    pdf_j = dists_1d[j].pdf(xs[j]).reshape(-1, 1)
-                    pdf = pdf_j @ pdf_i.T
+    if median:
+        for i in range(N):
+            axes[i, i].axvline(dists_1d[i].median(), ls="--", color=color, lw=lw)
+            for j in range(i):
+                axes[i, j].axhline(dists_1d[i].median(), ls="--", color=color, lw=lw)
+                axes[i, j].axvline(dists_1d[j].median(), ls="--", color=color, lw=lw)
 
-                axes[i, j].contour(xj, xi, pdf, colors=[color], linewidths=lw)
-                if median:
-                    axes[i, j].axhline(
-                        dists_1d[i].median(), ls="--", color=color, lw=lw
-                    )
+    if focus:
+        _set_focus(axes, xs)
 
-    if label is not None:
+    if label is None:
+        return axes
 
-        line = Line2D([0], [0], color=color, linewidth=lw, label=label)
-        fig = axes[0, 0].figure
-        if fig.legends:
-            handles = fig.legends[0].legendHandles
-            fig.legends = []
-        else:
-            handles = []
-        handles.append(line)
+    line = Line2D([0], [0], color=color, linewidth=lw, label=label)
+    fig = axes[0, 0].figure
+    if fig.legends:
+        handles = fig.legends[0].legendHandles
+        fig.legends = []
+    else:
+        handles = []
+    handles.append(line)
 
-        ax_bounds = np.array([list(ax.bbox._bbox.bounds) for ax in axes.flat])
-        top_margin = 1 - (ax_bounds[:, 0] + ax_bounds[:, 2]).max()
-        right_margin = 1 - (ax_bounds[:, 1] + ax_bounds[:, 3]).max()
-        bbox_to_anchor = (1.0 - right_margin / 2, 1.0 - top_margin)
-        fig.legend(
-            handles=handles,
-            loc="upper right",
-            fontsize=legend_fontsize,
-            bbox_to_anchor=bbox_to_anchor,
-        )
+    ax_bounds = np.array([list(ax.bbox._bbox.bounds) for ax in axes.flat])
+    top_margin = 1 - (ax_bounds[:, 0] + ax_bounds[:, 2]).max()
+    right_margin = 1 - (ax_bounds[:, 1] + ax_bounds[:, 3]).max()
+    bbox_to_anchor = (1.0 - right_margin / 2, 1.0 - top_margin)
+    fig.legend(
+        handles=handles,
+        loc="upper right",
+        fontsize=legend_fontsize,
+        bbox_to_anchor=bbox_to_anchor,
+    )
 
     return axes
+
+
+def _get_axes(N, axes):
+    if axes is None:
+        fig = plt.figure()
+        axes = fig.subplots(N, N, sharex="col", squeeze=False)
+    assert axes.shape == (N, N)
+    return axes
+
+
+def _set_focus(axes, xs):
+    assert len(axes) == len(xs)
+    N = len(axes)
+    for i in range(N):
+        axes[i, i].set_xlim(xs[i][0], xs[i][-1])
+        for j in range(i + 1):
+            axes[i, j].set_ylim(xs[i][0], xs[i][-1])
 
 
 def format_axes(axes, labels=None):
@@ -179,7 +191,7 @@ def format_axes(axes, labels=None):
     labels = labels or [fr"$\theta_{i}$" for i in range(N)]
     assert N == len(labels)
     for i, label in enumerate(labels):
-        axes[i, i].set_ylabel(f"$p$({labels[i]})")
+        axes[i, i].set_ylabel(f"$PDF$({labels[i]})")
         axes[len(labels) - 1, i].set_xlabel(label)
 
     # turn off top triangle
@@ -201,21 +213,21 @@ class PairPlot:
     reasonable default values.
     """
 
-    def __init__(self, result, show=False):
+    def __init__(self, result):
         self.axes = None
         self.result = result
-        self.labels = result.param0.parameter_names + list(result.noise0.keys())
-        if show:
-            self.prior()
-            self.posterior()
-            self.show()
+        noise_keys = [r"$\phi_{" + str(key) + "}$" for key in result.noise0_dict]
+        self.labels = result.param0.parameter_names + noise_keys
 
     def prior(self, **kwargs):
         kwargs.setdefault("color", "#cd7e00")
         kwargs.setdefault("lw", 0.5)
         kwargs.setdefault("label", "prior")
         self.axes = visualize_vb_marginal_matrix(
-            self.result.param0, self.result.noise0.values(), axes=self.axes, **kwargs
+            self.result.param0,
+            self.result.noise0_dict.values(),
+            axes=self.axes,
+            **kwargs,
         )
         return self
 
@@ -224,24 +236,30 @@ class PairPlot:
         kwargs.setdefault("lw", 1.5)
         kwargs.setdefault("label", "vb posterior")
         self.axes = visualize_vb_marginal_matrix(
-            self.result.param, self.result.noise.values(), axes=self.axes, **kwargs
+            self.result.param, self.result.noise_dict.values(), axes=self.axes, **kwargs
         )
         return self
 
-    def show(self):
+    def finish(self, show=True):
         format_axes(self.axes, self.labels)
-        plt.show()
+        if show:
+            plt.show()
+
+
+def pair_plot(result, show=True):
+    PairPlot(result).prior().posterior().finish(show)
 
 
 def result_trace(result, show=True, highlight=None):
     if highlight is None:
         highlight = []
 
-    fig, (ax_f, ax_p) = plt.subplots(2, 1, sharex=True)
+    fig, (ax_f, ax_p, ax_g) = plt.subplots(3, 1, sharex=True)
 
     # plot parameters
     ax_p.set_xlabel("interation")
     ax_p.set_ylabel("parameter value")
+    ax_g.set_ylabel("noise precision")
     ax_p.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     means = np.array([result.param0.mean] + result.means)
@@ -256,7 +274,7 @@ def result_trace(result, show=True, highlight=None):
         color, lw = None, 1
         if name in highlight:
             color, lw = red, 2
-        lines = ax_p.errorbar(
+        ax_p.errorbar(
             x, means[:, i], yerr=sds[:, i], label=name, capsize=5, color=color, lw=lw
         )
 
@@ -265,6 +283,16 @@ def result_trace(result, show=True, highlight=None):
     # plot free energy
     ax_f.set_ylabel("free energy")
     ax_f.plot(x[1:], result.free_energies, "-k|")
+
+    for noise_key, gammas in result.gammas.items():
+        g0 = result.noise0_dict[noise_key]
+        means = np.array([g0.mean] + [g.mean for g in gammas])
+        sds = np.array([g0.std] + [g.std for g in gammas])
+        label = r"$\phi_{" + str(noise_key) + "}$"
+        ax_g.errorbar(x, means, yerr=sds, label=label, capsize=5, lw=1, ls=":")
+    ax_g.legend()
+
+        
 
     # annotate prior and posterior
     i_posterior = result.free_energies.index(result.f_max) + 1

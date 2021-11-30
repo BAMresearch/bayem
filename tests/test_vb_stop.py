@@ -2,10 +2,14 @@ from scipy import stats
 import numpy as np
 import unittest
 import logging
-from bayes.vb import VB
+from bayem import VBA, VBOptions
 
 logging.getLogger("matplotlib.font_manager").disabled = True
 logger = logging.getLogger(__name__)
+
+
+def test_VBA(**options):
+    return VBA(None, None, VBOptions(**options))
 
 
 class TestFreeEnergy(unittest.TestCase):
@@ -46,25 +50,27 @@ class TestFreeEnergy(unittest.TestCase):
         sample_interval = 10
         free_energy_sample = self.free_energy[::sample_interval]
 
-        inference = VB(
-            n_trials_max=10, tolerance=1e-4, iter_max=len(free_energy_sample)
+        inference = test_VBA(
+            maxtrials=10, tolerance=1e-4, maxiter=len(free_energy_sample)
         )
-        for i_iter in range(inference.iter_max):
+        for i_iter in range(inference.options.maxiter):
             f_new = free_energy_sample[i_iter]
             if inference.stop_criteria(f_new, i_iter):
                 break
 
-        print(inference.result.f_max, max(free_energy_sample), inference.tolerance)
+        print(
+            inference.result.f_max, max(free_energy_sample), inference.options.tolerance
+        )
         self.assertAlmostEqual(
             inference.result.f_max,
             max(free_energy_sample),
-            delta=inference.tolerance,
+            delta=inference.options.tolerance,
             msg="iterations didn't go through the max in freee energy",
         )
 
     def test_increase_in_free_energy_at_max_iter(self):
         """
-        f_new > f_old but i=iter_max
+        f_new > f_old but i=maxiter
         :return:
         """
         msg = "---------Test case: Free energy is increasing - max nb of iterations is reached ---------"
@@ -73,51 +79,55 @@ class TestFreeEnergy(unittest.TestCase):
         sample_interval = 1
         free_energy_sample = self.free_energy[::sample_interval]
 
-        inference = VB(n_trials_max=100, tolerance=1e-8, iter_max=50)
-        for i_iter in range(inference.iter_max + 100):
+        inference = test_VBA(maxtrials=100, tolerance=1e-8, maxiter=50)
+        for i_iter in range(inference.options.maxiter + 100):
             f_new = free_energy_sample[i_iter]
             if inference.stop_criteria(f_new, i_iter):
                 break
 
-        print(inference.result.f_max, max(free_energy_sample), inference.tolerance)
+        print(
+            inference.result.f_max, max(free_energy_sample), inference.options.tolerance
+        )
         self.assertLessEqual(
             inference.result.f_max,
             max(free_energy_sample),
             msg="result.f_max is cannot increase further",
         )
-        self.assertEqual(inference.iter_max, i_iter)
+        self.assertEqual(inference.options.maxiter, i_iter)
 
     def test_stopped_by_max_iter(self):
         """
-        f_new < f_old but i=iter_max and n_trials<n_trials_max
+        f_new < f_old but i=maxiter and n_trials<maxtrials
         :return:
         """
-        msg = "---------Test case: Free energy is decreasing -max nb of iterations is reached before n_trials_max---------"
+        msg = "---------Test case: Free energy is decreasing -max nb of iterations is reached before maxtrials---------"
         logger.info(msg)
         # define samples of param and free energy for each iteration
         sample_interval = 1
         free_energy_sample = self.free_energy[::sample_interval]
 
-        inference = VB(n_trials_max=100, tolerance=1e-5, iter_max=250)
-        for i_iter in range(inference.iter_max):
+        inference = test_VBA(maxtrials=100, tolerance=1e-5, maxiter=250)
+        for i_iter in range(inference.options.maxiter):
             f_new = free_energy_sample[i_iter]
             if inference.stop_criteria(f_new, i_iter):
                 break
 
-        print(inference.result.f_max, max(free_energy_sample), inference.tolerance)
+        print(
+            inference.result.f_max, max(free_energy_sample), inference.options.tolerance
+        )
         self.assertAlmostEqual(
             inference.result.f_max,
             max(free_energy_sample),
-            delta=inference.tolerance,
+            delta=inference.options.tolerance,
             msg="iterations didn't go through the max in freee energy",
         )
         self.assertLessEqual(
-            inference.n_trials, inference.n_trials_max, msg="n_trials_max was reached"
+            inference.n_trials, inference.options.maxtrials, msg="maxtrials was reached"
         )
 
     def test_reached_tolerance_return_stored(self):
         """
-        f_new < f_old but i=iter_max and n_trials<n_trials_max
+        f_new < f_old but i=maxiter and n_trials<maxtrials
         :return:
         """
         msg = "---------Test case: Free energy change is below tolerance - return stored param values---------T"
@@ -126,25 +136,27 @@ class TestFreeEnergy(unittest.TestCase):
         sample_interval = 10
         free_energy_sample = self.free_energy[::sample_interval]
 
-        inference = VB(
-            n_trials_max=100, tolerance=5e-3, iter_max=len(free_energy_sample)
+        inference = test_VBA(
+            maxtrials=100, tolerance=5e-3, maxiter=len(free_energy_sample)
         )
-        for i_iter in range(inference.iter_max):
+        for i_iter in range(inference.options.maxiter):
             f_new = free_energy_sample[i_iter]
             if inference.stop_criteria(f_new, i_iter):
                 break
 
-        print(inference.result.f_max, max(free_energy_sample), inference.tolerance)
+        print(
+            inference.result.f_max, max(free_energy_sample), inference.options.tolerance
+        )
         self.assertAlmostEqual(
             inference.f_old,
             f_new,
-            delta=inference.tolerance,
+            delta=inference.options.tolerance,
             msg="change in free energy is higher than tolerance",
         )
         self.assertAlmostEqual(
             inference.result.f_max,
             max(free_energy_sample),
-            delta=inference.tolerance,
+            delta=inference.options.tolerance,
             msg="result.f_max didnt reach max free energy ",
         )
 
