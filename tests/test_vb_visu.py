@@ -43,6 +43,6 @@ def test_trace_plot(generate_ref_img=False):
 
 
 if __name__ == "__main__":
-    generate = False
+    generate = True
     test_pair_plot(generate_ref_img=generate)
     test_trace_plot(generate_ref_img=generate)

@@ -29,7 +29,9 @@ class MVN:
         self.precision = np.atleast_2d(precision).astype(float)
         self.name = name
         if parameter_names is None:
-            self.parameter_names = [f"p{i}" for i in range(len(self.mean))]
+            self.parameter_names = [
+                r"$\theta_{" + str(i) + "}$" for i in range(len(self.mean))
+            ]
         else:
             self.parameter_names = parameter_names
 
