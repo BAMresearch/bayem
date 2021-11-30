@@ -13,141 +13,6 @@ from .distributions import MVN, Gamma
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class VBOptions:
-    tolerance: float = 0.1
-    maxiter: int = 50
-    maxtrials: int = 10
-    update_noise: Union[Dict, bool] = True
-    index_ARD: Tuple[int] = ()
-
-    # epsilon for central differences jacobian,  approx sqrt(machine precision):
-    cdf_eps: float = np.finfo(np.float).eps ** 0.5
-
-    # If true, includes the full precision for each iteration in the VBResult.
-    # Set that to False for _big_ problems to save memory.
-    store_full_precision: bool = True
-
-
-class CDF_Jacobian:
-    def __init__(self, f, transformation, cdf_eps):
-        """
-        Provides a numerical jacobian df/dtheta for the user-provided callable
-        `f` based on central differences.
-
-        f:
-            user provided callable, see `bayem.vba`
-
-        transformation:
-            callable that turns the output of `f` into the `dict` format
-            of the `VBAProblem` class. See the "additional notes" section
-            in `bayem.vba`
-
-        cdf_eps:
-            defines the step length of parameter `x` as 
-                h = max(cdf_eps, abs(x) * cdf_eps)
-        """
-        self._f = f
-        self._T = transformation
-        self.cdf_eps = cdf_eps
-
-    def __call__(self, _x):
-        x = np.copy(_x)
-
-        for iParam in range(len(x)):
-            eps = self.cdf_eps
-            dx = max(eps, abs(x[iParam]) * eps)
-
-            x[iParam] -= dx
-            fs0 = self._T(self._f(x))
-            x[iParam] += 2 * dx
-            fs1 = self._T(self._f(x))
-            x[iParam] = _x[iParam]
-
-            if iParam == 0:
-                # allocate jac
-                jac = {}
-                for key, f0 in fs0.items():
-                    jac[key] = np.empty([len(f0), len(x)])
-
-            for n in fs0:
-                jac[n][:, iParam] = (fs1[n] - fs0[n]) / (2 * dx)
-
-        return jac
-
-
-class VBAProblem:
-    def __init__(self, f, noise0, jac, options):
-        self.f = f
-        self.noise0 = noise0
-        self.jac = jac
-        self.jac_in_f = not callable(jac) and jac
-        self.options = options
-
-        self._Tk = None  # transformation of k = f(x)
-        self._TJ = None  # transformation of J = jac(x)
-
-    def __call__(self, x):
-        """
-        Computes (f(x), jac(x)) at the current parameter mean `x` as a dict
-        containing {noise_key: np.ndarray}.
-        """
-        if self.jac_in_f:
-            k, J = self.f(x)
-        else:
-            k, J = self.f(x), self.jac(x)
-        return self._Tk(k), self._TJ(J)
-
-    def original_noise(self, n):
-        return self._invTnoise(n)
-
-    def first_call(self, x):
-        """
-        Computes (f(x), jac(x)) at the current parameter mean `x` and sets
-        up an internal structure such that various user provided forms of
-        `f` can be used.
-        """
-
-        if self.jac_in_f:
-            k, J = self.f(x)
-        else:
-            k = self.f(x)
-
-        transformations = {
-            "dict": (_identity, _identity),
-            "list": (_list_to_dict, _dict_to_list),
-            "other": (_obj_to_dict, _dict_to_obj),
-        }
-
-        k_type = "other"
-        default_noise = Gamma()
-        if isinstance(k, dict):
-            k_type = "dict"
-            default_noise = {group: Gamma() for group in k}
-        if isinstance(k, list):
-            k_type = "list"
-            default_noise = [Gamma() for _ in range(len(k))]
-
-        self._Tk = transformations[k_type][0]
-        self._TJ = transformations[k_type][0]
-        self._invTnoise = transformations[k_type][1]
-        if self.noise0 is None:
-            self.noise0 = default_noise
-
-        self.noise0 = self._Tk(self.noise0)
-
-        if self.jac_in_f:
-            pass
-        else:
-            if not self.jac:
-                self.jac = CDF_Jacobian(self.f, self._Tk, self.options.cdf_eps)
-                self._TJ = _identity
-
-            J = self.jac(x)
-
-        return self._Tk(k), self._TJ(J)
-
-
 def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     """
     Implementation of
@@ -184,23 +49,38 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
         * jac == None/False falls back to a numeric implementation based on
           central differences of `f`. 
 
-    option_kwargs: 
-        * tolerance:
-            free energy change that causes the algorithm to stop
+    option_kwargs:
+        
+        tolerance:
+            The algorithm stops, if the change in the variational free energy 
+            to the previous iteration is below `tolerance`.
 
-        * maxiter:
-            maximum number of iterations
+        maxiter:
+            The algorithm stops after `maxiter` iterations.
 
-        * index_ARD:
+        maxtrails:
+            The algorithm stops, if the free energy does not increase
+            for `maxtrails` iterations.
+
+        update_noise:
+            Flags indicating whether or not the noise parameters should be 
+            inferred. This can be passed as a single boolean for all noise
+            groups or as a dict {noise_group_key : bool}.
+        
+        index_ARD:
             Automatic Relevance Determination option to allow for "the automated 
             reduction of model complexity" (Chappell et al. 2009). It should be 
             an array containing the indexes corresponding to the position of 
             the ARD parameters in the `x0` MVN.
 
-        * update_noise:
-            Flags indicating whether or not the noise parameters should be 
-            inferred. This can be passed as a single boolean for all noise
-            groups or as a dict {noise_group_key : bool}.
+        cdf_eps:
+            epsilon for central differences jacobian, approx 
+            sqrt(machine precision)
+
+        store_full_precision:
+            If true, includes the full precision for each iteration in the 
+            VBResult. Set that to False for _big_ problems to save memory.
+
 
     Returns:
         bayem.VBResult defined below
@@ -239,13 +119,188 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     """
 
     options = VBOptions(**option_kwargs)
-    vba_problem = VBAProblem(f, noise0, jac, options)
-    return VBA(vba_problem, x0, options).run()
+    dict_f = DictModelError(f, noise0, jac, options)
+    return VBA(dict_f, x0, options).run()
+
+
+@dataclass
+class VBOptions:
+    """
+    Options to control the behavior of the analytical variational Bayes alorithm
+
+    As this class is only used internally, see the documentation in `bayem.vba`
+    below
+    """
+
+    tolerance: float = 0.1
+    maxiter: int = 50
+    maxtrials: int = 10
+    update_noise: Union[Dict, bool] = True
+    index_ARD: Tuple[int] = ()
+
+    cdf_eps: float = np.finfo(np.float).eps ** 0.5
+
+    store_full_precision: bool = True
+
+
+class CDF_Jacobian:
+    def __init__(self, f, transformation, cdf_eps):
+        """
+        Provides a numerical jacobian df/dtheta for the user-provided callable
+        `f` based on central differences.
+
+        f:
+            user provided callable, see `bayem.vba`
+
+        transformation:
+            callable that turns the output of `f` into the `dict` format
+            of the `DictModelError` class. See the "additional notes" section
+            in `bayem.vba`
+
+        cdf_eps:
+            defines the step length of parameter `x` as 
+                h = max(cdf_eps, abs(x) * cdf_eps)
+        """
+        self._f = f
+        self._T = transformation
+        self.cdf_eps = cdf_eps
+
+    def __call__(self, _x):
+        x = np.copy(_x)
+
+        for iParam in range(len(x)):
+            eps = self.cdf_eps
+            dx = max(eps, abs(x[iParam]) * eps)
+
+            x[iParam] -= dx
+            fs0 = self._T(self._f(x))
+            x[iParam] += 2 * dx
+            fs1 = self._T(self._f(x))
+            x[iParam] = _x[iParam]
+
+            if iParam == 0:
+                # allocate jac
+                jac = {}
+                for key, f0 in fs0.items():
+                    jac[key] = np.empty([len(f0), len(x)])
+
+            for n in fs0:
+                jac[n][:, iParam] = (fs1[n] - fs0[n]) / (2 * dx)
+
+        return jac
+
+
+def _identity(x):
+    return x
+
+
+def _list_to_dict(x_list):
+    return dict(enumerate(x_list))
+
+
+def _dict_to_list(x_dict):
+    return [x_dict[i] for i in range(len(x_dict))]
+
+
+def _obj_to_dict(x_np):
+    return {0: x_np}
+
+
+def _dict_to_obj(x_dict):
+    assert len(x_dict) == 1
+    assert 0 in x_dict
+    return x_dict[0]
+
+
+class DictModelError:
+    """
+    As indicated in `bayem.vba::AdditionalNotes`, the output of the user
+    defined model error `f` may have various types. This class determines
+    this type ["dict", "list", "other"] and applies the following 
+    _transformations_ to transform the output to a dict structure. 
+    """
+
+    to_dict = {
+        "dict": _identity,
+        "list": _list_to_dict,
+        "other":_obj_to_dict,
+    }
+    
+    from_dict = {
+        "dict": _identity,
+        "list": _dict_to_list,
+        "other": _dict_to_obj,
+    }
+
+
+    def __init__(self, f, noise0, jac, options):
+        self.f = f
+        self.noise0 = noise0
+        self.jac = jac
+        self.jac_in_f = not callable(jac) and jac
+        self.options = options
+
+        self._Tk = None  # transformation of k = f(x)
+        self._TJ = None  # transformation of J = jac(x)
+
+    def __call__(self, x):
+        """
+        Computes (f(x), jac(x)) at the current parameter mean `x` as a dict
+        containing {noise_key: np.ndarray}.
+        """
+        if self.jac_in_f:
+            k, J = self.f(x)
+        else:
+            k, J = self.f(x), self.jac(x)
+        return self._Tk(k), self._TJ(J)
+
+    def original_noise(self, n):
+        return self._invTnoise(n)
+
+    def first_call(self, x):
+        """
+        Computes (f(x), jac(x)) at the current parameter mean `x` and sets
+        up an internal structure such that various user provided forms of
+        `f` can be used.
+        """
+
+        if self.jac_in_f:
+            k, J = self.f(x)
+        else:
+            k = self.f(x)
+
+        k_type = "other"
+        default_noise = Gamma()
+        if isinstance(k, dict):
+            k_type = "dict"
+            default_noise = {group: Gamma() for group in k}
+        if isinstance(k, list):
+            k_type = "list"
+            default_noise = [Gamma() for _ in range(len(k))]
+
+        self._Tk = self.to_dict[k_type]
+        self._TJ = self.to_dict[k_type]
+        self._invTnoise = self.from_dict[k_type]
+        if self.noise0 is None:
+            self.noise0 = default_noise
+
+        self.noise0 = self._Tk(self.noise0)
+
+        if self.jac_in_f:
+            pass
+        else:
+            if not self.jac:
+                self.jac = CDF_Jacobian(self.f, self._Tk, self.options.cdf_eps)
+                self._TJ = _identity
+
+            J = self.jac(x)
+
+        return self._Tk(k), self._TJ(J)
 
 
 class VBA:
-    def __init__(self, vba_problem, x0, options):
-        self.p = vba_problem
+    def __init__(self, dict_f, x0, options):
+        self.p = dict_f
         self.x0 = x0
         self.options = options
         self.result = VBResult(options)
