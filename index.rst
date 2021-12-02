@@ -117,7 +117,7 @@ and noise prior being uncorrelated by:
     \Lambda_0^{-1})]+\log[\Gamma(\Phi;s_0,c_0)] + \color{red}{-[log(P(\boldsymbol{y}))]}\\[2mm]
     = &  \left(-\frac{N}{2}\log[2\pi]\right) + \frac{N}{2}\log[\Phi] - \frac{1}{2} \Phi
     \boldsymbol{k}^T\boldsymbol{k} \\
-    & + (-\frac{1}{2}\log[2\pi^p \, \mathrm{det}(\Lambda_0^{-1})]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
+    & + (-\frac{1}{2}\log[(2\pi)^p \, \mathrm{det}(\Lambda_0^{-1})]) -\frac{1}{2} (\boldsymbol{\theta}-\boldsymbol{m}_0)^T
     \, \Lambda_0 \,(\boldsymbol{\theta}-\boldsymbol{m}_0) \\
     & + (\log[1/\Gamma(c_0)]-c_0\log[s_0]) + (c_0-1)\log[\Phi] -\frac{1}{s_0} \Phi \\[2mm]
     & + \color{red}{-[log(P(\boldsymbol{y}))]}.\\
@@ -136,7 +136,7 @@ Adding all terms not dependent on :math:`\boldsymbol{\theta}` and :math:`\boldsy
 similar to eq.(16) in Chappels paper, with
 
 .. math::
-    \color{red}{\mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace = -\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}
+    \color{red}{\mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace = -\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[(2\pi)^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}
 
 Update equations
 ================
@@ -325,28 +325,28 @@ term 1:
     \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,   d\boldsymbol{\theta} \, \int \Gamma(\Phi;s,c)
     \, d\Phi   \\
     & -\frac{1}{s_0} \int \Phi \, \Gamma(\Phi;s,c) \, d\Phi \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}  \\
-    & + \color{red}{[-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]]} \int \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \\
+    & + \color{red}{[-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[(2\pi)^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]]} \int \Gamma(\Phi;s,c) \, \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, d\boldsymbol{\theta}\, d\Phi \\
     = &  (\frac{N}{2}+c_0-1)(\log[s]+\psi(c)) \text{    [see derivation in appendix ??]}\\
     & - \frac{1}{2} \int \Phi \, \Gamma(\Phi;s,c)\,d\Phi \int \boldsymbol{k}^T\boldsymbol{k}\,\mathcal{N} d\boldsymbol{\theta} \text{    [see above]}\\
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)+\mathrm{tr}(\Lambda^{-1}\Lambda_0)) \text{    [see derivation 1 in appendix]}\\
     & - \frac{sc}{s_0}\\
-    & \color{red}{-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}\\
+    & \color{red}{-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[(2\pi)^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}\\
     = &  (\frac{N}{2}+c_0-1)(log[s]+\psi(c)) - \frac{1}{2} sc (\boldsymbol{k}_m^T\boldsymbol{k}_m + \mathrm{tr}(\Lambda^{-1}\boldsymbol{J}_k^{T}\boldsymbol{J}_k)) -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0)\\
     & +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
-    & \color{red}{-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[2\pi^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}
+    & \color{red}{-\frac{N}{2}\log[2\pi] -\frac{1}{2}\log[(2\pi)^p] -\frac{1}{2} \log[\mathrm{det}(\Lambda_0^{-1})] + \log[1/\Gamma(c_0)]-c_0\log[s_0]}
 
 term 2:
 
 .. math::
     2 = & -\int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})\Gamma(\Phi;s,c)\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})(\boldsymbol{\theta})] d\Phi d\boldsymbol{\theta}\\
     = & - \int \Gamma(\Phi;s,c) \, d\Phi \, \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \,\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] d\boldsymbol{\theta} \\
-    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] =} \color{red}{-\frac{1}{2}log(2\pi^p)} \color{blue}{- \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    & \color{blue}{\text{with }\log[\mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1})] =} \color{red}{-\frac{1}{2}log((2\pi)^p)} \color{blue}{- \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m})}\\
-    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, ({\color{red}{-\frac{1}{2}log(2\pi^p)}} - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
+    = & - \int \mathcal{N}(\boldsymbol{\theta};\boldsymbol{m}, \Lambda^{-1}) \, ({\color{red}{-\frac{1}{2}log((2\pi)^p)}} - \frac{1}{2}\log[det \Lambda^{-1}] - \frac{1}{2}(\boldsymbol{\theta} -
     \boldsymbol{m})^T \Lambda (\boldsymbol{\theta} - \boldsymbol{m}))  d\boldsymbol{\theta} \\
-    = & {\color{red}{\frac{1}{2}log(2\pi^p)}} + \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
-    = & {\color{red}{\frac{1}{2}log(2\pi^p)}} + \frac{1}{2}\log[det \Lambda^{-1}] +  \frac{1}{2} n_{param}\\
-    = & - \frac{1}{2}\log[det \Lambda] + \color{red}{\frac{1}{2} n_{param} + \frac{1}{2}log(2\pi^p)}
+    = & {\color{red}{\frac{1}{2}log((2\pi)^p)}} + \frac{1}{2}\log[det \Lambda^{-1}] + \frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) \\
+    = & {\color{red}{\frac{1}{2}log((2\pi)^p)}} + \frac{1}{2}\log[det \Lambda^{-1}] +  \frac{1}{2} n_{param}\\
+    = & - \frac{1}{2}\log[det \Lambda] + \color{red}{\frac{1}{2} n_{param} + \frac{1}{2}log((2\pi)^p)}
 
 term 3:
 
@@ -368,7 +368,7 @@ term 3:
     & -\frac{1}{2} ((\boldsymbol{m}-\boldsymbol{m}_0)^T\Lambda_0(\boldsymbol{m}-\boldsymbol{m}_0) +\mathrm{tr}(\Lambda^{-1}\Lambda_0))  - \frac{sc}{s_0} \\
     & \color{green}{- \frac{1}{2}\log[det \Lambda]} \\
     &  \color{green}{ +\log[\Gamma_c] + c\log[s] + \frac{\cancel{s}c}{\cancel{s}} - (c-1)(\log[s]+\psi(c)) }\\
-    & \color{red}{-\frac{N}{2}\log[2\pi] \cancel{-\frac{1}{2}\log[2\pi^p]} +\frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0] + \frac{1}{2} n_{param} + \cancel{\frac{1}{2}log(2\pi^p)}}
+    & \color{red}{-\frac{N}{2}\log[2\pi] \cancel{-\frac{1}{2}\log[(2\pi)^p]} +\frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0] + \frac{1}{2} n_{param} + \cancel{\frac{1}{2}log((2\pi)^p)}}
 
 not the same as in Chappell eq 23.
 
