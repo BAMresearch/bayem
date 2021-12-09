@@ -332,7 +332,9 @@ class VBA:
             i_iter += 1
 
             self.update_parameters(k, J)
-
+            
+            k, J = self.p(self.m)
+            
             self.update_noise(k, J)
 
             for idx in self.options.index_ARD:
@@ -342,8 +344,6 @@ class VBA:
                 self.x0.precision[idx, idx] = 1 / new_var
 
             logger.info(f"current mean: {self.m}")
-
-            k, J = self.p(self.m)
 
             f_new = self.free_energy(k, J)
 
