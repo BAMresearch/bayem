@@ -402,6 +402,7 @@ class VBA:
             except TypeError:
                 update_noise = self.options.update_noise
             c0i, s0i = self.noise0[i].shape, self.noise0[i].scale
+
             if update_noise:
                 # formula (30)
                 self.c[i] = len(k[i]) / 2 + c0i
@@ -412,9 +413,6 @@ class VBA:
                     + 0.5 * np.trace(self.L_inv @ J[i].T @ J[i])
                 )
                 self.s[i] = 1 / s_inv
-            else:
-                self.c[i] = c0i
-                self.s[i] = s0i
 
     def free_energy(self, k, J):
         m0, L0 = self.x0.mean, self.x0.precision
