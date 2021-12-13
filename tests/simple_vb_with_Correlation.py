@@ -2,7 +2,7 @@ import numpy as np
 import scipy.special as special
 import matplotlib.pyplot as plt
 
-def squared_exponential(locations, correlation_length):
+def correlation_1d(locations, correlation_length, _type='exponential'):
     """
     Builds a dense correlation matrix assuming the `locations` are 
     correlated by `correlation_length`. Note that the reference to 
@@ -13,7 +13,10 @@ def squared_exponential(locations, correlation_length):
     assert len(loc.shape) == 1
     c0 = np.repeat([loc], len(loc), axis=0)
     r = c0 - c0.T
-    return np.exp(-r * r / (2.0 * correlation_length * correlation_length))
+    if _type=='exponential':
+        return np.exp(-abs(r) / correlation_length)
+    elif _type=='squared_exponential':
+        return np.exp(-r * r / (2.0 * correlation_length * correlation_length))
 
 def g(theta):
     return theta[1] ** 2 + xs * theta[0]
@@ -35,8 +38,8 @@ xs = np.linspace(1, L, N)
 perfect_data = g(param)
 noise_std = 0.2
 
-correlation_level = 1
-noise_cor_matrix = squared_exponential(xs, correlation_level*L/N)
+correlation_level = 5
+noise_cor_matrix = correlation_1d(xs, correlation_level*L/N)
 
 if np.linalg.norm(np.linalg.inv(noise_cor_matrix) @ noise_cor_matrix - np.eye(N))>1e-2:
     raise ValueError('The correlation matrix is badly invertible.')
@@ -211,7 +214,7 @@ if __name__ == "__main__":
     assert np.linalg.norm(info3['precision'] - info2['precision']) / np.linalg.norm(info2['precision']) < 1e-6
     assert abs((info3['shape'] - info2['shape']) / info2['shape']) < 1e-6
     assert abs((info3['scale'] - _factor * info2['scale']) / info2['scale']) < 1e-6
-    assert abs((info3['F'] - info2['F']) / info2['F']) < 1e-6
+    assert abs((info3['F'] - info2['F']) / info2['F']) < 1e-5
     
     
     plot_posteriors(infos, labels)
