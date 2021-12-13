@@ -29,7 +29,7 @@ def test_results():
     post_noise_std = 1.0 / post_noise_precision ** 0.5
     assert post_noise_std == pytest.approx(sd, rel=0.01)
 
-    assert info.nit < 20
+    assert info.nit < 4 # For such linear regression we do expect to have very few iterations.
     assert info.t < 0.1
 
     info.summary(True)

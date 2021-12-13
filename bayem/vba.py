@@ -332,7 +332,9 @@ class VBA:
             i_iter += 1
 
             self.update_parameters(k, J)
-
+            
+            k, J = self.p(self.m)
+            
             self.update_noise(k, J)
 
             for idx in self.options.index_ARD:
@@ -342,8 +344,6 @@ class VBA:
                 self.x0.precision[idx, idx] = 1 / new_var
 
             logger.info(f"current mean: {self.m}")
-
-            k, J = self.p(self.m)
 
             f_new = self.free_energy(k, J)
 
@@ -401,21 +401,18 @@ class VBA:
                 update_noise = self.options.update_noise[i]
             except TypeError:
                 update_noise = self.options.update_noise
-
-            if not update_noise:
-                return
-
-            # if update_noise[i]:
-            # formula (30)
             c0i, s0i = self.noise0[i].shape, self.noise0[i].scale
-            self.c[i] = len(k[i]) / 2 + c0i
-            # formula (31)
-            s_inv = (
-                1 / s0i
-                + 0.5 * k[i].T @ k[i]
-                + 0.5 * np.trace(self.L_inv @ J[i].T @ J[i])
-            )
-            self.s[i] = 1 / s_inv
+
+            if update_noise:
+                # formula (30)
+                self.c[i] = len(k[i]) / 2 + c0i
+                # formula (31)
+                s_inv = (
+                    1 / s0i
+                    + 0.5 * k[i].T @ k[i]
+                    + 0.5 * np.trace(self.L_inv @ J[i].T @ J[i])
+                )
+                self.s[i] = 1 / s_inv
 
     def free_energy(self, k, J):
         m0, L0 = self.x0.mean, self.x0.precision
