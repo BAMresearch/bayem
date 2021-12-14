@@ -1,22 +1,9 @@
 import numpy as np
 import scipy.special as special
+import scipy.linalg
 import matplotlib.pyplot as plt
 
-def correlation_1d(locations, correlation_length, _type='exponential'):
-    """
-    Builds a dense correlation matrix assuming the `locations` are 
-    correlated by `correlation_length`. Note that the reference to 
-    distance-like names should not prevent you from putting in 
-    `times` and something like a `correlation_duration` 
-    """
-    loc = np.atleast_1d(locations)
-    assert len(loc.shape) == 1
-    c0 = np.repeat([loc], len(loc), axis=0)
-    r = c0 - c0.T
-    if _type=='exponential':
-        return np.exp(-abs(r) / correlation_length)
-    elif _type=='squared_exponential':
-        return np.exp(-r * r / (2.0 * correlation_length * correlation_length))
+import bayem.correlation as bc
 
 def g(theta):
     return theta[1] ** 2 + xs * theta[0]
@@ -39,41 +26,43 @@ perfect_data = g(param)
 noise_std = 0.2
 
 correlation_level = 5
-noise_cor_matrix = correlation_1d(xs, correlation_level*L/N)
+noise_cor_matrix = bc.correlation_matrix(xs, correlation_level*L/N)
 
-if np.linalg.norm(np.linalg.inv(noise_cor_matrix) @ noise_cor_matrix - np.eye(N))>1e-2:
-    raise ValueError('The correlation matrix is badly invertible.')
+Cinv = bc.inv_correlation_matrix(xs, correlation_level*L/N)
 
-def free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C):
+
+def free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv):
     f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
-    (sign, logdet) = np.linalg.slogdet(L)
+    sign, logdet = np.linalg.slogdet(L)
     f_new -= 0.5 * sign * logdet
-    (sign, logdet) = np.linalg.slogdet(C)
-    f_new -= 0.5 * sign * logdet
+
+    sign, logdet = np.linalg.slogdet(C_inv.todense())
+    f_new += 0.5 * sign * logdet
     f_new += 0.5 * len(m)
 
-    (sign0, logdet0) = np.linalg.slogdet(L0)
+    sign0, logdet0 = np.linalg.slogdet(L0)
     f_new += 0.5 * sign0 * logdet0
 
     N = len(k)
 
     # From the update equation
     f_new += -s * c / s0 + (N / 2 + c0 - 1) * (np.log(s) + special.digamma(c))
-    f_new += -0.5 * s * c * (k.T @ np.linalg.inv(C) @ k + np.trace(L_inv @ J.T @ np.linalg.inv(C) @ J))
+    f_new += -0.5 * s * c * (k.T @ C_inv @ k + np.trace(L_inv @ J.T @ C_inv @ J))
     f_new += c * np.log(s) + special.gammaln(c)
     f_new += c - (c - 1) * (np.log(s) + special.digamma(c))
     # constant terms to fix the evidence
     f_new += -N / 2 * np.log(2 * np.pi) - special.gammaln(c0) - c0 * np.log(s0)
     return f_new
 
-def vba(f, m0, L0, s0=1e6, c0=1e-6, C=1):
+def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None):
     m = np.copy(m0)
     L = np.array(L0)
 
     k, J = f(m)
-    
-    if isinstance(C, int) and C==1:
-        C = np.eye(len(k))
+   
+    if C_inv is None:
+        C_inv = scipy.sparse.identity(len(k))
+
 
     s = np.copy(s0)
     c = np.copy(c0)
@@ -85,21 +74,21 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6, C=1):
         i_iter += 1
 
         # update prm
-        L = s * c * J.T @ np.linalg.inv(C) @ J + L0
+        L = s * c * J.T @ C_inv @ J + L0
         L_inv = np.linalg.inv(L)
-        Lm = s * c * J.T @ np.linalg.inv(C) @ (-k + J @ m) + L0 @ m0
+        Lm = s * c * J.T @ C_inv @ (-k + J @ m) + L0 @ m0
         m = Lm @ L_inv
         
         k, J = f(m)
         
         # update noise
         c = len(k) / 2 + c0
-        s_inv = 1 / s0 + 0.5 * k.T @ np.linalg.inv(C) @ k + 0.5 * np.trace(L_inv @ J.T @ np.linalg.inv(C) @ J)
+        s_inv = 1 / s0 + 0.5 * k.T @ C_inv @ k + 0.5 * np.trace(L_inv @ J.T @ C_inv @ J)
         s = 1 / s_inv
 
         print(f"current mean: {m}")
 
-        f_new = free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C)
+        f_new = free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv)
 
         print(f"Free energy of iteration {i_iter} is {f_new}")
 
@@ -116,7 +105,7 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6, C=1):
 
     return {"mean": m, "precision": L, "scale": s, "shape": c, "F": f_new}
 
-def do_vb(_plot=True, C=1):
+def do_vb(_plot=True, C_inv=None):
     np.random.seed(6174)
     correlated_noise = np.random.multivariate_normal(
         np.zeros(len(xs)),
@@ -136,7 +125,7 @@ def do_vb(_plot=True, C=1):
     m0 = np.array([2, 19])
     L0 = np.array([[param_prec, 0], [0, param_prec]])
 
-    info = vba(f, m0, L0, C=C)
+    info = vba(f, m0, L0, C_inv=C_inv)
     for what, value in info.items():
         print(what, value)
     noise_prec_mean = info['shape'] * info['scale']
@@ -191,11 +180,11 @@ if __name__ == "__main__":
     info = do_vb()
     infos.append(info); labels.append('Without Cor. matrix')
     
-    info2 = do_vb(C=noise_cor_matrix)
+    info2 = do_vb(C_inv=Cinv)
     infos.append(info2); labels.append('With target Cor. matrix')
     
     _factor = 1/2
-    info3 = do_vb(C=_factor*noise_cor_matrix)
+    info3 = do_vb(C_inv=Cinv/_factor)
     infos.append(info3); labels.append(f"With {_factor} * target Cor. matrix")
     
     # In the first scenario we obtain more certain (higher precision) inference of parameters
