@@ -31,13 +31,12 @@ noise_cor_matrix = bc.correlation_matrix(xs, correlation_level*L/N)
 Cinv = bc.inv_correlation_matrix(xs, correlation_level*L/N)
 
 
-def free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv):
+def free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv, C_inv_logdet):
     f_new = -0.5 * ((m - m0).T @ L0 @ (m - m0) + np.trace(L_inv @ L0))
     sign, logdet = np.linalg.slogdet(L)
     f_new -= 0.5 * sign * logdet
 
-    sign, logdet = np.linalg.slogdet(C_inv.todense())
-    f_new += 0.5 * sign * logdet
+    f_new += 0.5 * C_inv_logdet
     f_new += 0.5 * len(m)
 
     sign0, logdet0 = np.linalg.slogdet(L0)
@@ -63,6 +62,7 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None):
     if C_inv is None:
         C_inv = scipy.sparse.identity(len(k))
 
+    C_inv_logdet = bc.sp_logdet(C_inv)
 
     s = np.copy(s0)
     c = np.copy(c0)
@@ -88,7 +88,7 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None):
 
         print(f"current mean: {m}")
 
-        f_new = free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv)
+        f_new = free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv, C_inv_logdet)
 
         print(f"Free energy of iteration {i_iter} is {f_new}")
 

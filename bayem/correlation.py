@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.linalg import block_diag
+from scipy.sparse import diags
+from scipy.sparse.linalg import splu
 
 
 def correlation_matrix(x, l, N_blocks=1):
@@ -64,13 +66,23 @@ def inv_correlation_matrix(x, l, N_blocks=1, return_sparse=True):
     C_0[-1] = ann
     C_1 = -a / (1 - a ** 2)
 
-    if return_sparse:
-        CN0 = np.tile(C_0, N_blocks)
-        CN1 = np.zeros(len(CN0) - 1)
-        for i in range(N_blocks):
-            CN1[i * Nx : (i + 1) * Nx - 1] = C_1
-        from scipy.sparse import diags
 
-        return diags([CN1, CN0, CN1], [-1, 0, 1])
+    CN0 = np.tile(C_0, N_blocks)
+    CN1 = np.zeros(len(CN0) - 1)
+    for i in range(N_blocks):
+        CN1[i * Nx : (i + 1) * Nx - 1] = C_1
+
+    if return_sparse:
+        return diags([CN1, CN0, CN1], [-1, 0, 1]).tocsc()
     else:
         return C_0, C_1
+
+def sp_logdet(M):
+    """
+    Computes the logdet of sparse matrix M using a LU decomposition, see
+    https://stackoverflow.com/a/60982033
+    """
+    lu = splu(M)
+    diagL = lu.L.diagonal()
+    diagU = lu.U.diagonal()
+    return np.log(diagL).sum() + np.log(diagU).sum()
