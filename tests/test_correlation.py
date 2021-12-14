@@ -6,11 +6,11 @@ N = 100
 l = 2
 xs = np.linspace(1, l, N)
 correlation_length = 0.5
-C = bayem.correlation_matrix(xs, correlation_length)
+C = bayem.cor_exp_1d(xs, correlation_length)
 
 
 def test_single_sensor():
-    C_inv = bayem.inv_correlation_matrix(xs, correlation_length)
+    C_inv = bayem.inv_cor_exp_1d(xs, correlation_length)
     np.testing.assert_array_almost_equal(C_inv @ C, np.eye(N))
 
 
@@ -20,17 +20,17 @@ def test_two_sensors():
     CC = np.block([[C, Z], [Z, C]])
 
     np.testing.assert_array_almost_equal(
-        CC, bayem.correlation_matrix(xs, correlation_length, N_blocks=2)
+        CC, bayem.cor_exp_1d(xs, correlation_length, N_blocks=2)
     )
 
-    CCinv = bayem.inv_correlation_matrix(xs, correlation_length, N_blocks=2)
+    CCinv = bayem.inv_cor_exp_1d(xs, correlation_length, N_blocks=2)
     np.testing.assert_array_almost_equal(CC @ CCinv, np.eye(2 * N))
 
 
 def test_logdet():
     from scipy.sparse.linalg import splu
 
-    C_inv = bayem.inv_correlation_matrix(xs, l)
+    C_inv = bayem.inv_cor_exp_1d(xs, l)
     logdet_numpy = np.linalg.slogdet(C_inv.todense())[1]
     logdet_lu = bayem.sp_logdet(C_inv)
 

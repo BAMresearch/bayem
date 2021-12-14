@@ -4,7 +4,7 @@ from scipy.sparse import diags
 from scipy.sparse.linalg import splu
 
 
-def correlation_matrix(x, l, N_blocks=1):
+def cor_exp_1d(x, l, N_blocks=1):
     """
     Builds a dense correlation matrix C with exponential kernel. For `N_blocks > 1`,
     a block matrix is returned with the only C as diagonal blocks.
@@ -26,7 +26,7 @@ def correlation_matrix(x, l, N_blocks=1):
     return block_diag(*diagonal_blocks)
 
 
-def inv_correlation_matrix(x, l, N_blocks=1, return_sparse=True):
+def inv_cor_exp_1d(x, l, N_blocks=1, return_sparse=True):
     """
     Calculates the inverse of an exponential correlation matrix analytically.
     This inverse has a tridiagonal structure and is taken from [1].
