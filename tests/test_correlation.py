@@ -1,6 +1,5 @@
 import numpy as np
 import bayem
-import zaya
 import pytest
 
 N = 100
