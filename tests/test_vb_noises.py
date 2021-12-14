@@ -98,9 +98,9 @@ class TestTwoNoises(unittest.TestCase):
         wrong_noise = bayem.Gamma((1, 1), (2, 2))
         with self.assertRaises(Exception):
             bayem.vba(me, bayem.MVN(7, 12), wrong_noise)
-    
+
     def test_several_noises_mixed(self):
-        """ Test if an identifiable noise group is updated and another that is prescribed is not."""
+        """Test if an identifiable noise group is updated and another that is prescribed is not."""
         noise_prior = {}
         update_noise = {}
         noise_prior["group0"] = bayem.Gamma.FromSDQuantiles(
@@ -112,12 +112,12 @@ class TestTwoNoises(unittest.TestCase):
         )
         update_noise["group1"] = True
         info = self.run_test(noise_prior, delta=0.05, update_noise=update_noise)
-        
-        assert (info.noise['group0'].scale == noise_prior['group0'].scale)
-        assert (info.noise['group0'].shape == noise_prior['group0'].shape)
-        
-        assert (info.noise['group1'].scale != noise_prior['group1'].scale)
-        assert (info.noise['group1'].shape != noise_prior['group1'].shape)
+
+        assert info.noise["group0"].scale == noise_prior["group0"].scale
+        assert info.noise["group0"].shape == noise_prior["group0"].shape
+
+        assert info.noise["group1"].scale != noise_prior["group1"].scale
+        assert info.noise["group1"].shape != noise_prior["group1"].shape
 
 
 if __name__ == "__main__":

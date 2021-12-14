@@ -292,8 +292,6 @@ def result_trace(result, show=True, highlight=None):
         ax_g.errorbar(x, means, yerr=sds, label=label, capsize=5, lw=1, ls=":")
     ax_g.legend()
 
-        
-
     # annotate prior and posterior
     i_posterior = result.free_energies.index(result.f_max) + 1
     ax_f.axvline(i_posterior, color=red)

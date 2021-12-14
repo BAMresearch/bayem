@@ -66,7 +66,6 @@ def inv_cor_exp_1d(x, l, N_blocks=1, return_sparse=True):
     C_0[-1] = ann
     C_1 = -a / (1 - a ** 2)
 
-
     CN0 = np.tile(C_0, N_blocks)
     CN1 = np.zeros(len(CN0) - 1)
     for i in range(N_blocks):
@@ -76,6 +75,7 @@ def inv_cor_exp_1d(x, l, N_blocks=1, return_sparse=True):
         return diags([CN1, CN0, CN1], [-1, 0, 1]).tocsc()
     else:
         return C_0, C_1
+
 
 def sp_logdet(M):
     """
