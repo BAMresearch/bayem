@@ -8,9 +8,10 @@ import numpy as np
 import pytest
 from imageio import imread
 
+
 def compare_plt(reference_filename, generate_ref_img):
     ref_img_name = Path(__file__).absolute().parent / reference_filename
-    if generate_ref_img: 
+    if generate_ref_img:
         plt.savefig(ref_img_name, dpi=300)
         return
 
@@ -23,12 +24,15 @@ def compare_plt(reference_filename, generate_ref_img):
 
         assert np.linalg.norm(test_img - ref_img) == pytest.approx(0)
 
+
 np.random.seed(6174)
 t = np.linspace(1, 2, 10)
 noise = np.random.normal(0, 0.42, len(t))
 
+
 def f(x):
-    return t * x[0]**2 - t * 9 + noise
+    return t * x[0] ** 2 - t * 9 + noise
+
 
 info = bayem.vba(f, x0=bayem.MVN([2], [0.5]), noise0=bayem.Gamma(1, 2))
 
@@ -36,6 +40,7 @@ info = bayem.vba(f, x0=bayem.MVN([2], [0.5]), noise0=bayem.Gamma(1, 2))
 def test_pair_plot(generate_ref_img=False):
     visu.pair_plot(info, show=False)
     compare_plt("ref_pair_plot.png", generate_ref_img=generate_ref_img)
+
 
 def test_trace_plot(generate_ref_img=False):
     visu.result_trace(info, show=False)

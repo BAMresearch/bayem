@@ -7,7 +7,7 @@ from tabulate import tabulate
 class MVN:
     def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
         """
-        Creates a N-dimensional multivariate normal distribution from provided 
+        Creates a N-dimensional multivariate normal distribution from provided
         `mean` μ and `precision` L with the PDF
 
            f(x) = (2π)^(-N/2) det(L)^(1/2) exp[-1/2 (x - μ)^T L (x - μ)]
@@ -22,7 +22,7 @@ class MVN:
             name of the distribution, e.g. to indicate "prior" or "posterior"
 
         parameter_names:
-            vector of N strings that name the N parameters for convenient 
+            vector of N strings that name the N parameters for convenient
             access via `self.named_mean`
         """
         self.mean = np.atleast_1d(mean).astype(float)
@@ -88,13 +88,13 @@ class MVN:
 class Gamma:
     def __init__(self, shape=1.0e-6, scale=1e6, name="Gamma"):
         """
-        Creates a Gamma distribution from provided `shape` k and `scale` θ 
+        Creates a Gamma distribution from provided `shape` k and `scale` θ
         with the PDF
 
             f(x) = 1 / [Γ(k) θ^k] x^(k-1) exp(-x/θ)
 
         where Γ denotes the Gamma function.
-        
+
         shape:
             shape parameter k
 
@@ -105,11 +105,11 @@ class Gamma:
             name of the distribution, e.g. to indicate "prior" or "posterior"
 
         Notes:
-            The default values aim at creating a non-informative gamma 
+            The default values aim at creating a non-informative gamma
             distribution. Ideally, we would have shape=0 and scale=inf, but
-            that raises numerical issues. Other authors [Kerman, Jouni. 
-            "Neutral noninformative and informative conjugate beta and gamma 
-            prior distributions." Electronic Journal of Statistics 5 (2011): 
+            that raises numerical issues. Other authors [Kerman, Jouni.
+            "Neutral noninformative and informative conjugate beta and gamma
+            prior distributions." Electronic Journal of Statistics 5 (2011):
             1450-1470.] propose Gamma(1/3, 0).
         """
         self.scale = scale

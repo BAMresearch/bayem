@@ -48,7 +48,7 @@ class BayemEncoder(json.JSONEncoder):
         """
         if isinstance(obj, VBResult):
             return {"bayem.VBResult": obj.__dict__}
-        
+
         if isinstance(obj, VBOptions):
             return {"bayem.VBOptions": asdict(obj)}
 
