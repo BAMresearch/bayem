@@ -100,7 +100,7 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None):
 
         print(f"Free energy of iteration {i_iter} is {f_new}")
 
-        if abs(f_old - f_new) < 1.0e-1:
+        if abs(f_old - f_new) < 1.0e-6:
             break  # sucess!
 
         if i_iter > 50:
