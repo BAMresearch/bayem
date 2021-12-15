@@ -59,7 +59,7 @@ def free_energy(m, m0, L, L0, L_inv, s, s0, c, c0, k, J, C_inv, C_inv_logdet):
     return f_new
 
 
-def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None):
+def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None, update_noise=True):
     m = np.copy(m0)
     L = np.array(L0)
 
@@ -88,9 +88,10 @@ def vba(f, m0, L0, s0=1e6, c0=1e-6, C_inv=None):
         k, J = f(m)
 
         # update noise
-        c = len(k) / 2 + c0
-        s_inv = 1 / s0 + 0.5 * k.T @ C_inv @ k + 0.5 * np.trace(L_inv @ J.T @ C_inv @ J)
-        s = 1 / s_inv
+        if update_noise:
+            c = len(k) / 2 + c0
+            s_inv = 1 / s0 + 0.5 * k.T @ C_inv @ k + 0.5 * np.trace(L_inv @ J.T @ C_inv @ J)
+            s = 1 / s_inv
 
         print(f"current mean: {m}")
 

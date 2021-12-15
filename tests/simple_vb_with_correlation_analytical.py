@@ -49,7 +49,7 @@ def do_vb(C_inv=None, s0=1e6, c0=1e-6):
     m0 = np.array(param0)
     L0 = np.array([[param_prec]])
     print('-------------------------- VB started ... ')
-    info = vba(f, m0, L0, C_inv=C_inv, s0=s0, c0=c0)
+    info = vba(f, m0, L0, C_inv=C_inv, s0=s0, c0=c0, update_noise=False)
     for what, value in info.items():
         print(what, value)
     noise_prec_mean = info["shape"] * info["scale"]
@@ -89,7 +89,8 @@ def main(_plot=True):
 
     # A quite informative prior noise:
     from bayem.distributions import Gamma
-    gg = Gamma.FromSDQuantiles(sd0=0.98*noise_std, sd1=1.02*noise_std)
+    gg = Gamma.FromMeanStd(1/noise_std**2, 1.)
+    # gg = Gamma.FromSDQuantiles(sd0=0.98*noise_std, sd1=1.02*noise_std)
     c0 = gg.shape
     s0 = gg.scale
     
@@ -109,9 +110,9 @@ def main(_plot=True):
     
     err_mean = abs( (info2['mean'] - info3['mean']) / info2['mean'])
     err_precision = abs( (info2['precision'] - info3['precision']) / info2['precision'])
-    
-    assert err_mean<1e-8 # much more exact than the error in precision ??!
-    assert err_precision<5e-3
+
+    assert err_mean<1e-12 # much more exact than the error in precision ??!
+    assert err_precision<5e-12
 
 if __name__ == "__main__":
     main()
