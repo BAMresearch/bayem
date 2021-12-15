@@ -108,8 +108,8 @@ def main(_plot=True):
     
     plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
     
-    err_mean = abs( (info2['mean'] - info3['mean']) / info2['mean'])
-    err_precision = abs( (info2['precision'] - info3['precision']) / info2['precision'])
+    err_mean = abs(info2['mean'] - info3['mean']) 
+    err_precision = abs(info2['precision'] - info3['precision']) 
 
     assert err_mean<1e-12 # much more exact than the error in precision ??!
     assert err_precision<5e-12
