@@ -30,7 +30,7 @@ class MeanError:
         k = mio(theta) - self.data
         return k, np.ones((N, 1))
 
-xs = np.linspace(1, L, N)
+xs = np.linspace(0, L, N)
 perfect_data = mio(param)
 noise_std = 0.2
 correlation_level = 3
@@ -87,10 +87,15 @@ def main(_plot=True):
         plt.legend()
         plt.show()
 
-    # A quite informative prior noise:
+    # A suitable prior noise that will NOT be updated in VB !
     from bayem.distributions import Gamma
-    gg = Gamma.FromMeanStd(1/noise_std**2, 1.)
-    # gg = Gamma.FromSDQuantiles(sd0=0.98*noise_std, sd1=1.02*noise_std)
+    noise_precision_mean = 1/noise_std**2 # should be equal to target value
+    noise_precision_std = noise_precision_mean / (1e6)
+        # Interestingly, this does not play any role in the inferred parameters,
+        # BUT does change the converged Free energy, so, we set it to a very
+        # small value to fulfil as much as possible the assumption of the analytical
+        # solution: the noise model (precision) is a known constant !
+    gg = Gamma.FromMeanStd(noise_precision_mean, noise_precision_std)
     c0 = gg.shape
     s0 = gg.scale
     
@@ -111,7 +116,7 @@ def main(_plot=True):
     err_mean = abs(info2['mean'] - info3['mean']) 
     err_precision = abs(info2['precision'] - info3['precision']) 
 
-    assert err_mean<1e-12 # much more exact than the error in precision ??!
+    assert err_mean<1e-12
     assert err_precision<5e-12
 
 if __name__ == "__main__":
