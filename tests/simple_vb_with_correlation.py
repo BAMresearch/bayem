@@ -26,7 +26,7 @@ param_prec = 0.001
 
 N = 100
 L = 2
-xs = np.linspace(1, L, N)
+xs = np.linspace(0, L, N)
 perfect_data = g(param)
 noise_std = 0.2
 
