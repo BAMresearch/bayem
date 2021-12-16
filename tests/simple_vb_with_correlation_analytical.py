@@ -99,7 +99,7 @@ def main(_plot=True):
     # A suitable prior noise that will NOT be updated in VB !
     from bayem.distributions import Gamma
     noise_precision_mean = 1/noise_std**2 # should be equal to target value
-    noise_precision_std = noise_precision_mean / (1e6)
+    noise_precision_std = noise_precision_mean / (1e4)
         # Interestingly, this does not play any role in the inferred parameters,
         # BUT does change the converged Free energy, so, we set it to a very
         # small value to fulfil as much as possible the assumption of the analytical
@@ -139,7 +139,7 @@ def main(_plot=True):
 
     assert err_mean<1e-12
     assert err_precision<1e-12
-    assert err_precision<1e-4
+    assert err_log_ev<1e-7
     print(f"--------------------------------------------------- \n\
 --------------------------------------------------- \n\
 ------- Free energy (VB with correlation) = {info2['F']} \n\
