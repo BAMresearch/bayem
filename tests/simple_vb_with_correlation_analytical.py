@@ -124,9 +124,11 @@ def main(_plot=True):
     
     # Numerical computation of log of evidence (directly from definition)
     from scipy.integrate import quad
-    _int_min = 0.0
-    _int_max = 10.0 # setting these integral limits is quite sensitive.
-    log_ev_num = np.log(quad(liklihood_times_prior, _int_min, _int_max, args=(Sig_inv))[0])
+    _int_min = -8.0 # =2-10, where 2 is prior mean (at which prior pdf is maximum)
+    _int_max = 15.0 # =5+10, where 5 is true mean (at which likelihood is maximum)
+        # Setting these integral limits is quite sensitive ...
+    log_ev_num, log_err = np.log( quad(liklihood_times_prior, _int_min, _int_max, args=(Sig_inv)\
+                            , epsrel=1e-14, epsabs=1e-14, maxp1=1e3) )
     
     #### Analytical ---- Not working correctly ... ????!!!!
     # log_ev = np.log( np.sqrt( np.linalg.det(Sig_inv)/((2*np.pi)**N) )  *  np.sqrt( np.abs(param_prec)/(2*np.pi) ) )
