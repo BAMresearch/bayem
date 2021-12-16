@@ -45,6 +45,15 @@ correlated_noise = np.random.multivariate_normal(
 correlated_data = perfect_data + correlated_noise
 f = MeanError(correlated_data)
 
+def liklihood_times_prior(theta, prec):
+    e = f([theta])[0]
+    _N = len(e)
+    _c = np.sqrt( np.linalg.det(prec) / ((2*np.pi)**_N))
+    L = _c * np.exp(-0.5*e.T@prec@e)
+    _c2 = np.sqrt( abs(param_prec) / (2*np.pi))
+    P = _c2 * np.exp(-0.5*param_prec*(theta-param0[0])**2)
+    return L * P
+
 def do_vb(C_inv=None, s0=1e6, c0=1e-6):
     m0 = np.array(param0)
     L0 = np.array([[param_prec]])
@@ -109,15 +118,32 @@ def main(_plot=True):
     b = (correlated_data @ np.sum(Sig_inv, axis=1) )[0,0] + param0[0] * param_prec
     mio = b / M
     info3['mean'] = np.array([mio])
-    info3['precision'] = np.array([[M]])        
+    info3['precision'] = np.array([[M]])      
     
     plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
     
+    # Numerical computation of log of evidence (directly from definition)
+    from scipy.integrate import quad
+    _int_min = 0.0
+    _int_max = 10.0 # setting these integral limits is quite sensitive.
+    log_ev_num = np.log(quad(liklihood_times_prior, _int_min, _int_max, args=(Sig_inv))[0])
+    
+    #### Analytical ---- Not working correctly ... ????!!!!
+    # log_ev = np.log( np.sqrt( np.linalg.det(Sig_inv)/((2*np.pi)**N) )  *  np.sqrt( np.abs(param_prec)/(2*np.pi) ) )
+    # _c = (correlated_data @ Sig_inv @ correlated_data)[0,0] + param_prec * (param0[0]**2)
+    # log_ev += np.log(np.sqrt(2*np.pi)) + (b*b/2/M + _c) - np.log(np.sqrt(M))
+    
     err_mean = abs(info2['mean'] - info3['mean']) 
     err_precision = abs(info2['precision'] - info3['precision']) 
+    err_log_ev = abs((info2['F'] - log_ev_num)/log_ev_num)
 
     assert err_mean<1e-12
-    assert err_precision<5e-12
+    assert err_precision<1e-12
+    assert err_precision<1e-4
+    print(f"--------------------------------------------------- \n\
+--------------------------------------------------- \n\
+------- Free energy (VB with correlation) = {info2['F']} \n\
+------- Log-evidence numerically computed = {log_ev_num} .")
 
 if __name__ == "__main__":
     main()
