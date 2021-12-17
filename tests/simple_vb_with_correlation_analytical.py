@@ -195,7 +195,7 @@ def study_correlation_length(_plot=True):
     plt.plot(_factors, Fs, linestyle='', marker='*')
     plt.vlines(1.0, min(Fs), max(Fs))
     plt.fill_between(_factors, F_max - dF_zone, F_max, alpha=0.3)
-    plt.text((max(_factors)+1.0)/2.2, F_max - dF_zone/2, s='Bayes factor < 3.0')
+    plt.text((max(_factors)+1.0)/2.2, F_max - dF_zone/2, s=f"Bayes factor < {base_factor_zone}")
     plt.xlim([_factors[0], _factors[-1]])
     plt.ylim([min(Fs), min(Fs)+(max(Fs)-min(Fs))*1.05])
     plt.xlabel('Prescribed Cor. Length / Target Cor. Length')
