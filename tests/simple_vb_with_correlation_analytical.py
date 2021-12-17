@@ -96,7 +96,8 @@ def main(_plot=True):
         plt.title("Data")
         plt.legend()
         plt.show()
-
+    
+    ########################### INFERENCEs #################################
     # A suitable prior noise that will NOT be updated in VB !
     from bayem.distributions import Gamma
     noise_precision_mean = 1/noise_std**2 # should be equal to target value
@@ -112,19 +113,22 @@ def main(_plot=True):
     info = do_vb(s0=s0, c0=c0) # with no correlation
     info2 = do_vb(C_inv=Cinv, s0=s0, c0=c0) # with target correlation
     
-    # Analytical by extension of eqs. 9 and 10 of http://gregorygundersen.com/blog/2020/11/18/bayesian-mvn/
+    # Analytical posterior by extension of eqs. 9 and 10 of http://gregorygundersen.com/blog/2020/11/18/bayesian-mvn/
     info3 = {}
     Sig_inv = Cinv.todense() * (noise_std ** (-2))
     M = np.sum(Sig_inv) + param_prec
     b = (correlated_data @ np.sum(Sig_inv, axis=1) )[0,0] + param0[0] * param_prec
     mio = b / M
     info3['mean'] = np.array([mio])
-    info3['precision'] = np.array([[M]])      
-       
-    # adaptation of eq (3) in
+    info3['precision'] = np.array([[M]])
+    
+    if _plot:
+        plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
+    
+    ########################### LOG-EVIDENCE ################################
+    ### ANALYTICAL (1) by adaptation of eq (3) in:
     # https://www.econstor.eu/bitstream/10419/85883/1/02084.pdf
     COV = C * noise_std ** 2
-
     exponent = (
         -1
         / 2
@@ -134,7 +138,6 @@ def main(_plot=True):
             - mio ** 2 * M
         )
     )
-
     z = (
         (2 * np.pi) ** (-N / 2)
         * np.linalg.det(COV) ** (-0.5)
@@ -143,26 +146,22 @@ def main(_plot=True):
         * np.exp(exponent)
     )
     logz = np.log(z)
-
-   
-    if _plot:
-        plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
     
-    # Numerical computation of log of evidence (directly from definition)
+    #### ANALYTICAL (2) based on http://gregorygundersen.com/blog/2020/11/18/bayesian-mvn/
+    # ---- Not working correctly ... ????!!!!
+    # log_ev = np.log( np.sqrt( np.linalg.det(Sig_inv)/((2*np.pi)**N) )  *  np.sqrt( np.abs(param_prec)/(2*np.pi) ) )
+    # _c = (correlated_data @ Sig_inv @ correlated_data)[0,0] + param_prec * (param0[0]**2)
+    # log_ev += np.log(np.sqrt(2*np.pi)) + (b*b/2/M + _c) - np.log(np.sqrt(M))
+    
+    #### NUMERICAL (directly from definition)
     from scipy.integrate import quad
     _int_min = -8.0 # =2-10, where 2 is prior mean (at which prior pdf is maximum)
     _int_max = 15.0 # =5+10, where 5 is true mean (at which likelihood is maximum)
         # Setting these integral limits is quite sensitive ...
     log_ev_num, log_err = np.log( quad(liklihood_times_prior, _int_min, _int_max, args=(Sig_inv)\
                             , epsrel=1e-16, epsabs=1e-16, maxp1=1e6) )
-   
-    print(info2["F"])
-    print(log_ev_num)
-    #### Analytical ---- Not working correctly ... ????!!!!
-    # log_ev = np.log( np.sqrt( np.linalg.det(Sig_inv)/((2*np.pi)**N) )  *  np.sqrt( np.abs(param_prec)/(2*np.pi) ) )
-    # _c = (correlated_data @ Sig_inv @ correlated_data)[0,0] + param_prec * (param0[0]**2)
-    # log_ev += np.log(np.sqrt(2*np.pi)) + (b*b/2/M + _c) - np.log(np.sqrt(M))
     
+    ############################ CHECKs #####################################
     err_mean = abs(info2['mean'] - info3['mean']) 
     err_precision = abs(info2['precision'] - info3['precision']) 
     err_log_ev = abs((info2['F'] - log_ev_num)/log_ev_num)
