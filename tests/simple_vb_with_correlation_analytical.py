@@ -45,6 +45,7 @@ correlated_noise = np.random.multivariate_normal(
 correlated_data = perfect_data + correlated_noise
 f = MeanError(correlated_data)
 
+
 def liklihood_times_prior(theta, prec):
     e = f([theta])[0]
     _N = len(e)
@@ -119,8 +120,33 @@ def main(_plot=True):
     mio = b / M
     info3['mean'] = np.array([mio])
     info3['precision'] = np.array([[M]])      
-    
-    plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
+       
+    # adaptation of eq (3) in
+    # https://www.econstor.eu/bitstream/10419/85883/1/02084.pdf
+    COV = C * noise_std ** 2
+
+    exponent = (
+        -1
+        / 2
+        * (
+            correlated_data.T @ np.linalg.inv(COV) @ correlated_data
+            + param0[0] ** 2 * param_prec
+            - mio ** 2 * M
+        )
+    )
+
+    z = (
+        (2 * np.pi) ** (-N / 2)
+        * np.linalg.det(COV) ** (-0.5)
+        / M**0.5
+        * param_prec ** 0.5
+        * np.exp(exponent)
+    )
+    logz = np.log(z)
+
+   
+    if _plot:
+        plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
     
     # Numerical computation of log of evidence (directly from definition)
     from scipy.integrate import quad
@@ -128,8 +154,10 @@ def main(_plot=True):
     _int_max = 15.0 # =5+10, where 5 is true mean (at which likelihood is maximum)
         # Setting these integral limits is quite sensitive ...
     log_ev_num, log_err = np.log( quad(liklihood_times_prior, _int_min, _int_max, args=(Sig_inv)\
-                            , epsrel=1e-14, epsabs=1e-14, maxp1=1e3) )
-    
+                            , epsrel=1e-16, epsabs=1e-16, maxp1=1e6) )
+   
+    print(info2["F"])
+    print(log_ev_num)
     #### Analytical ---- Not working correctly ... ????!!!!
     # log_ev = np.log( np.sqrt( np.linalg.det(Sig_inv)/((2*np.pi)**N) )  *  np.sqrt( np.abs(param_prec)/(2*np.pi) ) )
     # _c = (correlated_data @ Sig_inv @ correlated_data)[0,0] + param_prec * (param0[0]**2)
@@ -139,13 +167,14 @@ def main(_plot=True):
     err_precision = abs(info2['precision'] - info3['precision']) 
     err_log_ev = abs((info2['F'] - log_ev_num)/log_ev_num)
 
-    assert err_mean<1e-12
-    assert err_precision<1e-12
-    assert err_log_ev<1e-7
     print(f"--------------------------------------------------- \n\
 --------------------------------------------------- \n\
 ------- Free energy (VB with correlation) = {info2['F']} \n\
+------- Log-evidence analytically         = {logz} \n\
 ------- Log-evidence numerically computed = {log_ev_num} .")
+    assert err_mean<1e-12
+    assert err_precision<1e-12
+    assert err_log_ev<1e-7
 
 if __name__ == "__main__":
-    main()
+    main(False)
