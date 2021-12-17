@@ -34,8 +34,9 @@ xs = np.linspace(0, L, N)
 perfect_data = mio(param)
 noise_std = 0.2
 correlation_level = 3
-C = bc.cor_exp_1d(xs, correlation_level * L / N)
-Cinv = bc.inv_cor_exp_1d(xs, correlation_level * L / N)
+target_correlation_length = correlation_level * L / N
+C = bc.cor_exp_1d(xs, target_correlation_length)
+Cinv = bc.inv_cor_exp_1d(xs, target_correlation_length)
 
 np.random.seed(6174)
 correlated_noise = np.random.multivariate_normal(
@@ -185,26 +186,24 @@ def study_correlation_length(_plot=True):
     _factors = np.linspace(0.5, 1.5, 20+1)
         # to scale the target correlation as the prescribed correlation used for inference
     for _f in _factors:
-        Fs.append(do_vb(C_inv=_f*Cinv, s0=s0, c0=c0)['F'])
+        Cinv_0 = bc.inv_cor_exp_1d(xs, target_correlation_length * _f)
+        Fs.append(do_vb(C_inv=Cinv_0, s0=s0, c0=c0)['F'])
     F_max = max(Fs)
     base_factor_zone = 3.0
     dF_zone = np.log(base_factor_zone)
     plt.figure()
     plt.plot(_factors, Fs, linestyle='', marker='*')
     plt.vlines(1.0, min(Fs), max(Fs))
-    # plt.hlines(F_max, _factors[0], _factors[-1], linestyle='-')
-    # plt.hlines(F_max - dF_zone, _factors[0], _factors[-1], linestyle='-')
     plt.fill_between(_factors, F_max - dF_zone, F_max, alpha=0.3)
     plt.text((max(_factors)+1.0)/2.2, F_max - dF_zone/2, s='Bayes factor < 3.0')
     plt.xlim([_factors[0], _factors[-1]])
     plt.ylim([min(Fs), min(Fs)+(max(Fs)-min(Fs))*1.05])
-    plt.xlabel('Prescribed Cor. / Target Cor.')
+    plt.xlabel('Prescribed Cor. Length / Target Cor. Length')
     plt.ylabel('Free Energy')
-    plt.title('Free energy vs. prescribed correlation')
+    plt.title('Free energy vs. prescribed correlation length')
     plt.show()
     
 
 if __name__ == "__main__":
     study_posterior_and_F(True)
-    
     study_correlation_length(False)
