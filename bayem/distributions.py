@@ -68,7 +68,14 @@ class MVN:
         """
         Exctracts a two-dimensional distribution MVN with the `dim0`th and
         `dim1`st component of this MVN.
+
+        Instead if an index, you can also use the name of the parameter.
         """
+        if isinstance(dim0, str):
+            dim0 = self.index(dim0)
+        if isinstance(dim1, str):
+            dim1 = self.index(dim1)
+
         if dim1 is None:
             return norm(loc=self.mean[dim0], scale=self.cov[dim0, dim0] ** 0.5)
         else:

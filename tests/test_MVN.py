@@ -34,22 +34,22 @@ class TestMVN(unittest.TestCase):
             bayem.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
 
     def test_dist(self):
-        mean = np.r_[1, 2, 3]
-        prec = np.diag([1, 1 / 2 ** 2, 1 / 3 ** 2])
-
-        mvn = bayem.MVN(mean, prec)
-        dist1D = mvn.dist(1)
+        dist1D = self.mvn.dist(1)
         self.assertAlmostEqual(dist1D.mean(), 2)
-        self.assertAlmostEqual(dist1D.std(), 2)
+        self.assertAlmostEqual(dist1D.std(), 1/2**0.5)
 
-        dist2D = mvn.dist(1, 2)
+        dist2D = self.mvn.dist(1, 2)
         self.assertAlmostEqual(dist2D.mean[0], 2)
         self.assertAlmostEqual(dist2D.mean[1], 3)
 
-        self.assertAlmostEqual(dist2D.cov[0, 0], 4)
-        self.assertAlmostEqual(dist2D.cov[1, 1], 9)
+        self.assertAlmostEqual(dist2D.cov[0, 0], 1/2)
+        self.assertAlmostEqual(dist2D.cov[1, 1], 1/3)
         self.assertAlmostEqual(dist2D.cov[0, 1], 0)
         self.assertAlmostEqual(dist2D.cov[1, 0], 0)
+
+        dist1D_named = self.mvn.dist("A")
+        self.assertAlmostEqual(dist1D_named.mean(), 1)
+        self.assertAlmostEqual(dist1D_named.std(), 1)
 
 
 if __name__ == "__main__":

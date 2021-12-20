@@ -138,7 +138,7 @@ class VBOptions:
     update_noise: Union[Dict, bool] = True
     index_ARD: Tuple[int] = ()
 
-    cdf_eps: float = np.finfo(np.float).eps ** 0.5
+    cdf_eps: float = np.finfo(float).eps ** 0.5
 
     store_full_precision: bool = True
 
