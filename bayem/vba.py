@@ -141,6 +141,8 @@ class VBOptions:
     cdf_eps: float = np.finfo(float).eps ** 0.5
 
     store_full_precision: bool = True
+    
+    allowed_exceptions: tuple = ()
 
 
 class CDF_Jacobian:
@@ -315,7 +317,11 @@ class VBA:
         self.L = np.array(self.x0.precision)
 
         # run first evaluation of the f and jac to adjust the format
-        k, J = self.p.first_call(self.m)
+        try:
+            k, J = self.p.first_call(self.m)
+        except self.options.allowed_exceptions as e:
+            logger.warning('Something went wrong in the first evaluation of the model error and/or its jacobian.\n' + str(e))
+            self.result.success = False
 
         self.noise0 = self.p.noise0
 
@@ -333,7 +339,13 @@ class VBA:
 
             self.update_parameters(k, J)
             
-            k, J = self.p(self.m)
+            try:
+                k, J = self.p(self.m)
+            except self.options.allowed_exceptions as e:
+                logger.warning('Something went wrong in evaluation of the model error and/or its jacobian.\n' + str(e))
+                self.result.success = False
+                break
+            
             
             self.update_noise(k, J)
 
