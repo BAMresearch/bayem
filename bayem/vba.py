@@ -309,6 +309,7 @@ class VBA:
         self.x0 = x0
         self.options = options
         self.result = VBResult(options)
+        self.result.param0 = self.x0
 
         self.n_trials = 0
         self.f_old = -np.inf
@@ -337,23 +338,24 @@ class VBA:
             self.c[n] = gamma.shape
 
         self.noise_groups = self.noise0.keys()
+        self.result.noise0 = self.p.original_noise(self.noise0)
+        self.result.noise0_dict = self.noise0
 
-        i_iter = 0
-        _exception = False
         while True:
             self.update_parameters(k, J)
             try:
                 k, J = self.p(self.m)
-                i_iter += 1
+                self.result.nit += 1
             except self.options.allowed_exceptions as e:
                 _msg = (
-                    f"Some exception arised in the {i_iter+1}-th evaluation of the model error and/or its jacobian. "
-                    + "Rturned result is up to the last successful evaluation."
+                    f"Some exception arised in the {self.result.nit+1}-th "
+                    + "evaluation of the model error and/or its jacobian. "
+                    + "Returned result is up to the last successful evaluation."
                 )
                 logger.warning(_msg + f"\n{type(e).__name__}: {e}")
                 self.result.success = False
                 self.result.message = "Stopping because " + _msg
-                _exception = True
+                return self.result
 
             self.update_noise(k, J)
 
@@ -376,24 +378,21 @@ class VBA:
                 for noise in self.noise_groups:
                     f_new += (d - 2) * np.log(self.s[noise])
 
-            logger.info(f"Free energy of iteration {i_iter} is {f_new}")
+            logger.info(f"Free energy of iteration {self.result.nit} is {f_new}")
 
             self.result.try_update(
                 f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
             )
-            if self.stop_criteria(f_new, i_iter) or _exception:
+            if self.stop_criteria(f_new, self.result.nit):
                 break
 
         delta_f = self.f_old - f_new
-        logger.debug(f"Stopping VB. Iterations:{i_iter}, free energy change {delta_f}.")
-
-        self.result.nit = i_iter
+        logger.debug(
+            f"Stopping VB. Iterations:{self.result.nit}, free energy change {delta_f}."
+        )
 
         self.result.t = perf_counter() - t0
-        self.result.param0 = self.x0
-        self.result.noise0_dict = self.noise0
         self.result.noise_dict = self.result.noise
-        self.result.noise0 = self.p.original_noise(self.noise0)
         self.result.noise = self.p.original_noise(self.result.noise)
         return self.result
 
