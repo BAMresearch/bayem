@@ -343,6 +343,7 @@ class VBA:
 
         while True:
             self.update_parameters(k, J)
+
             try:
                 k, J = self.p(self.m)
                 self.result.nit += 1

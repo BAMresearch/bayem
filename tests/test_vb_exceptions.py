@@ -1,5 +1,4 @@
 import bayem
-import numpy as np
 import pytest
 
 x0 = bayem.MVN()
@@ -14,7 +13,7 @@ i_eval = 0
 
 def f_delayed_value_error(x):
     global i_eval
-    if i_eval < 4:
+    if i_eval < 6:
         i_eval += 1
         return x
     else:
@@ -35,6 +34,7 @@ def test_skip_exceptions():
     result = bayem.vba(
         f_delayed_value_error, x0, noise0=None, allowed_exceptions=ValueError
     )
+    print(result)
     assert result.success == False
 
 
