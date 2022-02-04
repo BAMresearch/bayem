@@ -32,27 +32,27 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
               "noise group"
 
     x0:
-        bayem.MVN multivariate normal distribution for the model parameter 
+        bayem.MVN multivariate normal distribution for the model parameter
         prior
 
     noise0:
-        Collection* (see below) bayem.Gamma distributions for the noise (hyper) 
-        parameter prior. 
+        Collection* (see below) bayem.Gamma distributions for the noise (hyper)
+        parameter prior.
         If noise0 is None, a noninformative gamma prior is chosen
         automatically according to the number of noise groups.
 
     jac:
-        callable that takes a parameter vector as input and returns a 
+        callable that takes a parameter vector as input and returns a
         collection* (see below) of df/dmodel_paramaters matrices.
-        * jac == True indicates that the model error `f` returns a tuple 
+        * jac == True indicates that the model error `f` returns a tuple
           containing both the model error and its derivative.
         * jac == None/False falls back to a numeric implementation based on
-          central differences of `f`. 
+          central differences of `f`.
 
     option_kwargs:
-        
+
         tolerance:
-            The algorithm stops, if the change in the variational free energy 
+            The algorithm stops, if the change in the variational free energy
             to the previous iteration is below `tolerance`.
 
         maxiter:
@@ -63,24 +63,24 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
             for `maxtrails` iterations.
 
         update_noise:
-            Flags indicating whether or not the noise parameters should be 
+            Flags indicating whether or not the noise parameters should be
             inferred. This can be passed as a single boolean for all noise
             groups or as a dict {noise_group_key : bool}.
-        
+
         index_ARD:
-            Automatic Relevance Determination option to allow for "the automated 
-            reduction of model complexity" (Chappell et al. 2009). It should be 
-            an array containing the indexes corresponding to the position of 
+            Automatic Relevance Determination option to allow for "the automated
+            reduction of model complexity" (Chappell et al. 2009). It should be
+            an array containing the indexes corresponding to the position of
             the ARD parameters in the `x0` MVN.
 
         cdf_eps:
-            epsilon for central differences jacobian, approx 
+            epsilon for central differences jacobian, approx
             sqrt(machine precision)
 
         store_full_precision:
-            If true, includes the full precision for each iteration in the 
+            If true, includes the full precision for each iteration in the
             VBResult. Set that to False for _big_ problems to save memory.
-            
+
         allowed_exceptions:
             A tuple of allowed exceptions in evaluating "f". As soon as the VB
             encounters either of these exceptions, it will stop and consider
@@ -93,19 +93,19 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     =================
 
     collection*:
-        The output of `f` must match the output of `jac` and the format of 
+        The output of `f` must match the output of `jac` and the format of
         `noise0`. For clarity:
 
         type(f(theta)) | type(jac(theta)) | type(noise0)
-       ----------------+------------------+-------------- 
+       ----------------+------------------+--------------
            vector      |      matrix      |     Gamma
         list[vector]   |    list[matrix]  |  list[Gamma]
         dict{g:vector} |   dict{g:matrix} | dict{g:Gamma}
 
 
 
-    The implementation is close to the formulas of section III.C (Extending the 
-    Noise Model) with the same notation and references to each formula, with the 
+    The implementation is close to the formulas of section III.C (Extending the
+    Noise Model) with the same notation and references to each formula, with the
     only exception that capital lambda (precision) in the paper is here referred
     to as L.
 
@@ -145,7 +145,7 @@ class VBOptions:
     cdf_eps: float = np.finfo(float).eps ** 0.5
 
     store_full_precision: bool = True
-    
+
     allowed_exceptions: tuple = ()
 
 
@@ -164,7 +164,7 @@ class CDF_Jacobian:
             in `bayem.vba`
 
         cdf_eps:
-            defines the step length of parameter `x` as 
+            defines the step length of parameter `x` as
                 h = max(cdf_eps, abs(x) * cdf_eps)
         """
         self._f = f
@@ -222,22 +222,21 @@ class DictModelError:
     """
     As indicated in `bayem.vba::AdditionalNotes`, the output of the user
     defined model error `f` may have various types. This class determines
-    this type ["dict", "list", "other"] and applies the following 
-    _transformations_ to transform the output to a dict structure. 
+    this type ["dict", "list", "other"] and applies the following
+    _transformations_ to transform the output to a dict structure.
     """
 
     to_dict = {
         "dict": _identity,
         "list": _list_to_dict,
-        "other":_obj_to_dict,
+        "other": _obj_to_dict,
     }
-    
+
     from_dict = {
         "dict": _identity,
         "list": _dict_to_list,
         "other": _dict_to_obj,
     }
-
 
     def __init__(self, f, noise0, jac, options):
         self.f = f
@@ -347,13 +346,15 @@ class VBA:
                 k, J = self.p(self.m)
                 i_iter += 1
             except self.options.allowed_exceptions as e:
-                _msg = f"Some exception arised in the {i_iter+1}-th evaluation of the model error and/or its jacobian. " \
+                _msg = (
+                    f"Some exception arised in the {i_iter+1}-th evaluation of the model error and/or its jacobian. "
                     + "Rturned result is up to the last successful evaluation."
+                )
                 logger.warning(_msg + f"\n{type(e).__name__}: {e}")
                 self.result.success = False
                 self.result.message = "Stopping because " + _msg
                 _exception = True
-            
+
             self.update_noise(k, J)
 
             for idx in self.options.index_ARD:
