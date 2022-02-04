@@ -322,6 +322,7 @@ class VBA:
         except self.options.allowed_exceptions as e:
             logger.warning('Something went wrong in the first evaluation of the model error and/or its jacobian.\n' + str(e))
             self.result.success = False
+            return self.result
 
         self.noise0 = self.p.noise0
 
@@ -334,7 +335,8 @@ class VBA:
         self.noise_groups = self.noise0.keys()
 
         i_iter = 0
-        while True:
+        no_exception = True
+        while no_exception:
             i_iter += 1
 
             self.update_parameters(k, J)
@@ -342,10 +344,11 @@ class VBA:
             try:
                 k, J = self.p(self.m)
             except self.options.allowed_exceptions as e:
-                logger.warning('Something went wrong in evaluation of the model error and/or its jacobian.\n' + str(e))
+                _msg = "Something went wrong in evaluating the model error and/or its jacobian. Result is up to the last iteration."
+                logger.warning(_msg + '\n' + str(e))
                 self.result.success = False
-                break
-            
+                self.result.message = 'Stopping because ' + _msg
+                no_exception = False
             
             self.update_noise(k, J)
 
@@ -373,7 +376,7 @@ class VBA:
             self.result.try_update(
                 f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
             )
-            if self.stop_criteria(f_new, i_iter):
+            if self.stop_criteria(f_new, i_iter) or no_exception:
                 break
 
         delta_f = self.f_old - f_new
