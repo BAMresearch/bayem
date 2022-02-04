@@ -80,7 +80,11 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
         store_full_precision:
             If true, includes the full precision for each iteration in the 
             VBResult. Set that to False for _big_ problems to save memory.
-
+            
+        allowed_exceptions:
+            A tuple of allowed exceptions in evaluating "f". As soon as the VB
+            encounters either of these exceptions, it will stop and consider
+            the result up to the last successful iteration (evaluation of "f").
 
     Returns:
         bayem.VBResult defined below
@@ -320,7 +324,8 @@ class VBA:
         try:
             k, J = self.p.first_call(self.m)
         except self.options.allowed_exceptions as e:
-            logger.warning('Something went wrong in the first evaluation of the model error and/or its jacobian.\n' + str(e))
+            _msg = "Some exception arised in the first evaluation of the model error and/or its jacobian."
+            logger.warning(_msg + f"\n{type(e).__name__}: {e}")
             self.result.success = False
             return self.result
 
@@ -337,17 +342,16 @@ class VBA:
         i_iter = 0
         _exception = False
         while True:
-            i_iter += 1
-
             self.update_parameters(k, J)
-            
             try:
                 k, J = self.p(self.m)
+                i_iter += 1
             except self.options.allowed_exceptions as e:
-                _msg = "Something went wrong in evaluating the model error and/or its jacobian. Result is up to the last iteration."
-                logger.warning(_msg + '\n' + str(e))
+                _msg = f"Some exception arised in the {i_iter+1}-th evaluation of the model error and/or its jacobian. " \
+                    + "Rturned result is up to the last successful evaluation."
+                logger.warning(_msg + f"\n{type(e).__name__}: {e}")
                 self.result.success = False
-                self.result.message = 'Stopping because ' + _msg
+                self.result.message = "Stopping because " + _msg
                 _exception = True
             
             self.update_noise(k, J)
