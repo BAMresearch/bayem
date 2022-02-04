@@ -2,31 +2,41 @@ import bayem
 import numpy as np
 import pytest
 
-x0 = bayem.MVN([1.], precision=[[1.]])
-N_data = 10
-_target_x = np.zeros(N_data)
+x0 = bayem.MVN()
 
-def f1(x):
-    buggy_exception = int('I should be a number.')
-    return np.full(N_data, x[0]) - _target_x
 
-def f2(x):
-    if abs(x[0] - _target_x[0]) < 1e-4:
-        occasional_exception = int('I should be a number.')
-    return np.full(N_data, x[0]) - _target_x
+def f_value_error(x):
+    return int("I should be a number.")
+
+
+i_eval = 0
+
+
+def f_delayed_value_error(x):
+    global i_eval
+    if i_eval < 4:
+        i_eval += 1
+        return x
+    else:
+        return f_value_error(x)
+
 
 def test_catch_exceptions():
     with pytest.raises(ValueError):
-        result = bayem.vba(f1, x0)
-    
+        result = bayem.vba(f_value_error, x0)
+
+
 def test_skip_exceptions():
     # Due to a buggy exception (arising at very first iteration)
-    result = bayem.vba(f1, x0, noise0=None, allowed_exceptions=(ValueError,))
-    assert (result.success==False)
+    result = bayem.vba(f_value_error, x0, noise0=None, allowed_exceptions=ValueError)
+    assert result.success == False
+
     # Due an occasional exception at some iteration
-    result = bayem.vba(f2, x0, noise0=None, allowed_exceptions=(ValueError,))
-    assert (result.success==False)
-    assert (abs(result.means[0][-1] - _target_x[0]) < 0.1)
+    result = bayem.vba(
+        f_delayed_value_error, x0, noise0=None, allowed_exceptions=ValueError
+    )
+    assert result.success == False
+
 
 if __name__ == "__main__":
     test_catch_exceptions()
