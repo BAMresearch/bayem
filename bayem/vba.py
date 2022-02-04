@@ -335,8 +335,8 @@ class VBA:
         self.noise_groups = self.noise0.keys()
 
         i_iter = 0
-        no_exception = True
-        while no_exception:
+        _exception = False
+        while True:
             i_iter += 1
 
             self.update_parameters(k, J)
@@ -348,7 +348,7 @@ class VBA:
                 logger.warning(_msg + '\n' + str(e))
                 self.result.success = False
                 self.result.message = 'Stopping because ' + _msg
-                no_exception = False
+                _exception = True
             
             self.update_noise(k, J)
 
@@ -376,7 +376,7 @@ class VBA:
             self.result.try_update(
                 f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
             )
-            if self.stop_criteria(f_new, i_iter) or no_exception:
+            if self.stop_criteria(f_new, i_iter) or _exception:
                 break
 
         delta_f = self.f_old - f_new
