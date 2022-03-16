@@ -189,6 +189,13 @@ class Gamma:
         scale = x0 / _ppf(q=p[0], a=shape)
         return cls(shape=shape, scale=scale)
 
+    def __eq__(self, other):
+        return (
+            abs(self.scale - other.scale) < 1.0e-12
+            and abs(self.shape - other.shape) < 1.0e-12
+            and self.name == other.name
+        )
+
     @classmethod
     def FromSDQuantiles(cls, sd0, sd1, p=(0.05, 0.95)):
         """
