@@ -2,11 +2,11 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from time import perf_counter
-from tabulate import tabulate
-from typing import Union, Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import scipy.special as special
+from tabulate import tabulate
 
 from .distributions import MVN, Gamma
 
@@ -142,7 +142,7 @@ class VBOptions:
     update_noise: Union[Dict, bool] = True
     index_ARD: Tuple[int] = ()
 
-    cdf_eps: float = None 
+    cdf_eps: float = None
 
     store_full_precision: bool = True
 

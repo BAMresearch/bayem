@@ -1,7 +1,8 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import pearsonr
 from collections import defaultdict
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 from .vba import DictModelError
 
 
@@ -30,7 +31,7 @@ def linearity_analysis(
     k, J = model.first_call(posterior.mean)
 
     linearity_measure = defaultdict(dict)
-        
+
     for i_sd, sd in enumerate(posterior.std_diag):
         name = posterior.parameter_names[i_sd]
         single_sd = np.zeros_like(posterior.mean)
@@ -48,10 +49,16 @@ def linearity_analysis(
 
             me_real = [model._Tk(model.f(prm))[noise_group] for prm in prms]
 
-            me_lin = [k[noise_group]+ J[noise_group] @ (prm - posterior.mean) for prm in prms]
+            me_lin = [
+                k[noise_group] + J[noise_group] @ (prm - posterior.mean) for prm in prms
+            ]
 
             if show:
-                p = plt.plot(sd_range, [norm(model) for model in me_real], label=f"{name}, noise group {noise_group}")
+                p = plt.plot(
+                    sd_range,
+                    [norm(model) for model in me_real],
+                    label=f"{name}, noise group {noise_group}",
+                )
                 plt.plot(
                     sd_range,
                     [norm(model) for model in me_lin],

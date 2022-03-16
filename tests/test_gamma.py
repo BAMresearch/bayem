@@ -1,11 +1,14 @@
-import bayem
-from hypothesis import given, settings
 import hypothesis.strategies as st
 import pytest
+from hypothesis import given, settings
+
+import bayem
+
 
 def test_print():
     print(bayem.Gamma(42, 2))
-    
+
+
 def test_sd():
     scale, shape = 42, 6174
     gamma = bayem.Gamma(shape=shape, scale=scale)
@@ -36,15 +39,16 @@ def test_from_quantiles(x0_x1):
     assert d.cdf(x0) == pytest.approx(q[0])
     assert d.cdf(x1) == pytest.approx(q[1])
 
+
 def test_from_mean_and_sd():
     gamma_ref = bayem.Gamma(6174, 42)
 
     gamma = bayem.Gamma.FromMeanStd(gamma_ref.mean, gamma_ref.std)
     assert gamma == gamma_ref
 
+
 def test_from_sd_quantiles():
     gamma = bayem.Gamma.FromSDQuantiles(4, 6)
     sd_mean = 1 / gamma.mean ** 0.5
 
     assert 4 < sd_mean < 6
-

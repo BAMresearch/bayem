@@ -1,4 +1,5 @@
 import numpy as np
+
 import bayem
 
 np.random.seed(6174)

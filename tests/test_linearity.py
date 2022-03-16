@@ -1,6 +1,7 @@
 import numpy as np
-import bayem
 import pytest
+
+import bayem
 
 N_sensors = 20
 x = np.linspace(0, 1, N_sensors)
@@ -8,7 +9,7 @@ x = np.linspace(0, 1, N_sensors)
 
 def test_linear_model():
     def f(theta):
-        return {"noise_group" : x * theta[0] + theta[1]}
+        return {"noise_group": x * theta[0] + theta[1]}
 
     mvn = bayem.MVN.FromMeanStd([1, 1], [0.5, 0.5], parameter_names=["A", "B"])
 
@@ -26,10 +27,10 @@ def test_nonlinear_model():
 
     result0 = bayem.linearity_analysis(f, mvn0)
     assert result0[0] > 0.1
-    assert 0 < result0[1] < 1.0e-8 # the model is still linear in theta[1]
+    assert 0 < result0[1] < 1.0e-8  # the model is still linear in theta[1]
 
     # MVN with its mean in region of _low_ nonlinearity
     mvn1 = bayem.MVN.FromMeanStd([10, 1], [0.2, 0.2], parameter_names=[0, 1])
     result1 = bayem.linearity_analysis(f, mvn1)
     assert 0 < result1[0] < 0.001  # lower "measure" of nonlinearity
-    assert 0 < result1[1] < 1.0e-8 # the model is still linear in theta[1]
+    assert 0 < result1[1] < 1.0e-8  # the model is still linear in theta[1]

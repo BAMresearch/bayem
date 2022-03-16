@@ -4,7 +4,7 @@ from dataclasses import asdict
 import numpy as np
 
 from .distributions import MVN, Gamma
-from .vba import VBResult, VBOptions
+from .vba import VBOptions, VBResult
 
 
 class BayemEncoder(json.JSONEncoder):
@@ -48,7 +48,7 @@ class BayemEncoder(json.JSONEncoder):
         """
         if isinstance(obj, VBResult):
             return {"bayem.VBResult": obj.__dict__}
-        
+
         if isinstance(obj, VBOptions):
             return {"bayem.VBOptions": asdict(obj)}
 

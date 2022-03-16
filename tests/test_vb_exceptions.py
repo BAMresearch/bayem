@@ -1,5 +1,6 @@
-import bayem
 import pytest
+
+import bayem
 
 x0 = bayem.MVN()
 
