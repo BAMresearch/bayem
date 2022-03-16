@@ -123,7 +123,7 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     """
 
     options = VBOptions(**option_kwargs)
-    dict_f = DictModelError(f, noise0, jac, options)
+    dict_f = DictModelError(f, noise0, jac, options.cdf_eps)
     return VBA(dict_f, x0, options).run()
 
 
@@ -142,7 +142,7 @@ class VBOptions:
     update_noise: Union[Dict, bool] = True
     index_ARD: Tuple[int] = ()
 
-    cdf_eps: float = np.finfo(float).eps ** 0.5
+    cdf_eps: float = None 
 
     store_full_precision: bool = True
 
@@ -238,13 +238,15 @@ class DictModelError:
         "other": _dict_to_obj,
     }
 
-    def __init__(self, f, noise0, jac, options):
+    def __init__(self, f, noise0, jac, cdf_eps=None):
         self.f = f
         self.noise0 = noise0
         self.jac = jac
         self.jac_in_f = not callable(jac) and jac
-        self.options = options
-
+        if cdf_eps is not None:
+            self.cdf_eps = cdf_eps
+        else:
+            self.cdf_eps = np.finfo(float).eps ** 0.5
         self._Tk = None  # transformation of k = f(x)
         self._TJ = None  # transformation of J = jac(x)
 
@@ -295,7 +297,7 @@ class DictModelError:
             pass
         else:
             if not self.jac:
-                self.jac = CDF_Jacobian(self.f, self._Tk, self.options.cdf_eps)
+                self.jac = CDF_Jacobian(self.f, self._Tk, self.cdf_eps)
                 self._TJ = _identity
 
             J = self.jac(x)

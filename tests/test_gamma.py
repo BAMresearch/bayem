@@ -10,9 +10,9 @@ def test_sd():
     scale, shape = 42, 6174
     gamma = bayem.Gamma(shape=shape, scale=scale)
 
-    pytest.approx(gamma.mean, shape * scale)
+    assert gamma.mean == pytest.approx(shape * scale)
     variance = shape * scale ** 2
-    pytest.approx(gamma.std, variance ** 0.5)
+    assert gamma.std == pytest.approx(variance ** 0.5)
 
 
 @settings(derandomize=True, max_examples=200)
@@ -33,8 +33,8 @@ def test_from_quantiles(x0_x1):
     gamma = bayem.Gamma.FromQuantiles(x0, x1, q)
     d = gamma.dist()
 
-    pytest.approx(d.cdf(x0), q[0])
-    pytest.approx(d.cdf(x1), q[1])
+    assert d.cdf(x0) == pytest.approx(q[0])
+    assert d.cdf(x1) == pytest.approx(q[1])
 
 def test_from_mean_and_sd():
     gamma_ref = bayem.Gamma(6174, 42)

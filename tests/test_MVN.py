@@ -13,8 +13,8 @@ def test_named_print():
 
 def test_named_access():
     assert mvn.index("A") == 0
-    pytest.approx(mvn.named_mean("A"), 1)
-    pytest.approx(mvn.named_sd("A"), 1)
+    assert mvn.named_mean("A") == 1
+    assert mvn.named_sd("A") == 1
 
 def test_dim_mismatch():
     mean2 = np.random.random(2)
@@ -29,21 +29,21 @@ def test_dim_mismatch():
 
 def test_dist():
     dist1D = mvn.dist(1)
-    pytest.approx(dist1D.mean(), 2)
-    pytest.approx(dist1D.std(), 1/2**0.5)
+    assert dist1D.mean() == 2
+    assert dist1D.std() == pytest.approx(1/2**0.5)
 
     dist2D = mvn.dist(1, 2)
-    pytest.approx(dist2D.mean[0], 2)
-    pytest.approx(dist2D.mean[1], 3)
+    assert dist2D.mean[0] == 2
+    assert dist2D.mean[1] == 3
 
-    pytest.approx(dist2D.cov[0, 0], 1/2)
-    pytest.approx(dist2D.cov[1, 1], 1/3)
-    pytest.approx(dist2D.cov[0, 1], 0)
-    pytest.approx(dist2D.cov[1, 0], 0)
+    assert dist2D.cov[0, 0] == 1/2
+    assert dist2D.cov[1, 1] == 1/3
+    assert dist2D.cov[0, 1] == 0
+    assert dist2D.cov[1, 0] == 0
 
     dist1D_named = mvn.dist("A")
-    pytest.approx(dist1D_named.mean(), 1)
-    pytest.approx(dist1D_named.std(), 1)
+    assert dist1D_named.mean() == 1
+    assert dist1D_named.std() == 1
 
 def test_simple_init():
     # this mvn ...
