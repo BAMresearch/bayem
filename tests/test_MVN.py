@@ -1,56 +1,56 @@
-import unittest
 import numpy as np
 import bayem
+import pytest
 
 
-class TestMVN(unittest.TestCase):
-    def setUp(self):
-        self.mvn = bayem.MVN(
-            mean=np.r_[1, 2, 3],
-            precision=np.diag([1, 2, 3]),
-            parameter_names=["A", "B", "C"],
-        )
+mvn = bayem.MVN( mean=np.r_[1, 2, 3], precision=np.diag([1, 2, 3]), parameter_names=["A", "B", "C"],)
 
-    def test_len(self):
-        self.assertEqual(len(self.mvn), 3)
+def test_len():
+    assert len(mvn) == 3
 
-    def test_named_print(self):
-        print(self.mvn)
+def test_named_print():
+    print(mvn)
 
-    def test_named_access(self):
-        self.assertEqual(self.mvn.index("A"), 0)
-        self.assertEqual(self.mvn.named_mean("A"), 1)
-        self.assertEqual(self.mvn.named_sd("A"), 1)
+def test_named_access():
+    assert mvn.index("A") == 0
+    pytest.approx(mvn.named_mean("A"), 1)
+    pytest.approx(mvn.named_sd("A"), 1)
 
-    def test_dim_mismatch(self):
-        mean2 = np.random.random(2)
-        prec2 = np.random.random((2, 2))
-        prec3 = np.random.random((3, 3))
-        with self.assertRaises(Exception):
-            bayem.MVN(mean2, prec3)
+def test_dim_mismatch():
+    mean2 = np.random.random(2)
+    prec2 = np.random.random((2, 2))
+    prec3 = np.random.random((3, 3))
+    with pytest.raises(Exception):
+        bayem.MVN(mean2, prec3)
 
-        bayem.MVN(mean2, prec2)  # no exception!
-        with self.assertRaises(Exception):
-            bayem.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
+    bayem.MVN(mean2, prec2)  # no exception!
+    with pytest.raises(Exception):
+        bayem.MVN(mean2, prec2, parameter_names=["A", "B", "C"])
 
-    def test_dist(self):
-        dist1D = self.mvn.dist(1)
-        self.assertAlmostEqual(dist1D.mean(), 2)
-        self.assertAlmostEqual(dist1D.std(), 1/2**0.5)
+def test_dist():
+    dist1D = mvn.dist(1)
+    pytest.approx(dist1D.mean(), 2)
+    pytest.approx(dist1D.std(), 1/2**0.5)
 
-        dist2D = self.mvn.dist(1, 2)
-        self.assertAlmostEqual(dist2D.mean[0], 2)
-        self.assertAlmostEqual(dist2D.mean[1], 3)
+    dist2D = mvn.dist(1, 2)
+    pytest.approx(dist2D.mean[0], 2)
+    pytest.approx(dist2D.mean[1], 3)
 
-        self.assertAlmostEqual(dist2D.cov[0, 0], 1/2)
-        self.assertAlmostEqual(dist2D.cov[1, 1], 1/3)
-        self.assertAlmostEqual(dist2D.cov[0, 1], 0)
-        self.assertAlmostEqual(dist2D.cov[1, 0], 0)
+    pytest.approx(dist2D.cov[0, 0], 1/2)
+    pytest.approx(dist2D.cov[1, 1], 1/3)
+    pytest.approx(dist2D.cov[0, 1], 0)
+    pytest.approx(dist2D.cov[1, 0], 0)
 
-        dist1D_named = self.mvn.dist("A")
-        self.assertAlmostEqual(dist1D_named.mean(), 1)
-        self.assertAlmostEqual(dist1D_named.std(), 1)
+    dist1D_named = mvn.dist("A")
+    pytest.approx(dist1D_named.mean(), 1)
+    pytest.approx(dist1D_named.std(), 1)
+
+def test_simple_init():
+    # this mvn ...
+    mvn_ref = bayem.MVN([1,2], np.diag([1/2**2, 1/3**2]), name="test", parameter_names=["A", "B"])
+    # ... can be directly created via
+    mvn_simple = bayem.MVN.FromMeanStd([1, 2], [2, 3], name="test", parameter_names=["A", "B"])
+    assert mvn_ref == mvn_simple
 
 
-if __name__ == "__main__":
-    unittest.main()
+
