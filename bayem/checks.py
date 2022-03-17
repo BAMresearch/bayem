@@ -27,11 +27,15 @@ def linearity_analysis(
     sd_range=range(-3, 4),
     norm=np.linalg.norm,
     show=False,
+    ret_values=False,
 ):
     """
     Compares the `model` responses `sd_range` standard deviations around the
     `posterior` mean with its linearization to estimate a measure of
     linearity.
+
+    Use `ret_values=True` to obtain all raw values of the analyis for custom
+    visualizations.
     """
 
     model = DictModelError(model, jac=None, noise0=None)
@@ -39,6 +43,7 @@ def linearity_analysis(
     k, J = model.first_call(posterior.mean)
 
     linearity_measure = defaultdict(dict)
+    linearity_values = defaultdict(dict)
 
     for i_sd, sd in enumerate(posterior.std_diag):
         name = posterior.parameter_names[i_sd]
@@ -46,38 +51,45 @@ def linearity_analysis(
         single_sd[i_sd] = sd
 
         prms = [posterior.mean + i * single_sd for i in sd_range]
-        tick_labels = [f"µ{i:+4.2f}σ" for i in sd_range]
 
         all_me_real = [model._Tk(model.f(prm)) for prm in prms]
 
-        for noise_group in k.keys():
+        for noise in k.keys():
 
-            me_lin = [
-                k[noise_group] + J[noise_group] @ (prm - posterior.mean) for prm in prms
-            ]
-
-            me_real = [me[noise_group] for me in all_me_real]
-
-            if show:
-                p = plt.plot(
-                    sd_range,
-                    [norm(model) for model in me_real],
-                    label=f"{name}, noise group {noise_group}",
-                )
-                plt.plot(
-                    sd_range,
-                    [norm(model) for model in me_lin],
-                    ls=":",
-                    color=p[0].get_color(),
-                )
-
-            linearity_measure[noise_group][name] = _measure(me_real, me_lin, norm=norm)
+            me_lin = [k[noise] + J[noise] @ (prm - posterior.mean) for prm in prms]
+            me_true = [me[noise] for me in all_me_real]
+            linearity_values[noise][name] = me_true, me_lin
+            linearity_measure[noise][name] = _measure(me_true, me_lin, norm=norm)
 
     if show:
-        plt.xticks(sd_range, tick_labels)
-        plt.legend()
-        plt.show()
+        _debug_plot(linearity_values, sd_range, norm)
 
     # if the model error provides no noise group, we also remove noise groups
     # from the output
-    return model.original_noise(linearity_measure)
+    linearity_measure = model.original_noise(linearity_measure)
+
+    if ret_values:
+        return linearity_measure, model.original_noise(linearity_values)
+    else:
+        return linearity_measure
+
+
+def _debug_plot(linearity_values, sd_range, norm, ax=None):
+    if ax is None:
+        ax = plt.gca()
+        show = True
+
+    for noise in linearity_values:
+        for name, (me_true, me_lin) in linearity_values[noise].items():
+            y_true = [norm(m) for m in me_true]
+            y_lin = [norm(m) for m in me_lin]
+
+            line = ax.plot(sd_range, y_true, label=f"{name}, {noise}")[0]
+            ax.plot(sd_range, y_lin, color=line.get_color(), ls="--")
+
+    tick_labels = [f"µ{i:+4.2f}σ" for i in sd_range]
+    ax.set_xticks(sd_range)
+    ax.set_xticklabels(tick_labels)
+    ax.legend()
+    if show:
+        plt.show()
