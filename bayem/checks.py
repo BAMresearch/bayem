@@ -48,13 +48,15 @@ def linearity_analysis(
         prms = [posterior.mean + i * single_sd for i in sd_range]
         tick_labels = [f"µ{i:+4.2f}σ" for i in sd_range]
 
-        for noise_group in k.keys():
+        all_me_real = [model._Tk(model.f(prm)) for prm in prms]
 
-            me_real = [model._Tk(model.f(prm))[noise_group] for prm in prms]
+        for noise_group in k.keys():
 
             me_lin = [
                 k[noise_group] + J[noise_group] @ (prm - posterior.mean) for prm in prms
             ]
+
+            me_real = [me[noise_group] for me in all_me_real]
 
             if show:
                 p = plt.plot(
