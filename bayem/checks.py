@@ -24,12 +24,12 @@ def _measure(true, lin, norm):
 def linearity_analysis(
     model,
     posterior,
-    n_sd=3,
+    sd_range=range(-3, 4),
     norm=np.linalg.norm,
     show=False,
 ):
     """
-    Compares the `model` responses `n_sd` standard deviations around the
+    Compares the `model` responses `sd_range` standard deviations around the
     `posterior` mean with its linearization to estimate a measure of
     linearity.
     """
@@ -45,13 +45,8 @@ def linearity_analysis(
         single_sd = np.zeros_like(posterior.mean)
         single_sd[i_sd] = sd
 
-        sd_range = range(-n_sd, n_sd + 1)
         prms = [posterior.mean + i * single_sd for i in sd_range]
-        tick_labels = (
-            [f"µ{i}σ" for i in range(-n_sd, 0)]
-            + ["µ"]
-            + [f"µ+{i}σ" for i in range(1, n_sd + 1)]
-        )
+        tick_labels = [f"µ{i:+4.2f}σ" for i in sd_range]
 
         for noise_group in k.keys():
 

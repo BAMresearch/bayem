@@ -18,6 +18,20 @@ def test_linear_model():
     assert 0 < result["noise_group"]["B"] < 1.0e-8
 
 
+def test_custom_sd_range():
+    def f(theta):
+        return {"noise_group": x / theta[0]}
+
+    # The default setting will test a parameter range
+    # -2, -1, 0, 1, 2, 3, 4
+    # where theta == 0 causes a division by zero in the model.
+    with pytest.warns(RuntimeWarning):
+        bayem.linearity_analysis(f, bayem.MVN(1, 1))
+
+    # We can avoid that by manually adjusting the checked range.
+    bayem.linearity_analysis(f, bayem.MVN(1, 1), sd_range=np.linspace(-0.9, 0.9, 5))
+
+
 def test_nonlinear_model():
     def f(theta):
         return x / theta[0] + theta[1]
