@@ -14,8 +14,7 @@ def test_sd():
     gamma = bayem.Gamma(shape=shape, scale=scale)
 
     assert gamma.mean == pytest.approx(shape * scale)
-    variance = shape * scale ** 2
-    assert gamma.std == pytest.approx(variance ** 0.5)
+    assert gamma.std ** 2 == pytest.approx(shape * scale ** 2)  # variance
 
 
 @settings(derandomize=True, max_examples=200)
