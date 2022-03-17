@@ -34,3 +34,14 @@ def test_nonlinear_model():
     result1 = bayem.linearity_analysis(f, mvn1)
     assert 0 < result1[0] < 0.001  # lower "measure" of nonlinearity
     assert 0 < result1[1] < 1.0e-8  # the model is still linear in theta[1]
+
+
+def test_zero_model():
+    def f(theta):
+        """
+        Could triggers division by zero in norm calculation
+        """
+        return np.zeros(42)
+
+    a = bayem.linearity_analysis(f, bayem.MVN(4, 2, parameter_names=["A"]))
+    assert np.isnan(a["A"])

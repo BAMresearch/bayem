@@ -7,9 +7,17 @@ from .vba import DictModelError
 
 
 def _measure(true, lin, norm):
-    a, b = np.asarray(true), np.asarray(lin)
-    error = norm(a - b)
-    ref = norm(b)
+    y_true, y_lin = np.asarray(true), np.asarray(lin)
+    error = norm(y_true - y_lin)
+    ref = norm(y_lin)
+    if ref == 0:
+        # Extremely unlikely case:
+        # 1) model must not depend on parameters
+        # 2) model must (depending on the norm used...) always be zero.
+        #    IMO impossible, if there is any noise in the data.
+        # Thus, we explicitly avoid the division and return nan and the user
+        # should recognize an issue and investigate that case manually.
+        return np.nan
     return error / ref
 
 
