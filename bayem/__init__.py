@@ -1,5 +1,6 @@
-from .distributions import Gamma, MVN
-from .json_io import save_json, load_json
-from .vba import vba, VBA, VBOptions
+from .checks import linearity_analysis
+from .distributions import MVN, Gamma
+from .json_io import load_json, save_json
+from .vba import VBA, VBOptions, vba
 
 __version__ = "2021.0.0"

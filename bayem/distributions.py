@@ -7,7 +7,7 @@ from tabulate import tabulate
 class MVN:
     def __init__(self, mean=[0.0], precision=[[1.0]], name="MVN", parameter_names=None):
         """
-        Creates a N-dimensional multivariate normal distribution from provided 
+        Creates a N-dimensional multivariate normal distribution from provided
         `mean` μ and `precision` L with the PDF
 
            f(x) = (2π)^(-N/2) det(L)^(1/2) exp[-1/2 (x - μ)^T L (x - μ)]
@@ -22,7 +22,7 @@ class MVN:
             name of the distribution, e.g. to indicate "prior" or "posterior"
 
         parameter_names:
-            vector of N strings that name the N parameters for convenient 
+            vector of N strings that name the N parameters for convenient
             access via `self.named_mean`
         """
         self.mean = np.atleast_1d(mean).astype(float)
@@ -39,6 +39,11 @@ class MVN:
 
         if self.parameter_names is not None:
             assert len(self.parameter_names) == len(self.mean)
+
+    @classmethod
+    def FromMeanStd(cls, mean, stds, **kwargs):
+        prec = np.diag([1 / sd ** 2 for sd in stds])
+        return cls(mean, prec, **kwargs)
 
     def __len__(self):
         return len(self.mean)
@@ -91,17 +96,25 @@ class MVN:
         s = tabulate(data_T, headers=headers)
         return s
 
+    def __eq__(self, other):
+        return (
+            np.max(np.abs(self.mean - other.mean)) < 1.0e-12
+            and np.max(np.abs(self.precision - other.precision)) < 1.0e-12
+            and self.name == other.name
+            and self.parameter_names == other.parameter_names
+        )
+
 
 class Gamma:
     def __init__(self, shape=1.0e-6, scale=1e6, name="Gamma"):
         """
-        Creates a Gamma distribution from provided `shape` k and `scale` θ 
+        Creates a Gamma distribution from provided `shape` k and `scale` θ
         with the PDF
 
             f(x) = 1 / [Γ(k) θ^k] x^(k-1) exp(-x/θ)
 
         where Γ denotes the Gamma function.
-        
+
         shape:
             shape parameter k
 
@@ -112,11 +125,11 @@ class Gamma:
             name of the distribution, e.g. to indicate "prior" or "posterior"
 
         Notes:
-            The default values aim at creating a non-informative gamma 
+            The default values aim at creating a non-informative gamma
             distribution. Ideally, we would have shape=0 and scale=inf, but
-            that raises numerical issues. Other authors [Kerman, Jouni. 
-            "Neutral noninformative and informative conjugate beta and gamma 
-            prior distributions." Electronic Journal of Statistics 5 (2011): 
+            that raises numerical issues. Other authors [Kerman, Jouni.
+            "Neutral noninformative and informative conjugate beta and gamma
+            prior distributions." Electronic Journal of Statistics 5 (2011):
             1450-1470.] propose Gamma(1/3, 0).
         """
         self.scale = scale
@@ -175,6 +188,13 @@ class Gamma:
 
         scale = x0 / _ppf(q=p[0], a=shape)
         return cls(shape=shape, scale=scale)
+
+    def __eq__(self, other):
+        return (
+            abs(self.scale - other.scale) < 1.0e-12
+            and abs(self.shape - other.shape) < 1.0e-12
+            and self.name == other.name
+        )
 
     @classmethod
     def FromSDQuantiles(cls, sd0, sd1, p=(0.05, 0.95)):

@@ -1,7 +1,9 @@
-from scipy import stats
-import numpy as np
-import unittest
 import logging
+import unittest
+
+import numpy as np
+from scipy import stats
+
 from bayem import VBA, VBOptions
 
 logging.getLogger("matplotlib.font_manager").disabled = True

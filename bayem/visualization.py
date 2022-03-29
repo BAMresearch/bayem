@@ -1,10 +1,11 @@
 from collections import defaultdict
 
-from bayem import Gamma
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
-import matplotlib.pyplot as plt
+
+from bayem import Gamma
 
 
 def plot_pdf(
@@ -291,8 +292,6 @@ def result_trace(result, show=True, highlight=None):
         label = r"$\phi_{" + str(noise_key) + "}$"
         ax_g.errorbar(x, means, yerr=sds, label=label, capsize=5, lw=1, ls=":")
     ax_g.legend()
-
-        
 
     # annotate prior and posterior
     i_posterior = result.free_energies.index(result.f_max) + 1

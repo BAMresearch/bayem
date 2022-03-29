@@ -2,11 +2,11 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from time import perf_counter
-from tabulate import tabulate
-from typing import Union, Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import scipy.special as special
+from tabulate import tabulate
 
 from .distributions import MVN, Gamma
 
@@ -123,7 +123,7 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     """
 
     options = VBOptions(**option_kwargs)
-    dict_f = DictModelError(f, noise0, jac, options)
+    dict_f = DictModelError(f, noise0, jac, options.cdf_eps)
     return VBA(dict_f, x0, options).run()
 
 
@@ -142,7 +142,7 @@ class VBOptions:
     update_noise: Union[Dict, bool] = True
     index_ARD: Tuple[int] = ()
 
-    cdf_eps: float = np.finfo(float).eps ** 0.5
+    cdf_eps: float = None
 
     store_full_precision: bool = True
 
@@ -238,13 +238,15 @@ class DictModelError:
         "other": _dict_to_obj,
     }
 
-    def __init__(self, f, noise0, jac, options):
+    def __init__(self, f, noise0, jac, cdf_eps=None):
         self.f = f
         self.noise0 = noise0
         self.jac = jac
         self.jac_in_f = not callable(jac) and jac
-        self.options = options
-
+        if cdf_eps is not None:
+            self.cdf_eps = cdf_eps
+        else:
+            self.cdf_eps = np.finfo(float).eps ** 0.5
         self._Tk = None  # transformation of k = f(x)
         self._TJ = None  # transformation of J = jac(x)
 
@@ -295,7 +297,7 @@ class DictModelError:
             pass
         else:
             if not self.jac:
-                self.jac = CDF_Jacobian(self.f, self._Tk, self.options.cdf_eps)
+                self.jac = CDF_Jacobian(self.f, self._Tk, self.cdf_eps)
                 self._TJ = _identity
 
             J = self.jac(x)
@@ -382,7 +384,7 @@ class VBA:
             logger.info(f"Free energy of iteration {self.result.nit} is {f_new}")
 
             self.result.try_update(
-                f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
+                f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names, J
             )
             if self.stop_criteria(f_new, self.result.nit):
                 break
@@ -523,6 +525,7 @@ class VBResult:
         self.f_max = -np.inf
         self.nit = 0
         self.t = None
+        self.J = None
 
     def __str__(self):
         s = "### VB Result ###\n"
@@ -543,7 +546,7 @@ class VBResult:
 
         return s
 
-    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
+    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names, J):
         self.free_energies.append(f_new)
         self.means.append(mean)
         self.sds.append(MVN(mean, precision).std_diag)
@@ -557,6 +560,7 @@ class VBResult:
             # update
             self.f_max = f_new
             self.param = MVN(mean, precision, "MVN posterior", parameter_names)
+            self.J = J
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])

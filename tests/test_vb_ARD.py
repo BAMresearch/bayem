@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-import bayem
 from test_vb import ModelError
+
+import bayem
 
 """
 Test having an ARD parameter (see Chappell paper for more info)
@@ -72,6 +73,7 @@ info = bayem.vba(
     maxtrials=50,
     update_noise=True,
 )
+
 
 @pytest.mark.skip(reason="There is something going wrong in this test design.")
 def test_checks():
