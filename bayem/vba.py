@@ -384,7 +384,7 @@ class VBA:
             logger.info(f"Free energy of iteration {self.result.nit} is {f_new}")
 
             self.result.try_update(
-                f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names, J
+                f_new, self.m, self.L, self.c, self.s, self.x0.parameter_names
             )
             if self.stop_criteria(f_new, self.result.nit):
                 break
@@ -525,7 +525,6 @@ class VBResult:
         self.f_max = -np.inf
         self.nit = 0
         self.t = None
-        self.J = None
 
     def __str__(self):
         s = "### VB Result ###\n"
@@ -546,7 +545,7 @@ class VBResult:
 
         return s
 
-    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names, J):
+    def try_update(self, f_new, mean, precision, shapes, scales, parameter_names):
         self.free_energies.append(f_new)
         self.means.append(mean)
         self.sds.append(MVN(mean, precision).std_diag)
@@ -560,7 +559,6 @@ class VBResult:
             # update
             self.f_max = f_new
             self.param = MVN(mean, precision, "MVN posterior", parameter_names)
-            self.J = J
 
             for n in shapes:
                 self.noise[n] = Gamma(shape=shapes[n], scale=scales[n])
