@@ -14,7 +14,9 @@ def test_linear_model():
     mvn = bayem.MVN.FromMeanStd([1, 1], [0.5, 0.5], parameter_names=["A", "B"])
 
     sd_range = range(-3, 4)
-    result, values = bayem.linearity_analysis(f, mvn, sd_range=sd_range, ret_values=True)
+    result, values = bayem.linearity_analysis(
+        f, mvn, sd_range=sd_range, ret_values=True
+    )
     assert 0 < result["noise_group"]["A"] < 1.0e-8
     assert 0 < result["noise_group"]["B"] < 1.0e-8
 
@@ -23,6 +25,11 @@ def test_linear_model():
     assert len(test_me_true) == len(sd_range)
     for me in test_me_true:
         assert len(me) == N_sensors
+
+    # test analysis for a subset of parameter
+    result = bayem.linearity_analysis(f, mvn, parameter_names=["B"])
+    assert "B" in result["noise_group"]
+    assert "A" not in result["noise_group"]
 
 
 def test_custom_sd_range():

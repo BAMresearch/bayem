@@ -27,6 +27,7 @@ def linearity_analysis(
     sd_range=range(-3, 4),
     norm=np.linalg.norm,
     show=False,
+    parameter_names=None,
     ret_values=False,
 ):
     """
@@ -45,10 +46,15 @@ def linearity_analysis(
     linearity_measure = defaultdict(dict)
     linearity_values = defaultdict(dict)
 
-    for i_sd, sd in enumerate(posterior.std_diag):
-        name = posterior.parameter_names[i_sd]
+    if parameter_names is None:
+        parameter_names = posterior.parameter_names
+
+    std_diag = posterior.std_diag
+
+    for name in parameter_names:
+        i_sd = posterior.index(name)
         single_sd = np.zeros_like(posterior.mean)
-        single_sd[i_sd] = sd
+        single_sd[i_sd] = std_diag[i_sd]
 
         prms = [posterior.mean + i * single_sd for i in sd_range]
 
