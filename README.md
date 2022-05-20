@@ -6,16 +6,21 @@
 import bayem
 import numpy as np
 
-N, sigma = 100, 0.2
-x = np.linspace(0, 1, N)
-data = 5 * x + 42 + np.random.normal(0, sigma, N)
+x = np.linspace(0, 1, 1000)
+data = 5 * x + 42 + np.random.normal(size=1000)
 
 def k(theta):
     return theta[0] * x + theta[1] - data
 
-prior = bayem.MVN.FromMeanStd([10, 10], [100, 100])
-result = bayem.vba(k, x0=prior)
+wide_prior = bayem.MVN.FromMeanStd([0,0], [1000, 1000])
+result = bayem.vba(k, x0=wide_prior)
 result.summary()
+
+# name            median    mean      sd      5%     25%     75%     95%
+# ------------  --------  ------  ------  ------  ------  ------  ------
+# $\theta_{0}$     4.951   4.951   0.113   4.765   4.875   5.027   5.137
+# $\theta_{1}$    41.989  41.989   0.065  41.882  41.945  42.033  42.096
+# noise            0.939   0.940   0.042   0.872   0.911   0.968   1.010
 ~~~
 
 `numpy`-based implementation of an analytical variational Bayes algorithm of
