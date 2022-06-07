@@ -575,6 +575,8 @@ class VBResult:
         if printer is None:
             printer = print
 
+        tabulate_kwargs.setdefault("floatfmt", "6.3f")
+
         data = []
         p = self.param
         for i in range(len(p)):
@@ -592,7 +594,7 @@ class VBResult:
             dist = p.dist()
 
             if gamma_as_sd:
-                entry = [name, "?", 1 / dist.mean() ** 0.5, "?"]
+                entry = [name, 1/dist.ppf(0.5)**0.5, 1 / dist.mean() ** 0.5, np.nan]
                 entry += [1 / dist.ppf(q) ** 0.5 for q in quantiles]
             else:
                 entry = [name, dist.median(), dist.mean(), dist.std()]
