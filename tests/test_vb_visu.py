@@ -39,6 +39,9 @@ info = bayem.vba(f, x0=bayem.MVN([2], [0.5]), noise0=bayem.Gamma(1, 2))
 
 
 def test_pair_plot(generate_ref_img=False):
+    # use crafted posterior close to the prior for visually more interesting 
+    # plot
+    info.param = bayem.MVN(1.5, 0.3)
     visu.pair_plot(info, show=False)
     compare_plt("ref_pair_plot.png", generate_ref_img=generate_ref_img)
 
