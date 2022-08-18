@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
+from scipy.interpolate import interp1d
 
 from bayem import Gamma
 
@@ -59,6 +60,7 @@ def visualize_vb_marginal_matrix(
     label=None,
     legend_fontsize=8,
     focus=False,
+    contour_quantiles=np.r_[0.5, 0.7, 0.9],
 ):
     """
     Creates a plot grid with the analytical marginal plots of `mvn` and
@@ -122,7 +124,19 @@ def visualize_vb_marginal_matrix(
                 pdf_j = dists_1d[j].pdf(xs[j]).reshape(-1, 1)
                 pdf = pdf_j @ pdf_i.T
 
-            axes[i, j].contour(xj, xi, pdf, colors=[color], linewidths=lw)
+                def get_levels(quantiles):
+                    level_range = np.linspace(np.min(pdf), np.max(pdf), 15)[:-1]
+
+                    sums = [np.sum(pdf[pdf > level]) for level in level_range]
+                    prob_density = np.asarray(sums) / np.sum(pdf)
+
+                    interpolator = interp1d(prob_density, level_range, kind="quadratic")
+                    return interpolator(quantiles)
+
+                levels = get_levels(np.sort(contour_quantiles)[::-1])
+                axes[i, j].contour(
+                    xj, xi, pdf, levels=levels, colors=[color], linewidths=lw
+                )
 
     if median:
         for i in range(N):
