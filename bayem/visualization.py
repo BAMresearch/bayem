@@ -49,6 +49,16 @@ def plot_pdf(
         plt.show()
 
 
+def _get_levels(pdf, quantiles):
+    level_range = np.linspace(np.min(pdf), np.max(pdf), 15)[:-1]
+
+    sums = [np.sum(pdf[pdf > level]) for level in level_range]
+    prob_density = np.asarray(sums) / np.sum(pdf)
+
+    interpolator = interp1d(prob_density, level_range, kind="quadratic")
+    return interpolator(quantiles)
+
+
 def visualize_vb_marginal_matrix(
     mvn,
     gammas=None,
@@ -124,19 +134,10 @@ def visualize_vb_marginal_matrix(
                 pdf_j = dists_1d[j].pdf(xs[j]).reshape(-1, 1)
                 pdf = pdf_j @ pdf_i.T
 
-                def get_levels(quantiles):
-                    level_range = np.linspace(np.min(pdf), np.max(pdf), 15)[:-1]
-
-                    sums = [np.sum(pdf[pdf > level]) for level in level_range]
-                    prob_density = np.asarray(sums) / np.sum(pdf)
-
-                    interpolator = interp1d(prob_density, level_range, kind="quadratic")
-                    return interpolator(quantiles)
-
-                levels = get_levels(np.sort(contour_quantiles)[::-1])
-                axes[i, j].contour(
-                    xj, xi, pdf, levels=levels, colors=[color], linewidths=lw
-                )
+            levels = _get_levels(pdf, np.sort(contour_quantiles)[::-1])
+            axes[i, j].contour(
+                xj, xi, pdf, levels=levels, colors=[color], linewidths=lw
+            )
 
     if median:
         for i in range(N):
