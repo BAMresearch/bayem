@@ -39,7 +39,7 @@ info = bayem.vba(f, x0=bayem.MVN([2], [0.5]), noise0=bayem.Gamma(1, 2))
 
 
 def test_pair_plot(generate_ref_img=False):
-    # use crafted posterior close to the prior for visually more interesting 
+    # use crafted posterior close to the prior for visually more interesting
     # plot
     info.param = bayem.MVN(1.5, 0.3)
     visu.pair_plot(info, show=False)
@@ -51,7 +51,26 @@ def test_trace_plot(generate_ref_img=False):
     compare_plt("ref_trace_plot.png", generate_ref_img=generate_ref_img)
 
 
+def test_quantile_levels():
+    mvn = bayem.MVN([2, 3], [[0.5, 0.2], [0.2, 0.5]])
+    res = 201
+    x0 = np.linspace(mvn.dist(0).ppf(0.001), mvn.dist(0).ppf(0.999), res)
+    x1 = np.linspace(mvn.dist(1).ppf(0.001), mvn.dist(1).ppf(0.999), res)
+    xi, xj = np.meshgrid(x0, x1)
+
+    x = np.vstack([xi.flatten(), xj.flatten()]).T
+    pdf = mvn.dist(0, 1).pdf(x).reshape(res, res)
+
+    alpha = 0.9
+    level = visu._get_levels(pdf, alpha)
+
+    level_ref = alpha * (1 / np.sqrt((2 * np.pi) ** 2) / np.linalg.det(mvn.cov)) * 0.9
+
+    assert level_ref == pytest.approx(level)
+
+
 if __name__ == "__main__":
     generate = True
+    test_quantile_levels()
     test_pair_plot(generate_ref_img=generate)
     test_trace_plot(generate_ref_img=generate)
