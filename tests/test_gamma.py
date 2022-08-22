@@ -1,6 +1,6 @@
 import hypothesis.strategies as st
 import pytest
-from hypothesis import given, settings
+from hypothesis import given, settings, assume
 
 import bayem
 
@@ -26,10 +26,8 @@ def test_sd():
 )
 def test_from_quantiles(x0_x1):
     x0, x1 = x0_x1
-    if x0 == x1:
-        return
-    if x0 > x1:
-        x1, x0 = x0, x1
+    assume(abs(x1 - x0) > 1e-6)
+    assume(x0 < x1)
 
     q = (0.15, 0.95)
     gamma = bayem.Gamma.FromQuantiles(x0, x1, q)
