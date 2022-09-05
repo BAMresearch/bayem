@@ -523,6 +523,7 @@ class VBResult:
         self.gammas = defaultdict(list)
         self.precisions = []
         self.f_max = -np.inf
+        self.f_max_it = 0 # Iteration of VB at which, f_max is achieved.
         self.nit = 0
         self.t = None
         self.J = None
@@ -537,6 +538,7 @@ class VBResult:
             "noise",
             "free_energies",
             "f_max",
+            "f_max_it",
             "nit",
             "t",
         ]:
@@ -559,6 +561,7 @@ class VBResult:
         if f_new > self.f_max:
             # update
             self.f_max = f_new
+            self.f_max_it = self.nit
             self.param = MVN(mean, precision, "MVN posterior", parameter_names)
             self.J = J
 
