@@ -60,6 +60,9 @@ class BayemEncoder(json.JSONEncoder):
 
         if isinstance(obj, np.ndarray):
             return {"np.array": obj.tolist()}
+        
+        if isinstance(obj, type):
+            return {"type_object": obj.__name__}
 
         # `obj` is not one of our types? Fall back to superclass implementation.
         return json.JSONEncoder.default(self, obj)
@@ -104,6 +107,10 @@ def bayem_hook(dct):
 
     if "np.array" in dct:
         return np.array(dct["np.array"])
+    
+    if "type_object" in dct:
+        from pydoc import locate
+        return locate(dct["type_object"])
 
     # Type not recognized, just return the dict.
     return dct
