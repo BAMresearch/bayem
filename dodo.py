@@ -12,5 +12,6 @@ def task_website():
     return {
         "file_dep": ["conf.py", "index.rst"],
         "actions": ["sphinx-build . .build"],
+        "targets": [".\.build\index.html"],
         "verbosity": 2,
     }
