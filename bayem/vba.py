@@ -13,7 +13,7 @@ from .distributions import MVN, Gamma
 logger = logging.getLogger(__name__)
 
 
-def vba(f, x0, noise0=None, jac=None, **option_kwargs):
+def vba(f, x0, noise0=None, cov_inv=None, cov_log_det=None, jac=None, **option_kwargs):
     """
     Implementation of
         Variational Bayesian inference for a nonlinear
@@ -40,7 +40,22 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
         parameter prior.
         If noise0 is None, a noninformative gamma prior is chosen
         automatically according to the number of noise groups.
-
+    
+    cov_inv:
+        if not None: the inverse of prescribed covariance matrix per noise group
+            , which is multiplied by the scalar noise precision (noise0/noise).
+            --> It must be a dictionary with the same keys as noise0.
+        if None: will be set to '1' (identity matrix) for each noise group.
+    
+    cov_log_det:
+        If not None, it must be a dictionary with the same keys as noise0.
+        For some prescribed cov_inv, the user might have already computed the
+        log of the determinant of the covariance matrix, so that they can give
+        it as an input as well. Otherwise, the cov_log_det will be computed via:
+            cov_log_det = - log ( det(cov_inv) ) .
+        NOTE: this constant quantity only contributes to the free energy, and
+            does not affact the update equations.
+    
     jac:
         callable that takes a parameter vector as input and returns a
         collection* (see below) of df/dmodel_paramaters matrices.
@@ -48,7 +63,7 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
           containing both the model error and its derivative.
         * jac == None/False falls back to a numeric implementation based on
           central differences of `f`.
-
+    
     option_kwargs:
 
         tolerance:
@@ -123,7 +138,7 @@ def vba(f, x0, noise0=None, jac=None, **option_kwargs):
     """
 
     options = VBOptions(**option_kwargs)
-    dict_f = DictModelError(f, noise0, jac, options.cdf_eps)
+    dict_f = DictModelError(f, noise0, cov_inv, cov_log_det, jac, options.cdf_eps)
     return VBA(dict_f, x0, options).run()
 
 
@@ -238,16 +253,18 @@ class DictModelError:
         "other": _dict_to_obj,
     }
 
-    def __init__(self, f, noise0, jac, cdf_eps=None):
+    def __init__(self, f, noise0, cov_inv, cov_log_det, jac, cdf_eps=None):
         self.f = f
         self.noise0 = noise0
+        self.cov_inv = cov_inv
+        self.cov_log_det = cov_log_det
         self.jac = jac
         self.jac_in_f = not callable(jac) and jac
         if cdf_eps is not None:
             self.cdf_eps = cdf_eps
         else:
             self.cdf_eps = np.finfo(float).eps ** 0.5
-        self._Tk = None  # transformation of k = f(x)
+        self._Tk = None  # transformation of k = f(x) and cov_inv
         self._TJ = None  # transformation of J = jac(x)
 
     def __call__(self, x):
@@ -290,9 +307,9 @@ class DictModelError:
         self._invTnoise = self.from_dict[k_type]
         if self.noise0 is None:
             self.noise0 = default_noise
-
+        
         self.noise0 = self._Tk(self.noise0)
-
+        
         if self.jac_in_f:
             pass
         else:
@@ -301,8 +318,15 @@ class DictModelError:
                 self._TJ = _identity
 
             J = self.jac(x)
-
-        return self._Tk(k), self._TJ(J)
+        
+        k_T = self._Tk(k) # a dictionary
+        
+        if self.cov_inv is None:
+            self.cov_inv = {i: np.eye(len(v)) for i, v in k_T.items()}
+        if self.cov_log_det is None:
+            self.cov_log_det = {i: - np.log( np.linalg.det(self.cov_inv[i]) ) for i in k_T.keys()}
+        
+        return k_T, self._TJ(J)
 
 
 class VBA:
@@ -332,6 +356,8 @@ class VBA:
             return self.result
 
         self.noise0 = self.p.noise0
+        self.cov_inv = self.p.cov_inv
+        self.cov_log_det = self.p.cov_log_det
 
         # extract / rename noise parameters
         self.s, self.c = {}, {}
@@ -342,6 +368,8 @@ class VBA:
         self.noise_groups = self.noise0.keys()
         self.result.noise0 = self.p.original_noise(self.noise0)
         self.result.noise0_dict = self.noise0
+        self.result.cov_inv = self.cov_inv
+        self.result.cov_log_det = self.cov_log_det
 
         while True:
             self.update_parameters(k, J)
@@ -403,13 +431,13 @@ class VBA:
         # fw model parameter update
         m0, L0 = self.x0.mean, self.x0.precision
         self.L = (
-            sum([self.s[i] * self.c[i] * J[i].T @ J[i] for i in self.noise_groups]) + L0
+            sum([self.s[i] * self.c[i] * J[i].T @ self.cov_inv[i] @ J[i] for i in self.noise_groups]) + L0
         )
         self.L_inv = np.linalg.inv(self.L)
 
         Lm = sum(
             [
-                self.s[i] * self.c[i] * J[i].T @ (-k[i] + J[i] @ self.m)
+                self.s[i] * self.c[i] * J[i].T @ self.cov_inv[i] @ (-k[i] + J[i] @ self.m)
                 for i in self.noise_groups
             ]
         )
@@ -431,8 +459,8 @@ class VBA:
                 # formula (31)
                 s_inv = (
                     1 / s0i
-                    + 0.5 * k[i].T @ k[i]
-                    + 0.5 * np.trace(self.L_inv @ J[i].T @ J[i])
+                    + 0.5 * k[i].T @ self.cov_inv[i] @ k[i]
+                    + 0.5 * np.trace(self.L_inv @ J[i].T @ self.cov_inv[i] @ J[i])
                 )
                 self.s[i] = 1 / s_inv
 
@@ -461,7 +489,7 @@ class VBA:
                 np.log(si) + special.digamma(ci)
             )
             f_new += (
-                -0.5 * si * ci * (k[i].T @ k[i] + np.trace(self.L_inv @ J[i].T @ J[i]))
+                -0.5 * si * ci * (k[i].T @ self.cov_inv[i] @ k[i] + np.trace(self.L_inv @ J[i].T @ self.cov_inv[i] @ J[i]))
             )
             f_new += ci * np.log(si) + special.gammaln(ci)
             f_new += ci - (ci - 1) * (np.log(si) + special.digamma(ci))
@@ -469,6 +497,7 @@ class VBA:
             f_new += (
                 -N / 2 * np.log(2 * np.pi) - special.gammaln(c0i) - c0i * np.log(s0i)
             )
+            f_new -= 0.5 * self.cov_log_det[i]
 
         return f_new
 
