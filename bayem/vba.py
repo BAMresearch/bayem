@@ -138,7 +138,7 @@ def vba(f, x0, noise0=None, cov_inv=None, cov_log_det=None, jac=None, **option_k
     """
 
     options = VBOptions(**option_kwargs)
-    dict_f = DictModelError(f, noise0, cov_inv, cov_log_det, jac, options.cdf_eps)
+    dict_f = DictModelError(f, noise0, jac, cov_inv, cov_log_det, options.cdf_eps)
     return VBA(dict_f, x0, options).run()
 
 
@@ -253,7 +253,7 @@ class DictModelError:
         "other": _dict_to_obj,
     }
 
-    def __init__(self, f, noise0, cov_inv, cov_log_det, jac, cdf_eps=None):
+    def __init__(self, f, noise0, jac, cov_inv=None, cov_log_det=None, cdf_eps=None):
         self.f = f
         self.noise0 = noise0
         self.cov_inv = cov_inv
