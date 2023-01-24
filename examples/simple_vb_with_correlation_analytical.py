@@ -8,18 +8,11 @@ Created on Wed Dec 15 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
-import unittest
+
+import bayem.vba as vba
+import bayem.distributions as bd
 import bayem.correlation as bc
 
-import os, sys
-sys.path.append(os.path.dirname(__file__))
-from simple_vb_with_correlation import free_energy, vba
-
-param = [5] # mio_target (mean)
-param0 = [2] # mio prior
-param_prec0 = 0.001
-N = 100
-L = 2
 def mio(theta):
     return np.full(N, theta[0])
 
@@ -30,33 +23,53 @@ class MeanError:
         k = mio(theta) - self.data
         return k, np.ones((N, 1))
 
+N = 100
+L = 2
+param = [5] # mio_target (mean)
+param0 = [2] # mio prior
+param_prec0 = 0.001
 xs = np.linspace(0, L, N)
-perfect_data = mio(param)
+
 noise_std = 0.2
 correlation_level = 3
-target_correlation_length = correlation_level * L / N
-C = bc.cor_exp_1d(xs, target_correlation_length)
-Cinv = bc.inv_cor_exp_1d(xs, target_correlation_length)
+cor_length = correlation_level * L / N
+noise_cov = bc.cor_exp_1d(xs, cor_length) * noise_std ** 2
+cov_inv = bc.inv_cor_exp_1d(xs, cor_length)
 
+perfect_data = mio(param)
 np.random.seed(6174)
 correlated_noise = np.random.multivariate_normal(
     np.zeros(len(xs)),
-    C * noise_std ** 2,
+    noise_cov ,
 )
 correlated_data = perfect_data + correlated_noise
+plt.figure()
+plt.plot(perfect_data, label="perfect", marker="*", linestyle="")
+plt.plot(correlated_data, label="noisy", marker="+", linestyle="")
+plt.title("Data")
+plt.legend()
+plt.show()
+
 f = MeanError(correlated_data)
 
-# A suitable prior noise that will NOT be updated in VB !
-from bayem.distributions import Gamma
+# PRIOR NOISE that will NOT be updated in VB !
 noise_precision_mean = 1/noise_std**2 # should be equal to target value
 noise_precision_std = noise_precision_mean / (1e4)
     # Interestingly, this does not play any role in the inferred parameters,
     # BUT does change the converged Free energy, so, we set it to a very
     # small value to fulfil as much as possible the assumption of the analytical
     # solution: the noise model (precision) is a known constant !
-gg = Gamma.FromMeanStd(noise_precision_mean, noise_precision_std)
-c0 = gg.shape
-s0 = gg.scale
+from bayem.distributions import Gamma
+noise0 = Gamma.FromMeanStd(noise_precision_mean, noise_precision_std)
+
+def do_vb(cov_inv=None):
+    m0 = np.array(param0)
+    L0 = np.array([[param_prec0]])
+    prior_mvn = bd.MVN(m0, L0)
+    cov_log_det = None if cov_inv is None else (-bc.sp_logdet(cov_inv))
+    vb_results = vba(f=f, x0=prior_mvn, noise0=noise0, cov_inv=cov_inv, cov_log_det=cov_log_det \
+                     , jac=True, update_noise=False, maxiter=100, tolerance=1e-8, store_full_precision=True)
+    return vb_results
 
 def likelihood_times_prior(theta, prec):
     e = f([theta])[0]
@@ -67,33 +80,22 @@ def likelihood_times_prior(theta, prec):
     P = _c2 * np.exp(-0.5*param_prec0*(theta-param0[0])**2)
     return L * P
 
-def do_vb(C_inv=None, s0=1e6, c0=1e-6):
-    m0 = np.array(param0)
-    L0 = np.array([[param_prec0]])
-    print('-------------------------- VB started ... ')
-    info = vba(f, m0, L0, C_inv=C_inv, s0=s0, c0=c0, update_noise=False)
-    for what, value in info.items():
-        print(what, value)
-    noise_prec_mean = info["shape"] * info["scale"]
-    print(f"Noise-Std from mean of identified precision: {noise_prec_mean ** (-0.5)} .")
-    return info
-
 def get_analytical_inference():
     ##### POSTERIOR #####
     # Analytical posterior by extension of eqs. 9 and 10 of
     # http://gregorygundersen.com/blog/2020/11/18/bayesian-mvn/
-    info3 = {}
-    Sig_inv = Cinv.todense() * (noise_std ** (-2))
+    results_analytic = {}
+    Sig_inv = cov_inv.todense() * (noise_std ** (-2))
     M = np.sum(Sig_inv) + param_prec0
     b = (correlated_data @ np.sum(Sig_inv, axis=1) )[0,0] + param0[0] * param_prec0
     mio = b / M
-    info3['mean'] = np.array([mio])
-    info3['precision'] = np.array([[M]])
+    results_analytic['mean'] = np.array([mio])
+    results_analytic['precision'] = np.array([[M]])
     
     ##### LOG-EVIDENCE #####
     ### ANALYTICAL (1) by adaptation of eq (3) in:
     # https://www.econstor.eu/bitstream/10419/85883/1/02084.pdf
-    COV = C * noise_std ** 2
+    COV = noise_cov
     exponent = (
         -1
         / 2
@@ -126,21 +128,21 @@ def get_analytical_inference():
     log_ev_num, log_err = np.log( quad(likelihood_times_prior, _int_min, _int_max, args=(Sig_inv)\
                             , epsrel=1e-16, epsabs=1e-16, maxp1=1e6) )
     
-    return info3, logz, log_ev_num
+    return results_analytic, logz, log_ev_num
 
-def plot_posteriors(infos, labels):
+def plot_posteriors(vb_resultss, labels, results_analytic):
     from scipy.stats import norm
     stds = []
     means = []
-    for info in infos:
-        stds.append(info["precision"][0, 0] ** (-0.5))
-        means.append(info["mean"][0])
+    for vb_results in vb_resultss:
+        stds.append(vb_results.param.precision[0, 0] ** (-0.5))
+        means.append(vb_results.param.mean[0])
     stds_max = max(stds)
     _min = min(param[0], min(means))
     _max = max(param[0], max(means))
     xs = np.linspace(_min - 3 * stds_max, _max + 3 * stds_max, 1000)
     plt.figure()
-    for i, info in enumerate(infos):
+    for i, vb_results in enumerate(vb_resultss):
         dis = norm(means[i], stds[i])
         pdfs = dis.pdf(xs)
         plt.plot(xs, pdfs, label=labels[i])
@@ -150,44 +152,37 @@ def plot_posteriors(infos, labels):
 
     plt.show()
 
-def study_posterior_and_F(_plot=True):
-    if _plot:
-        plt.figure()
-        plt.plot(perfect_data, label="perfect", marker="*", linestyle="")
-        plt.plot(correlated_data, label="noisy", marker="+", linestyle="")
-        plt.title("Data")
-        plt.legend()
-        plt.show()
+def study_posterior_and_F():
     
     ##### INFERENCEs #####
-    info = do_vb(s0=s0, c0=c0) # with no correlation
-    info2 = do_vb(C_inv=Cinv, s0=s0, c0=c0) # with target correlation
-    info3, logz, log_ev_num = get_analytical_inference()
+    vb_results = do_vb() # with no correlation
+    vb_results2 = do_vb(cov_inv=cov_inv) # with target correlation
+    results_analytic, logz, log_ev_num = get_analytical_inference()
     
-    if _plot:
-        plot_posteriors([info, info2, info3], ['Without correlation', 'With target correlation', 'Analytical'])
+    plot_posteriors([vb_results, vb_results2], ['Without correlation', 'With target correlation'] \
+                        , results_analytic)
     
     ##### CHECKs #####
-    err_mean = abs(info2['mean'] - info3['mean']) 
-    err_precision = abs(info2['precision'] - info3['precision']) 
-    err_log_ev = abs((info2['F'] - log_ev_num)/log_ev_num)
+    err_mean = abs(vb_results2.param.mean - results_analytic['mean']) 
+    err_precision = abs(vb_results2.param.precision - results_analytic['precision']) 
+    err_log_ev = abs((vb_results2.f_max - log_ev_num)/log_ev_num)
 
     print(f"--------------------------------------------------- \n\
 --------------------------------------------------- \n\
-------- Free energy (VB with correlation) = {info2['F']} \n\
+------- Free energy (VB with correlation) = {vb_results2.f_max} \n\
 ------- Log-evidence analytically         = {logz} \n\
 ------- Log-evidence numerically computed = {log_ev_num} .")
     assert err_mean<1e-12
     assert err_precision<1e-12
     assert err_log_ev<1e-7
 
-def study_correlation_length(_plot=True):
+def study_correlation_length():
     Fs = []
     _factors = np.linspace(0.5, 1.5, 20+1)
         # to scale the target correlation as the prescribed correlation used for inference
     for _f in _factors:
-        Cinv_0 = bc.inv_cor_exp_1d(xs, target_correlation_length * _f)
-        Fs.append(do_vb(C_inv=Cinv_0, s0=s0, c0=c0)['F'])
+        cov_inv_0 = bc.inv_cor_exp_1d(xs, cor_length * _f)
+        Fs.append(do_vb(cov_inv=cov_inv_0).f_max)
     F_max = max(Fs)
     base_factor_zone = 3.0
     dF_zone = np.log(base_factor_zone)
@@ -203,7 +198,6 @@ def study_correlation_length(_plot=True):
     plt.title('Free energy vs. prescribed correlation length')
     plt.show()
     
-
 if __name__ == "__main__":
-    study_posterior_and_F(True)
-    study_correlation_length(False)
+    study_posterior_and_F()
+    study_correlation_length()
