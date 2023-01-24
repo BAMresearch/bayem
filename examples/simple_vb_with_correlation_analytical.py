@@ -23,11 +23,11 @@ class MeanError:
         k = mio(theta) - self.data
         return k, np.ones((N, 1))
 
+param = [5] # mio_target
+param0 = [2] # prior (mean)
+param_prec0 = 0.001 # prior (precision)
 N = 100
 L = 2
-param = [5] # mio_target (mean)
-param0 = [2] # mio prior
-param_prec0 = 0.001
 xs = np.linspace(0, L, N)
 
 noise_std = 0.2
@@ -53,14 +53,13 @@ plt.show()
 f = MeanError(correlated_data)
 
 # PRIOR NOISE that will NOT be updated in VB !
-noise_precision_mean = 1/noise_std**2 # should be equal to target value
+noise_precision_mean = 1. / noise_std ** 2 # should be equal to target value (and not updated)
 noise_precision_std = noise_precision_mean / (1e4)
     # Interestingly, this does not play any role in the inferred parameters,
     # BUT does change the converged Free energy, so, we set it to a very
     # small value to fulfil as much as possible the assumption of the analytical
     # solution: the noise model (precision) is a known constant !
-from bayem.distributions import Gamma
-noise0 = Gamma.FromMeanStd(noise_precision_mean, noise_precision_std)
+noise0 = bd.Gamma.FromMeanStd(noise_precision_mean, noise_precision_std)
 
 def do_vb(cov_inv=None):
     m0 = np.array(param0)
@@ -155,11 +154,11 @@ def plot_posteriors(vb_resultss, labels, results_analytic):
 def study_posterior_and_F():
     
     ##### INFERENCEs #####
-    vb_results = do_vb() # with no correlation
-    vb_results2 = do_vb(cov_inv=cov_inv) # with target correlation
+    vb_results = do_vb() # with no covariance
+    vb_results2 = do_vb(cov_inv=cov_inv) # with target covariance
     results_analytic, logz, log_ev_num = get_analytical_inference()
     
-    plot_posteriors([vb_results, vb_results2], ['Without correlation', 'With target correlation'] \
+    plot_posteriors([vb_results, vb_results2], ['Without covariance', 'With target covariance'] \
                         , results_analytic)
     
     ##### CHECKs #####
@@ -169,7 +168,7 @@ def study_posterior_and_F():
 
     print(f"--------------------------------------------------- \n\
 --------------------------------------------------- \n\
-------- Free energy (VB with correlation) = {vb_results2.f_max} \n\
+------- Free energy (VB with covariance) = {vb_results2.f_max} \n\
 ------- Log-evidence analytically         = {logz} \n\
 ------- Log-evidence numerically computed = {log_ev_num} .")
     assert err_mean<1e-12
@@ -179,7 +178,7 @@ def study_posterior_and_F():
 def study_correlation_length():
     Fs = []
     _factors = np.linspace(0.5, 1.5, 20+1)
-        # to scale the target correlation as the prescribed correlation used for inference
+        # to scale the target correlation as used for the prescribed covariance used for inference
     for _f in _factors:
         cov_inv_0 = bc.inv_cor_exp_1d(xs, cor_length * _f)
         Fs.append(do_vb(cov_inv=cov_inv_0).f_max)

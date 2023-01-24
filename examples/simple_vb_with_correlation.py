@@ -19,7 +19,7 @@ class F:
         return k, np.vstack([d_dm, d_dc]).T
 
 param = [5, 7]
-param_prec = 0.001
+param_prec0 = 0.001
 N = 100
 L = 2
 xs = np.linspace(0, L, N)
@@ -48,7 +48,7 @@ f = F(correlated_data)
 
 def do_vb(cov_inv=None):
     m0 = np.array([2, 19])
-    L0 = np.array([[param_prec, 0], [0, param_prec]])
+    L0 = np.array([[param_prec0, 0], [0, param_prec0]])
     prior_mvn = bd.MVN(m0, L0)
     
     cov_log_det = None if cov_inv is None else (-bc.sp_logdet(cov_inv))
@@ -146,13 +146,13 @@ if __name__ == "__main__":
     assert vb_results.param.precision[0, 0] > vb_results2.param.precision[0, 0]
     assert vb_results.param.precision[1, 1] > vb_results2.param.precision[1, 1]
 
-    ## Since correlation matrix in info3 is half of info2 (only a scaling):
-    # 1) The inferred parameters in info2 and info3 must be the same.
-    # 2) The inferred noise precision in info3 must be half of info2.
+    ## Since covariance matrix in vb_results3 is half of vb_results2 (only a scaling):
+    # 1) The inferred parameters in vb_results2 and vb_results3 must be the same.
+    # 2) The inferred noise precision in vb_results3 must be half of vb_results2.
     # This ratio, however, only goes to the mean of the identified noise, meaning that:
     # The scales are different by the factor 2.
     # But the shapes are the same (we only have shift of one distribution from the other).
-    # 3) The converged free energy in info2 and info3 is the same.
+    # 3) The converged free energy in vb_results2 and vb_results3 is the same.
     assert (
         np.linalg.norm(vb_results3.param.mean - vb_results2.param.mean) / np.linalg.norm(vb_results2.param.mean)
         < 1e-6
