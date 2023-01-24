@@ -323,8 +323,12 @@ class DictModelError:
         
         if self.cov_inv is None:
             self.cov_inv = {i: np.eye(len(v)) for i, v in k_T.items()}
+        else:
+            self.cov_inv = self._Tk(self.cov_inv)
         if self.cov_log_det is None:
             self.cov_log_det = {i: - np.log( np.linalg.det(self.cov_inv[i]) ) for i in k_T.keys()}
+        else:
+            self.cov_log_det = self._Tk(self.cov_log_det)
         
         return k_T, self._TJ(J)
 
