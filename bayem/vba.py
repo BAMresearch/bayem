@@ -13,7 +13,7 @@ from .distributions import MVN, Gamma
 logger = logging.getLogger(__name__)
 
 
-def vba(f, x0, noise0=None, cov_inv=None, cov_log_det=None, jac=None, **option_kwargs):
+def vba(f, x0, noise0=None, jac=None, cov_inv=None, cov_log_det=None, **option_kwargs):
     """
     Implementation of
         Variational Bayesian inference for a nonlinear
