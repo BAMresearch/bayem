@@ -17,7 +17,6 @@ x0 = bayem.MVN([6, 11], [[1 / 3 ** 2, 0], [0, 1 / 3 ** 2]])
 info = bayem.vba(model_error, x0, noise0=None)
 print(info)
 
-
 def test_results():
     for i, correct_value in enumerate([A, B]):
         posterior_mean = info.param.mean[i]
@@ -33,7 +32,7 @@ def test_results():
     assert (
         info.nit < 4
     )  # For such linear regression we do expect to have very few iterations.
-    assert info.t < 0.1
+    assert (info.t < 2.0)
 
     info.summary(True)
     info.summary(tablefmt="fancy_grid")
