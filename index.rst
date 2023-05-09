@@ -113,10 +113,10 @@ We *define* the noise (error) :math:`\boldsymbol{e}` as the gap between the data
 and *model* it through a multivariate normal distribution, i.e.:
 
 .. math::
-	\boldsymbol{e} \sim \mathcal{MVN}(\boldsymbol{0}, \Phi^{-1} \color{red}{C_e} ) \quad \rightarrow \quad P(\boldsymbol{e}|\Phi)=\frac{\Phi^{N/2}}{\sqrt{(2\pi)^{N}\color{red}{|C_e|}}}e^{-0.5\,\Phi\,\boldsymbol{e}^T. \color{red}{C_e^{-1}} .\boldsymbol{e}} \; ,
+	\boldsymbol{e} \sim \mathcal{MVN}(\boldsymbol{0}, \Phi^{-1} \textcolor{red}{C_e} ) \quad \rightarrow \quad P(\boldsymbol{e}|\Phi)=\frac{\Phi^{N/2}}{\sqrt{(2\pi)^{N}\textcolor{red}{|C_e|}}}e^{-0.5\,\Phi\,\boldsymbol{e}^T. \textcolor{red}{C_e^{-1}} .\boldsymbol{e}} \; ,
 	:label: eq_e_model
 
-where :math:`N` is the length of model error signal and :math:`\color{red}{C_e}` is a known covariance matrix scaled by means of the latent parameter :math:`\Phi` to represent the covariance of the distribution.
+where :math:`N` is the length of model error signal and :math:`\textcolor{red}{C_e}` is a known covariance matrix scaled by means of the latent parameter :math:`\Phi` to represent the covariance of the distribution.
 
 With such a setup, the latent parameters will become:
 
@@ -145,7 +145,7 @@ The likelihood is by definition:
 According to :eq:`eq_e_model`, the log likelihood then reads:
 
 .. math::
-	\log\left[ \mbox{Likelihood} \right] =: \log\left[ P(\boldsymbol{y}|\boldsymbol{w}) \right] = \frac{N}{2}\log\left[\Phi\right]-\frac{1}{2}\Phi\,\boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} + \mbox{const.} \; .
+	\log\left[ \mbox{Likelihood} \right] =: \log\left[ P(\boldsymbol{y}|\boldsymbol{w}) \right] = \frac{N}{2}\log\left[\Phi\right]-\frac{1}{2}\Phi\,\boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} + \mbox{const.} \; .
 	:label: eq_likl_log
 
 Priors
@@ -176,11 +176,11 @@ We need to expand the term :math:`\log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P
 	\begin{split}
 	\log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] &= \log \left[ P(\boldsymbol{y}|\theta,\Phi) \right] + \log \left[ P(\theta) \right] + \log \left[ P(\Phi) \right]
 	\\
-	&=\frac{N}{2}\log\left[\Phi\right]-\frac{1}{2}\Phi\,\boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e}
+	&=\frac{N}{2}\log\left[\Phi\right]-\frac{1}{2}\Phi\,\boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e}
 	\\
 	&-\frac{1}{2}\,(\theta-\boldsymbol{m}_0)^T.\Lambda_0.(\theta-\boldsymbol{m}_0)
 	\\
-	&+(c_0-1) \log \left[ \Phi \right] - \frac{\Phi}{s_0} + \color{blue}{\mathrm{const}\lbrace \boldsymbol{\theta},\Phi \rbrace} \, .
+	&+(c_0-1) \log \left[ \Phi \right] - \frac{\Phi}{s_0} + \textcolor{blue}{\mathrm{const}\lbrace \boldsymbol{\theta},\Phi \rbrace} \, .
 	\end{split}
 	:label: eq_log_post
 
@@ -188,7 +188,7 @@ This equation can be regrouped in the following way that is more handy for the n
 
 .. math::
 	\begin{split}
-	\log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] &= -\frac{1}{2}\Phi\,\boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} + f_{\theta} + f_{\Phi} + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \quad ;
+	\log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] &= -\frac{1}{2}\Phi\,\boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} + f_{\theta} + f_{\Phi} + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \quad ;
 	\\
 	&f_{\theta}=: -\frac{1}{2}\,(\theta-\boldsymbol{m}_0)^T.\Lambda_0.(\theta-\boldsymbol{m}_0)
 	\\
@@ -199,7 +199,7 @@ This equation can be regrouped in the following way that is more handy for the n
 The constant term that is expressed below will not influence the solution of :eq:`eq_qtheta_main` and :eq:`eq_qPhi_main`, however, it will be used for the computation of the free energy.
 
 .. math::
-    \color{blue}{\mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace = -\frac{N+N_{\theta}}{2}\log[2\pi] -\frac{1}{2}\log[\color{red}{|C_e|}] + \frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0]} \, .
+    \textcolor{blue}{\mathrm{const} \lbrace \boldsymbol{\theta},\Phi \rbrace = -\frac{N+N_{\theta}}{2}\log[2\pi] -\frac{1}{2}\log[\textcolor{red}{|C_e|}] + \frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0]} \, .
 
 Approximated posteriors
 =======================
@@ -244,20 +244,20 @@ Considering :eq:`eq_log_post_regrouped` and :eq:`eq_post_theta`, we start with s
 
 .. math::
 	\begin{split}
-	\log \left[ q_{\theta} \right] &= -\frac{1}{2}\,(\theta-\boldsymbol{m})^T.\Lambda.(\theta-\boldsymbol{m}) + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\}}
+	\log \left[ q_{\theta} \right] &= -\frac{1}{2}\,(\theta-\boldsymbol{m})^T.\Lambda.(\theta-\boldsymbol{m}) + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\}}
 	\\
 	&=-\frac{1}{2} \left( \theta^T\Lambda\theta + \theta^T\Lambda\boldsymbol{m} + \boldsymbol{m}^T\Lambda\theta \right)  + \mathrm{const_2}\left\{\boldsymbol{\theta} \right\}
 	\\
-	&; \quad \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\} = \frac{1}{2}\log\left[\,|\Lambda|\,\right] -\frac{N_{\theta}}{2}\log[2\pi]}
+	&; \quad \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\} = \frac{1}{2}\log\left[\,|\Lambda|\,\right] -\frac{N_{\theta}}{2}\log[2\pi]}
 	\, .
 	\end{split}
 	:label: eq_qtheta_lhs
 
 .. math::
 	\begin{split}
-	\int q_{\Phi} \log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] d\Phi &= -\frac{1}{2}\boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} \underbrace{\int \Phi q_{\Phi} d\Phi}_{=sc} + f_{\theta} \underbrace{\int q_{\Phi} d\Phi}_{=1} + \int \left( f_{\Phi} + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \right) q_{\Phi} d\Phi
+	\int q_{\Phi} \log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] d\Phi &= -\frac{1}{2}\boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} \underbrace{\int \Phi q_{\Phi} d\Phi}_{=sc} + f_{\theta} \underbrace{\int q_{\Phi} d\Phi}_{=1} + \int \left( f_{\Phi} + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \right) q_{\Phi} d\Phi
 	\\
-	&= -\frac{1}{2}sc\,\boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} + f_{\theta} + \mbox{const}\left\{\theta\right\} \, ,
+	&= -\frac{1}{2}sc\,\boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} + f_{\theta} + \mbox{const}\left\{\theta\right\} \, ,
 	\end{split}
 	:label: eq_qtheta_rhs_0
 	
@@ -265,28 +265,28 @@ where the two identities :math:`\int \Phi q_{\Phi} d\Phi=sc` and :math:`\int q_{
 
 .. math::
 	\begin{split}
-	\int q_{\Phi} \log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] d\Phi =&-\frac{1}{2}sc\,\left( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right) ^T.\color{red}{C_e^{-1}}. \left( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right)
+	\int q_{\Phi} \log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] d\Phi =&-\frac{1}{2}sc\,\left( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right) ^T.\textcolor{red}{C_e^{-1}}. \left( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right)
 	\\
 	&-\frac{1}{2}\,(\theta-\boldsymbol{m}_0)^T.\Lambda_0.(\theta-\boldsymbol{m}_0) + \mbox{const}\left\{\theta\right\} \, .
 	\\
 	=& -\frac{1}{2} \left( \theta^T.h_1.\theta - \theta^T.h_2 - h_3.\theta \right) + \mbox{const}\left\{\theta\right\} \quad ;
 	\\
-	h_1 =& \Lambda_0+sc\,\boldsymbol{J}^T\color{red}{C_e^{-1}}\boldsymbol{J}
+	h_1 =& \Lambda_0+sc\,\boldsymbol{J}^T\textcolor{red}{C_e^{-1}}\boldsymbol{J}
 	\\
-	h_2=& \Lambda_0\boldsymbol{m}_0 + sc\boldsymbol{J}^T\color{red}{C_e^{-1}} \left( \boldsymbol{k} + \boldsymbol{J}\boldsymbol{m} \right)
+	h_2=& \Lambda_0\boldsymbol{m}_0 + sc\boldsymbol{J}^T\textcolor{red}{C_e^{-1}} \left( \boldsymbol{k} + \boldsymbol{J}\boldsymbol{m} \right)
 	\\
-	h_3=& \boldsymbol{m}_0^T\Lambda_0 + sc \left( \boldsymbol{k}^T+\boldsymbol{m}^T\boldsymbol{J}^T \right) \color{red}{C_e^{-1}}\boldsymbol{J}
+	h_3=& \boldsymbol{m}_0^T\Lambda_0 + sc \left( \boldsymbol{k}^T+\boldsymbol{m}^T\boldsymbol{J}^T \right) \textcolor{red}{C_e^{-1}}\boldsymbol{J}
 	\end{split}
 	:label: eq_qtheta_rhs
 
-We assume that the matrices :math:`\Lambda_0` and :math:`\color{red}{C_e^{-1}}` are symmetric, i.e. :math:`h_2^T=h_3`. Then, by comparing both sides of :eq:`eq_qtheta_main` from :eq:`eq_qtheta_lhs` and :eq:`eq_qtheta_rhs`, we obtain the following equations for the parameters (:math:`\boldsymbol{m}, \,\Lambda`) of the posterior :math:`\theta`.
+We assume that the matrices :math:`\Lambda_0` and :math:`\textcolor{red}{C_e^{-1}}` are symmetric, i.e. :math:`h_2^T=h_3`. Then, by comparing both sides of :eq:`eq_qtheta_main` from :eq:`eq_qtheta_lhs` and :eq:`eq_qtheta_rhs`, we obtain the following equations for the parameters (:math:`\boldsymbol{m}, \,\Lambda`) of the posterior :math:`\theta`.
 
 .. math::
 	\boxed{
 	\begin{split}
-	\Lambda =& \Lambda_0+sc\,\boldsymbol{J}^T\color{red}{C_e^{-1}}\boldsymbol{J}
+	\Lambda =& \Lambda_0+sc\,\boldsymbol{J}^T\textcolor{red}{C_e^{-1}}\boldsymbol{J}
 	\\
-	\Lambda\boldsymbol{m} =& \Lambda_0\boldsymbol{m}_0 + sc\boldsymbol{J}^T\color{red}{C_e^{-1}} \left( \boldsymbol{k} + \boldsymbol{J}\boldsymbol{m} \right)
+	\Lambda\boldsymbol{m} =& \Lambda_0\boldsymbol{m}_0 + sc\boldsymbol{J}^T\textcolor{red}{C_e^{-1}} \left( \boldsymbol{k} + \boldsymbol{J}\boldsymbol{m} \right)
 	\end{split}
 	}
 	:label: eq_update_theta
@@ -299,26 +299,26 @@ A similar procedure is performed for expanding both sides of :eq:`eq_qPhi_main` 
 	\begin{split}
 	\log \left[ q_{\Phi} \right] &= \log \left[ \frac{1}{\Gamma(c)}\frac{\Phi^{c-1}}{s^{c}}e^{-\frac{\Phi}{s}} \right] = -\log\left[ \Gamma(c)\right] -c\log\left[s\right] + (c-1)\log\left[ \Phi \right]\ -\frac{\Phi}{s}
 	\\
-	&= (c-1)\log\left[ \Phi \right]\ -\frac{\Phi}{s} + \color{blue}{\mathrm{const}\left\{\Phi \right\}}
+	&= (c-1)\log\left[ \Phi \right]\ -\frac{\Phi}{s} + \textcolor{blue}{\mathrm{const}\left\{\Phi \right\}}
 	\\
-	&; \quad \color{blue}{\mathrm{const}\left\{\Phi \right\} = -\log\left[ \Gamma(c)\right] -c\log\left[s\right]}
+	&; \quad \textcolor{blue}{\mathrm{const}\left\{\Phi \right\} = -\log\left[ \Gamma(c)\right] -c\log\left[s\right]}
 	\; .
 	\end{split}
 	:label: eq_qPhi_lhs
 
 .. math::
 	\begin{split}
-	\int q_{\theta} \log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] d\theta =& -\frac{1}{2}\Phi \int \boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} \, q_{\theta} d\theta + f_{\Phi} \underbrace{\int q_{\theta} d\theta}_{=1} + \int \left( f_{\theta} + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \right) q_{\theta} d\theta \, .
+	\int q_{\theta} \log \left[ P(\boldsymbol{y}|\boldsymbol{w}) P(\boldsymbol{w}) \right] d\theta =& -\frac{1}{2}\Phi \int \boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} \, q_{\theta} d\theta + f_{\Phi} \underbrace{\int q_{\theta} d\theta}_{=1} + \int \left( f_{\theta} + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \right) q_{\theta} d\theta \, .
 	\\
-	=& -\frac{1}{2}\Phi \int \left ( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right) ^T.\color{red}{C_e^{-1}}. \left( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right) \, q_{\theta} d\theta + f_{\Phi} + \mbox{const}\left\{\Phi\right\}
+	=& -\frac{1}{2}\Phi \int \left ( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right) ^T.\textcolor{red}{C_e^{-1}}. \left( \boldsymbol{k} - \boldsymbol{J} \left( \theta - \boldsymbol{m} \right) \right) \, q_{\theta} d\theta + f_{\Phi} + \mbox{const}\left\{\Phi\right\}
 	\\
-	=& -\frac{1}{2}\Phi \left( \boldsymbol{k}^T.\color{red}{C_e^{-1}}.\boldsymbol{k} \underbrace{\int q_{\theta} d\theta}_{=1} + \int \left( \theta - \boldsymbol{m} \right)^T.\left( \boldsymbol{J}^T.\color{red}{C_e^{-1}}.\boldsymbol{J} \right).\left( \theta - \boldsymbol{m} \right) q_{\theta} d\theta \right)
+	=& -\frac{1}{2}\Phi \left( \boldsymbol{k}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{k} \underbrace{\int q_{\theta} d\theta}_{=1} + \int \left( \theta - \boldsymbol{m} \right)^T.\left( \boldsymbol{J}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{J} \right).\left( \theta - \boldsymbol{m} \right) q_{\theta} d\theta \right)
 	\\
-	& -\frac{1}{2}\Phi \left(  -\boldsymbol{k}^T.\color{red}{C_e^{-1}}.J. \cancelto{0}{\int \left( \theta - \boldsymbol{m} \right) q_{\theta} d\theta} - \cancelto{0}{\int \left( \theta - \boldsymbol{m} \right)^T q_{\theta} d\theta} \, .\boldsymbol{J}^T.\color{red}{C_e^{-1}}.\boldsymbol{k}  \right)
+	& -\frac{1}{2}\Phi \left(  -\boldsymbol{k}^T.\textcolor{red}{C_e^{-1}}.J. \cancelto{0}{\int \left( \theta - \boldsymbol{m} \right) q_{\theta} d\theta} - \cancelto{0}{\int \left( \theta - \boldsymbol{m} \right)^T q_{\theta} d\theta} \, .\boldsymbol{J}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{k}  \right)
 	\\
 	&+ (c_0-1) \log \left[ \Phi \right] - \frac{\Phi}{s_0} + \frac{N}{2}\log\left[\Phi\right] + \mbox{const}\left\{\Phi\right\}
 	\\
-	=& -\frac{1}{2}\Phi \left( \boldsymbol{k}^T.\color{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\color{red}{C_e^{-1}}.\boldsymbol{J} \right) \right) - \frac{\Phi}{s_0}
+	=& -\frac{1}{2}\Phi \left( \boldsymbol{k}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{J} \right) \right) - \frac{\Phi}{s_0}
 	\\
 	&+ \log\left[\Phi\right]\left(c_0-1+\frac{N}{2}\right) + \mbox{const}\left\{\Phi\right\}
 	\, .
@@ -342,7 +342,7 @@ Comparing both sides of :eq:`eq_qPhi_main` simplified in :eq:`eq_qPhi_lhs` and :
 	\begin{split}
 	c =& c_0+\frac{N}{2}
 	\\
-	\frac{1}{s} =& \frac{1}{s_0} + \frac{1}{2}\left ( \boldsymbol{k}^T.\color{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\color{red}{C_e^{-1}}.\boldsymbol{J} \right) \right)
+	\frac{1}{s} =& \frac{1}{s_0} + \frac{1}{2}\left ( \boldsymbol{k}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{J} \right) \right)
 	\end{split}
 	}
 	:label: eq_update_Phi
@@ -365,16 +365,16 @@ The expansion of the terms :math:`F_1`, :math:`F_2`, :math:`F_3` follow.
 	\begin{split}
 	F_1 =& \int q_{\theta}\,q_{\Phi} \log \left[ P(\boldsymbol{y}|\boldsymbol{w})\,P(\boldsymbol{w}) \right] d\theta\,d\Phi
 	\\
-	=& \int q_{\theta}\,q_{\Phi} \left ( -\frac{1}{2}\Phi\,\boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} + f_{\theta} + f_{\Phi} + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \right) d\theta\,d\Phi
+	=& \int q_{\theta}\,q_{\Phi} \left ( -\frac{1}{2}\Phi\,\boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} + f_{\theta} + f_{\Phi} + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \right) d\theta\,d\Phi
 	\\
-	=& -\frac{1}{2} \int \boldsymbol{e}^T.\color{red}{C_e^{-1}}.\boldsymbol{e} \, q_{\theta}d\theta \underbrace{\int \Phi\,q_{\Phi}d\Phi}_{=sc} -\frac{1}{2} \int \left( (\theta-\boldsymbol{m}_0)^T.\Lambda_0.(\theta-\boldsymbol{m}_0) \right) q_{\theta}d\theta \underbrace{\int q_{\Phi}d\Phi}_{=1}
+	=& -\frac{1}{2} \int \boldsymbol{e}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{e} \, q_{\theta}d\theta \underbrace{\int \Phi\,q_{\Phi}d\Phi}_{=sc} -\frac{1}{2} \int \left( (\theta-\boldsymbol{m}_0)^T.\Lambda_0.(\theta-\boldsymbol{m}_0) \right) q_{\theta}d\theta \underbrace{\int q_{\Phi}d\Phi}_{=1}
 	\\
-	& + \underbrace{\int q_{\theta}d\theta}_{=1} \int \left( (c_0-1) \log \left[ \Phi \right] - \frac{\Phi}{s_0} + \frac{N}{2}\log\left[\Phi\right] \right)d\Phi + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}}
+	& + \underbrace{\int q_{\theta}d\theta}_{=1} \int \left( (c_0-1) \log \left[ \Phi \right] - \frac{\Phi}{s_0} + \frac{N}{2}\log\left[\Phi\right] \right)d\Phi + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}}
 	\\
-	=& -\frac{1}{2} sc \left( \boldsymbol{k}^T.\color{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\color{red}{C_e^{-1}}.\boldsymbol{J} \right) \right) -\frac{sc}{s_0} +\left( \frac{N}{2} + c_0 -1 \right) \left( \log
+	=& -\frac{1}{2} sc \left( \boldsymbol{k}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{J} \right) \right) -\frac{sc}{s_0} +\left( \frac{N}{2} + c_0 -1 \right) \left( \log
 	\left[s\right] + \psi(c) \right)
 	\\
-	& -\frac{1}{2}\left( (\boldsymbol{m}-\boldsymbol{m}_0)^T.\Lambda_0.(\boldsymbol{m}-\boldsymbol{m}_0) + \mbox{tr}\left( \Lambda^{-1}\Lambda_0 \right) \right) + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \, .
+	& -\frac{1}{2}\left( (\boldsymbol{m}-\boldsymbol{m}_0)^T.\Lambda_0.(\boldsymbol{m}-\boldsymbol{m}_0) + \mbox{tr}\left( \Lambda^{-1}\Lambda_0 \right) \right) + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta},\Phi \right\}} \, .
 	\end{split}
 	:label: eq_F1
 
@@ -396,9 +396,9 @@ We continue with expanding :math:`F_2` and :math:`F_3` by the help of :eq:`eq_qt
 	\begin{split}
 	F_2 &= \int q_{\theta}\,q_{\Phi} \log \left[ q_{\theta} \right] d\theta\,d\Phi = \int \log \left[ q_{\theta} \right] q_{\theta}d\theta \int q_{\Phi} d\Phi
 	\\
-	&= \int \left( -\frac{1}{2}\,(\theta-\boldsymbol{m})^T.\Lambda.(\theta-\boldsymbol{m}) + \color{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\}} \right) q_{\theta}d\theta
+	&= \int \left( -\frac{1}{2}\,(\theta-\boldsymbol{m})^T.\Lambda.(\theta-\boldsymbol{m}) + \textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\}} \right) q_{\theta}d\theta
 	\\
-	&= -\frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) +\color{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\}} =  -\frac{N_{\theta}}{2} + \color{blue}{\frac{1}{2}\log\left[\,|\Lambda|\,\right] -\frac{N_{\theta}}{2}\log[2\pi]}
+	&= -\frac{1}{2}\mathrm{tr}(\Lambda^{-1}\Lambda) +\textcolor{blue}{\mathrm{const}\left\{\boldsymbol{\theta} \right\}} =  -\frac{N_{\theta}}{2} + \textcolor{blue}{\frac{1}{2}\log\left[\,|\Lambda|\,\right] -\frac{N_{\theta}}{2}\log[2\pi]}
 	\,.
 	\end{split}
 	:label: eq_F2
@@ -407,10 +407,10 @@ We continue with expanding :math:`F_2` and :math:`F_3` by the help of :eq:`eq_qt
 	\begin{split}
 	F_3 &= \int q_{\theta}\,q_{\Phi} \log \left[ q_{\Phi} \right] d\theta\,d\Phi = \int q_{\theta} d\theta \int \log \left[ q_{\Phi} \right] q_{\Phi}d\Phi
 	\\
-	&= \int \left(  (c-1)\log\left[ \Phi \right]\ -\frac{\Phi}{s} + \color{blue}{\mathrm{const}\left\{\Phi \right\}} \right) q_{\Phi}d\Phi
+	&= \int \left(  (c-1)\log\left[ \Phi \right]\ -\frac{\Phi}{s} + \textcolor{blue}{\mathrm{const}\left\{\Phi \right\}} \right) q_{\Phi}d\Phi
 	\\
 	&= (c-1)\left( \log
-	\left[s\right] + \psi(c) \right) - c \color{blue}{-\log\left[ \Gamma(c)\right] -c\log\left[s\right]}
+	\left[s\right] + \psi(c) \right) - c \textcolor{blue}{-\log\left[ \Gamma(c)\right] -c\log\left[s\right]}
 	\,.
 	\end{split}
 	:label: eq_F3
@@ -420,17 +420,17 @@ Substituting :eq:`eq_F1`, :eq:`eq_F2` and :eq:`eq_F3` into :eq:`eq_F_base` resul
 .. math::
 	\boxed{
 	\begin{split}
-	F =& -\frac{1}{2} sc \left( \boldsymbol{k}^T.\color{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\color{red}{C_e^{-1}}.\boldsymbol{J} \right) \right) -\frac{sc}{s_0} -\frac{1}{2}\left( (\boldsymbol{m}-\boldsymbol{m}_0)^T.\Lambda_0.(\boldsymbol{m}-\boldsymbol{m}_0) + \mbox{tr}\left( \Lambda^{-1}\Lambda_0 \right) \right)
+	F =& -\frac{1}{2} sc \left( \boldsymbol{k}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{k} +\mbox{tr}\left( \Lambda^{-1}\boldsymbol{J}^T.\textcolor{red}{C_e^{-1}}.\boldsymbol{J} \right) \right) -\frac{sc}{s_0} -\frac{1}{2}\left( (\boldsymbol{m}-\boldsymbol{m}_0)^T.\Lambda_0.(\boldsymbol{m}-\boldsymbol{m}_0) + \mbox{tr}\left( \Lambda^{-1}\Lambda_0 \right) \right)
 	\\
 	& + \cancelto{0}{\left( \frac{N}{2} + c_0 -c \right)} \left( \log
 	\left[s\right] + \psi(c) \right) + c + \frac{N_{\theta}}{2}
-	\color{blue}{
+	\textcolor{blue}{
 		- \frac{1}{2}\log\left[\,|\Lambda|\,\right] + \cancel{\frac{N_{\theta}}{2}\log[2\pi]}
 		+ \log\left[ \Gamma(c)\right] + c\log\left[s\right]
 	}
 	\\
-	& \color{blue}{
-		-\frac{N+\cancel{N_{\theta}}}{2}\log[2\pi] -\frac{1}{2}\log[\color{red}{|C_e|}] + \frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0]
+	& \textcolor{blue}{
+		-\frac{N+\cancel{N_{\theta}}}{2}\log[2\pi] -\frac{1}{2}\log[\textcolor{red}{|C_e|}] + \frac{1}{2} \log[\mathrm{det}(\Lambda_0)] + \log[1/\Gamma(c_0)]-c_0\log[s_0]
 	}
 	\, .
 	\end{split}
