@@ -1,0 +1,40 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Bayem
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Thomas
+    family-names: Titscher
+  - given-names: Abbas
+    family-names: Jafari
+    orcid: 'https://orcid.org/0009-0008-9604-656X'
+  - given-names: Annika
+    orcid: 'https://orcid.org/0000-0001-9653-6085'
+    family-names: Robens-Radermacher
+identifiers:
+  - type: url
+    value: 'https://github.com/BAMresearch/bayem'
+repository-code: 'https://github.com/BAMresearch/bayem'
+abstract: >-
+  A python implementation of an analytical variational Bayes
+  algorithm of "Variational Bayesian inference for a
+  nonlinear forward model", Chappell, Michael A., Adrian R.
+  Groves, Brandon Whitcher, and Mark W. Woolrich, IEEE
+  Transactions on Signal Processing 57, no. 1 (2008):
+  223-236, with an updated free energy equation to correctly
+  capture the log evidence. The algorithm requires a
+  user-defined model error allowing an arbitrary combination
+  of custom forward models and measured data.
+keywords:
+  - Variational Bayesian
+  - Free Energy
+  - Bayesian Inference
+  - Nonlinear Forward Model
+license: MIT
+version: 2021.0.0
+date-released: '2021-10-30'
