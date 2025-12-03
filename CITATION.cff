@@ -2,7 +2,7 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title:  Implementation and derivation of "Variational Bayesian inference for a nonlinear forward model" for arbitrary, user-defined model errors
+title: Implementation and derivation of "Variational Bayesian inference for a nonlinear forward model" for arbitrary, user-defined model errors
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
