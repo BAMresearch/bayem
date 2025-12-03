@@ -1,4 +1,4 @@
-![Python application](https://github.com/BAMresearch/BayesianInference/workflows/Python%20application/badge.svg?branch=master)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17805357.svg)](https://doi.org/10.5281/zenodo.17805357)
 
 # Bayesian Inference
 
